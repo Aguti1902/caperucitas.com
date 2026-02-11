@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, ChevronRight, ChevronLeft, Heart, Search, MessageCircle, Star, Camera, Filter, Sparkles } from 'lucide-react'
+import { X, ChevronRight, ChevronLeft, Heart, Search, MessageCircle, Star, Filter, Sparkles } from 'lucide-react'
 import Button from './Button'
 
 interface OnboardingTutorialProps {
