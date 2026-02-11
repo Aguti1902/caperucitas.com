@@ -424,11 +424,11 @@ export default function FilterBar({
 
             <button
               onClick={() => {
-                onRelationshipGoalChange?.('solo_sexo')
+                onRelationshipGoalChange?.('encuentros_casuales')
                 setShowTypeModal(false)
               }}
               className={`w-full text-left px-4 py-4 rounded-lg border-2 transition-all ${
-                relationshipGoalFilter === 'solo_sexo'
+                relationshipGoalFilter === 'encuentros_casuales'
                   ? 'border-primary bg-primary/10 text-white'
                   : 'border-gray-700 bg-gray-800 text-gray-300 hover:border-gray-600'
               }`}
@@ -436,8 +436,8 @@ export default function FilterBar({
               <div className="flex items-center gap-3">
                 <span className="text-2xl">🔥</span>
                 <div>
-                  <div className="font-semibold">Solo sexo</div>
-                  <div className="text-sm text-gray-400">Encuentros casuales sin compromiso</div>
+                  <div className="font-semibold">Encuentros casuales</div>
+                  <div className="text-sm text-gray-400">Encuentros sin compromiso</div>
                 </div>
               </div>
             </button>

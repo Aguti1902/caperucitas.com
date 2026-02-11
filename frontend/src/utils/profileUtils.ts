@@ -6,7 +6,7 @@ export const formatRelationshipGoal = (goal: string | null | undefined): string 
   const goals: Record<string, string> = {
     'amistad': '👥 Amistad',
     'relacion_seria': '❤️ Relación seria',
-    'solo_sexo': '🔥 Solo sexo',
+    'encuentros_casuales': '🔥 Encuentros casuales',
   };
   
   return goals[goal] || '';

@@ -138,10 +138,13 @@ export default function PlusPage() {
               <span className="text-green-500 mr-2 mt-0.5">✓</span>
               <span>Filtros básicos: <strong>TODOS</strong>, <strong>RECIENTES</strong>, <strong>NUEVOS</strong></span>
             </li>
+            {/* OCULTO TEMPORALMENTE PARA VERIFICACIÓN DE GOOGLE ADS */}
+            {false && (
             <li className="flex items-start">
               <span className="text-green-500 mr-2 mt-0.5">✓</span>
               <span>Solicitar y compartir fotos privadas</span>
             </li>
+            )}
           </ul>
         </div>
 

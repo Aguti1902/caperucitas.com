@@ -218,7 +218,8 @@ export default function DashboardLayout() {
             {/* Redes sociales */}
             <SocialMediaMenu />
             
-            {/* Notificaciones de fotos privadas */}
+            {/* Notificaciones de fotos privadas - OCULTO TEMPORALMENTE PARA VERIFICACIÓN DE GOOGLE ADS */}
+            {false && (
             <button
               onClick={() => navigate('/app/private-photo-requests')}
               className="relative text-gray-300 hover:text-white transition-colors"
@@ -231,6 +232,7 @@ export default function DashboardLayout() {
                 </span>
               )}
             </button>
+            )}
             
             <button
               onClick={() => navigate('/app/edit-profile')}

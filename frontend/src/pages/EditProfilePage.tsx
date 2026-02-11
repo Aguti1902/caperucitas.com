@@ -418,7 +418,8 @@ export default function EditProfilePage() {
           )}
         </div>
 
-        {/* FOTOS PRIVADAS */}
+        {/* FOTOS PRIVADAS - OCULTO TEMPORALMENTE PARA VERIFICACIÓN DE GOOGLE ADS */}
+        {false && (
         <div className="bg-gray-800 rounded-lg p-4 border-2 border-primary/30">
           <label className="block text-sm font-medium text-white mb-3">
             🔒 Fotos Privadas (Máximo 4 - Solo visibles si das permiso)
@@ -512,6 +513,7 @@ export default function EditProfilePage() {
             💡 Las fotos privadas solo serán visibles para otros usuarios si les das permiso explícito
           </p>
         </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <Input
@@ -571,7 +573,7 @@ export default function EditProfilePage() {
             <option value="" disabled>Selecciona una opción...</option>
             <option value="amistad">👥 Amistad</option>
             <option value="relacion_seria">❤️ Relación seria</option>
-            <option value="solo_sexo">🔥 Solo sexo</option>
+            <option value="encuentros_casuales">🔥 Encuentros casuales</option>
           </select>
           <p className="text-center text-sm text-gray-300 mt-3">
             ✨ Esto ayudará a otros usuarios a saber qué buscas

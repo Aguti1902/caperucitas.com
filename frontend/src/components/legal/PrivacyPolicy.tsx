@@ -30,7 +30,7 @@ export default function PrivacyPolicy() {
         <ul className="list-disc list-inside text-gray-300 space-y-2 mb-4">
           <li><strong className="text-white">Registro:</strong> Nombre, dirección de correo electrónico, fecha de nacimiento, género, orientación sexual, contraseña</li>
           <li><strong className="text-white">Perfil:</strong> Fotos, descripción personal, intereses, preferencias, ciudad, ubicación geográfica</li>
-          <li><strong className="text-white">Contenido:</strong> Mensajes, fotos privadas, likes, matches</li>
+          <li><strong className="text-white">Contenido:</strong> Mensajes, likes, matches</li>
           <li><strong className="text-white">Pagos:</strong> Información de tarjeta de crédito (procesada por Stripe, no almacenamos datos de tarjetas)</li>
           <li><strong className="text-white">Comunicaciones:</strong> Cuando se pone en contacto con soporte o servicios</li>
         </ul>

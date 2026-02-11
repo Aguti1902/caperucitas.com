@@ -86,11 +86,16 @@ export default function TermsAndConditions() {
           Nos reservamos el derecho, pero no la obligación, de revisar, monitorear y eliminar contenido que, a nuestra 
           discreción, viole estos Términos o sea objetable.
         </p>
+        {/* OCULTO TEMPORALMENTE PARA VERIFICACIÓN DE GOOGLE ADS */}
+        {false && (
+        <>
         <h3 className="text-xl font-semibold text-white mb-3">5.3 Fotos Privadas</h3>
         <p className="text-gray-300">
           El Servicio permite subir fotos privadas que solo serán visibles para usuarios específicos a los que usted 
           otorgue acceso. Usted es responsable de decidir a quién otorga acceso y del contenido de dichas fotos.
         </p>
+        </>
+        )}
       </section>
 
       <section className="mb-8">

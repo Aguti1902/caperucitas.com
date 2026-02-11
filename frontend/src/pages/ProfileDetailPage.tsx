@@ -442,8 +442,8 @@ export default function ProfileDetailPage() {
           </div>
         )}
 
-        {/* Fotos Privadas - SIEMPRE mostrar si hay fotos privadas */}
-        {privatePhotos.length > 0 && (
+        {/* Fotos Privadas - OCULTO TEMPORALMENTE PARA VERIFICACIÓN DE GOOGLE ADS */}
+        {false && privatePhotos.length > 0 && (
           <div className="bg-gray-800 rounded-xl p-6 border-2 border-accent">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-white flex items-center gap-2">

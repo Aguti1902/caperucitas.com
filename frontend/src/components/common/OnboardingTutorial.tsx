@@ -46,14 +46,15 @@ const tutorialSteps = [
     iconComponent: Filter,
     highlight: 'filters',
   },
-  {
+  // OCULTO TEMPORALMENTE PARA VERIFICACIÓN DE GOOGLE ADS
+  /* {
     id: 6,
     title: 'Fotos privadas',
     description: 'Puedes subir fotos privadas en tu perfil. Cualquier usuario puede solicitar verlas, y tú decides si aceptas o rechazas. También puedes solicitar ver las fotos privadas de otros.',
     icon: null,
     iconComponent: Camera,
     highlight: 'private',
-  },
+  }, */
   {
     id: 7,
     title: 'Funcionalidades 9Plus',

@@ -72,7 +72,7 @@ model Profile {
   height          Int?      // Altura en cm
   bodyType        String?   // delgado, atlético, promedio, robusto
   relationshipStatus String? // soltero, complicado, abierto
-  relationshipGoal String?   // amistad, relacion_seria, solo_sexo - Nuevo campo
+  relationshipGoal String?   // amistad, relacion_seria, encuentros_casuales - Nuevo campo
   languages       String[]  @default([]) // español, inglés, catalán, etc
   hobbies         String[]  @default([]) // deportes, música, viajes, etc
   occupation      String?   // Profesión/trabajo

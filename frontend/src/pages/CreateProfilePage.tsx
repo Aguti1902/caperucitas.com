@@ -585,11 +585,11 @@ export default function CreateProfilePage() {
                 paddingRight: '3rem',
               }}
             >
-              <option value="" disabled>Selecciona una opción...</option>
+            <option value="" disabled>Selecciona una opción...</option>
               <option value="amistad">👥 Amistad</option>
               <option value="relacion_seria">❤️ Relación seria</option>
-              <option value="solo_sexo">🔥 Solo sexo</option>
-            </select>
+              <option value="encuentros_casuales">🔥 Encuentros casuales</option>
+          </select>
             <p className="text-center text-sm text-gray-300 mt-3">
               ✨ Esto ayudará a otros usuarios a saber qué buscas
             </p>
@@ -742,7 +742,8 @@ export default function CreateProfilePage() {
             </p>
           </div>
 
-          {/* FOTOS PRIVADAS */}
+          {/* FOTOS PRIVADAS - OCULTO TEMPORALMENTE PARA VERIFICACIÓN DE GOOGLE ADS */}
+          {false && (
           <div className="bg-gray-800 rounded-lg p-4 border-2 border-accent">
             <label className="block text-sm font-medium text-white mb-3 flex items-center gap-2">
               🔒 Fotos Privadas (Opcional: máximo 4)
@@ -798,6 +799,7 @@ export default function CreateProfilePage() {
               • Máximo 4 fotos privadas
             </p>
           </div>
+          )}
 
           {/* Información física */}
           <div className="bg-gray-800 rounded-lg p-4">

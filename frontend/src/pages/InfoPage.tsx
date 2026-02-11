@@ -110,7 +110,8 @@ export default function InfoPage() {
                 <li>Chatear con cualquier usuario (sin restricciones)</li>
                 <li>Ver los últimos 5 "Me gusta" recibidos</li>
                 <li>Filtros básicos: TODOS, RECIENTES, NUEVOS</li>
-                <li>Solicitar y compartir fotos privadas</li>
+                {/* OCULTO TEMPORALMENTE PARA VERIFICACIÓN DE GOOGLE ADS */}
+                {false && <li>Solicitar y compartir fotos privadas</li>}
               </ul>
             </div>
 
@@ -141,7 +142,7 @@ export default function InfoPage() {
             
             <div className="space-y-2">
               <p>
-                <strong className="text-white">1. Contenido apropiado:</strong> No se permiten fotos de desnudos mostrando pechos, genitales o glúteos en las fotos públicas. Las fotos privadas pueden tener contenido más explícito pero solo deben compartirse por chat con consentimiento.
+                <strong className="text-white">1. Contenido apropiado:</strong> No se permiten fotos de desnudos mostrando pechos, genitales o glúteos en las fotos públicas.
               </p>
               <p>
                 <strong className="text-white">2. Prostitución:</strong> Está prohibido pedir dinero a cambio de servicios sexuales.

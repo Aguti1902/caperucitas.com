@@ -75,6 +75,9 @@ export default function CommunityGuidelines() {
           <li>Imágenes de baja calidad o ilegibles</li>
         </ul>
 
+        {/* OCULTO TEMPORALMENTE PARA VERIFICACIÓN DE GOOGLE ADS */}
+        {false && (
+        <>
         <h3 className="text-xl font-semibold text-white mb-3">2.2 Fotos Privadas</h3>
         <p className="text-gray-300 mb-4">
           Las fotos privadas tienen reglas más flexibles, pero aún así:
@@ -86,6 +89,8 @@ export default function CommunityGuidelines() {
           <li>Compartir fotos privadas de otros usuarios sin su consentimiento</li>
           <li>Solicitar fotos de manera acosadora o insistente</li>
         </ul>
+        </>
+        )}
       </section>
 
       <section className="mb-8">
@@ -167,7 +172,8 @@ export default function CommunityGuidelines() {
 
         <h3 className="text-xl font-semibold text-red-500 mb-3">❌ NO hagas:</h3>
         <ul className="list-disc list-inside text-gray-300 space-y-2">
-          <li>Compartir fotos privadas de otros usuarios sin su consentimiento</li>
+          {/* OCULTO TEMPORALMENTE PARA VERIFICACIÓN DE GOOGLE ADS */}
+          {false && <li>Compartir fotos privadas de otros usuarios sin su consentimiento</li>}
           <li>Grabar o capturar pantallas de conversaciones para uso malicioso</li>
           <li>Acosar o perseguir a otros usuarios fuera de la plataforma</li>
           <li>Recopilar información personal de otros usuarios</li>
