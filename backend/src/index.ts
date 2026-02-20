@@ -16,6 +16,7 @@ dotenv.config();
 console.log('\n🔍 ========================================');
 console.log('🔍 VALIDANDO CONFIGURACIÓN DEL SERVIDOR');
 console.log('🔍 ========================================');
+console.log('📅 Última actualización: 2026-02-11 - Migración relationshipGoal aplicada');
 
 // Validar variables de entorno críticas
 const requiredEnvVars = {
