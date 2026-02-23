@@ -54,13 +54,18 @@ export const setupSocketHandlers = (io: Server) => {
 
     // Marcar como online
     if (socket.profileId) {
-      await prisma.profile.update({
-        where: { id: socket.profileId },
-        data: {
-          isOnline: true,
-          lastSeenAt: new Date(),
-        },
-      });
+      try {
+        await prisma.profile.update({
+          where: { id: socket.profileId },
+          data: {
+            isOnline: true,
+            lastSeenAt: new Date(),
+          },
+        });
+      } catch (error) {
+        // Si el perfil no existe, solo logear el error sin crashear
+        console.warn(`⚠️ No se pudo actualizar estado online del perfil ${socket.profileId}:`, error.code);
+      }
 
       // Unirse a sala personal
       socket.join(`profile:${socket.profileId}`);
@@ -160,13 +165,18 @@ export const setupSocketHandlers = (io: Server) => {
 
       // Marcar como offline
       if (socket.profileId) {
-        await prisma.profile.update({
-          where: { id: socket.profileId },
-          data: {
-            isOnline: false,
-            lastSeenAt: new Date(),
-          },
-        });
+        try {
+          await prisma.profile.update({
+            where: { id: socket.profileId },
+            data: {
+              isOnline: false,
+              lastSeenAt: new Date(),
+            },
+          });
+        } catch (error) {
+          // Si el perfil no existe, solo logear el error sin crashear
+          console.warn(`⚠️ No se pudo actualizar estado del perfil ${socket.profileId}:`, error.code);
+        }
       }
     });
   });
