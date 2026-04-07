@@ -10,6 +10,12 @@ import * as path from 'path';
 // Cargar variables de entorno
 dotenv.config();
 
+// Forzar SSL en DATABASE_URL para Supabase en producción
+if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('sslmode')) {
+  process.env.DATABASE_URL = process.env.DATABASE_URL + '?sslmode=require';
+  console.log('🔒 SSL añadido automáticamente a DATABASE_URL');
+}
+
 // ========================================
 // VALIDAR CONFIGURACIÓN CRÍTICA AL INICIO
 // ========================================
