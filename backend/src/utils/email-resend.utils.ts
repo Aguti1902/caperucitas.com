@@ -29,11 +29,10 @@ export const sendVerificationEmail = async (email: string, token: string): Promi
   console.log(`📧 Destinatario: ${email}`);
   console.log(`📧 ========================================`);
 
-  // Usar solo la primera URL si hay varias separadas por coma
   const rawFrontendUrl = process.env.FRONTEND_URL || 'https://caperucitas.com';
   const frontendUrl = rawFrontendUrl.split(',')[0].trim();
   const verificationUrl = `${frontendUrl}/verify-email/${token}`;
-  const fromEmail = process.env.RESEND_FROM_EMAIL || 'Caperucitas <onboarding@resend.dev>';
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'Caperucitas <noreply@caperucitas.com>';
 
   console.log(`📧 URL de verificación: ${verificationUrl}`);
   console.log(`📧 From: ${fromEmail}`);

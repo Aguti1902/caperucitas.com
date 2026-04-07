@@ -65,14 +65,44 @@ export const register = async (req: Request, res: Response) => {
     // Hash de la contraseña
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Crear usuario con email ya verificado (sin verificación por email)
+    const hasEmailService = !!(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
+
+    // Crear usuario
     const user = await prisma.user.create({
       data: {
         email: email.toLowerCase(),
         passwordHash,
-        emailVerified: true,
+        emailVerified: !hasEmailService,
       },
     });
+
+    // Si hay servicio de email, enviar verificación
+    if (hasEmailService) {
+      try {
+        const verificationToken = generateVerificationToken();
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 24);
+
+        await prisma.emailVerificationToken.create({
+          data: { userId: user.id, token: verificationToken, expiresAt },
+        });
+
+        await sendVerificationEmail(user.email, verificationToken);
+        console.log(`✅ Email de verificación enviado a: ${user.email}`);
+
+        return res.status(201).json({
+          message: 'Registro completado. Revisa tu email para verificar tu cuenta.',
+          email: user.email,
+          requiresVerification: true,
+        });
+      } catch (emailError: any) {
+        console.error('⚠️ Error enviando email, verificando automáticamente:', emailError.message);
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerified: true },
+        });
+      }
+    }
 
     console.log(`✅ Usuario registrado: ${user.email}`);
 
