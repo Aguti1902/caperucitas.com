@@ -14,13 +14,17 @@ export default function CitySelector({ value, onChange, onDetect, isDetecting, l
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  const filtered = search.length > 0
-    ? SPANISH_CITIES.filter(c => c.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
-    : []
+  // Mostrar todas si no hay búsqueda, o filtradas si hay texto
+  const displayed = search.length > 0
+    ? SPANISH_CITIES.filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
+    : SPANISH_CITIES
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+        setSearch('')
+      }
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
@@ -42,44 +46,51 @@ export default function CitySelector({ value, onChange, onDetect, isDetecting, l
         <div className="relative flex-1">
           <input
             type="text"
-            placeholder={value || 'Busca tu ciudad...'}
+            placeholder="Busca o selecciona tu ciudad..."
             value={search}
-            onChange={e => { setSearch(e.target.value); setOpen(true) }}
+            onChange={e => setSearch(e.target.value)}
             onFocus={() => setOpen(true)}
-            className="input-field w-full pr-8"
+            className="input-field w-full"
+            autoComplete="off"
           />
-          {value && !search && (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-400 text-xs pointer-events-none">✓</span>
-          )}
-          {open && filtered.length > 0 && (
-            <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-600 rounded-lg shadow-xl max-h-56 overflow-y-auto">
-              {filtered.map(city => (
-                <button
-                  key={city.name}
-                  type="button"
-                  onMouseDown={() => handleSelect(city.name)}
-                  className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-gray-700 transition-colors border-b border-gray-700 last:border-0"
-                >
-                  📍 {city.name}
-                </button>
-              ))}
+
+          {open && (
+            <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+              {displayed.length === 0 ? (
+                <p className="text-gray-400 text-sm px-4 py-3">Sin resultados</p>
+              ) : (
+                displayed.map(city => (
+                  <button
+                    key={city.name}
+                    type="button"
+                    onMouseDown={() => handleSelect(city.name)}
+                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors border-b border-gray-700 last:border-0 ${
+                      value === city.name
+                        ? 'bg-red-600/30 text-white font-semibold'
+                        : 'text-gray-200 hover:bg-gray-700'
+                    }`}
+                  >
+                    📍 {city.name}
+                  </button>
+                ))
+              )}
             </div>
           )}
         </div>
+
         {onDetect && (
           <button
             type="button"
             onClick={onDetect}
             disabled={isDetecting}
-            className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-3 rounded-lg text-sm transition-colors flex items-center gap-1"
-            title="Detectar automáticamente"
+            className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-3 rounded-lg text-sm transition-colors"
+            title="Detectar ubicación automáticamente"
           >
-            {isDetecting ? (
-              <span className="animate-spin text-xs">⟳</span>
-            ) : '📍'}
+            {isDetecting ? <span className="animate-spin inline-block">⟳</span> : '📍'}
           </button>
         )}
       </div>
+
       {value && (
         <p className="text-green-400 text-xs mt-1">✓ Ciudad seleccionada: <strong>{value}</strong></p>
       )}
