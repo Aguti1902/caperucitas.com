@@ -87,8 +87,8 @@ const frontendUrls = process.env.FRONTEND_URL
   ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
   : [
       'http://localhost:3000',
-      'https://9citas-com-fyij.vercel.app',
-      'https://9citas-com-hev9.vercel.app',
+      'https://caperucitas.com',
+      'https://www.caperucitas.com',
     ];
 
 const io = new Server(httpServer, {
@@ -105,12 +105,10 @@ setIO(io);
 // Permitir todos los orígenes de Vercel, localhost y dominio de producción
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://9citas-com-fyij.vercel.app',
-  'https://9citas-com-hev9.vercel.app',
-  // Dominios de producción
-  'https://9citas.com',
-  'https://www.9citas.com',
-  // Añadir cualquier origen de Vercel
+  // Dominios de producción caperucitas
+  'https://caperucitas.com',
+  'https://www.caperucitas.com',
+  // Cualquier subdominio de Vercel (deploys de preview)
   /^https:\/\/.*\.vercel\.app$/,
 ];
 
