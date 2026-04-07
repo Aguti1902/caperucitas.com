@@ -543,9 +543,7 @@ export const publicSearchProfiles = async (req: Request, res: Response) => {
   try {
     const { gender, city, page = 1, limit = 40, q } = req.query;
 
-    const where: any = {
-      isPaused: false,
-    };
+    const where: any = {};
 
     if (gender && gender !== 'all') {
       where.gender = gender as string;
@@ -599,7 +597,7 @@ export const getPublicProfileById = async (req: Request, res: Response) => {
       include: PUBLIC_PROFILE_INCLUDE,
     });
 
-    if (!profile || profile.isPaused) {
+    if (!profile) {
       return res.status(404).json({ error: 'Perfil no encontrado' });
     }
 
