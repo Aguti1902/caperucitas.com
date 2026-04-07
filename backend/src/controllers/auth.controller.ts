@@ -111,56 +111,60 @@ export const register = async (req: Request, res: Response) => {
     // Hash de la contraseña
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Crear usuario (email NO verificado inicialmente)
+    const hasEmailService = !!process.env.RESEND_API_KEY;
+
+    // Si no hay servicio de email, verificar directamente para no bloquear el registro
     const user = await prisma.user.create({
       data: {
         email: email.toLowerCase(),
         passwordHash,
-        emailVerified: false, // Cambiar a false para requerir verificación
+        emailVerified: !hasEmailService, // Si no hay email service, verificar automáticamente
       },
     });
 
-    // Generar token de verificación
-    const verificationToken = generateVerificationToken();
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24); // Expira en 24 horas
+    // Solo enviar email de verificación si RESEND está configurado
+    if (hasEmailService) {
+      const verificationToken = generateVerificationToken();
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24);
 
-    await prisma.emailVerificationToken.create({
-      data: {
-        userId: user.id,
-        token: verificationToken,
-        expiresAt,
-      },
-    });
+      await prisma.emailVerificationToken.create({
+        data: { userId: user.id, token: verificationToken, expiresAt },
+      });
 
-    // Enviar email de verificación de forma SÍNCRONA para capturar errores
-    try {
-      await sendVerificationEmail(user.email, verificationToken);
-      console.log(`✅ Email de verificación enviado exitosamente a: ${user.email}`);
-    } catch (error: any) {
-      console.error('\n❌ ========================================');
-      console.error('❌ ERROR CRÍTICO AL ENVIAR EMAIL DE VERIFICACIÓN');
-      console.error('❌ ========================================');
-      console.error('Email:', user.email);
-      console.error('Token:', verificationToken);
-      console.error('Error:', error.message);
-      console.error('Stack:', error.stack);
-      console.error('❌ ========================================\n');
-      // No bloquear el registro si falla el email
+      try {
+        await sendVerificationEmail(user.email, verificationToken);
+        console.log(`✅ Email de verificación enviado a: ${user.email}`);
+      } catch (error: any) {
+        console.error('❌ Error enviando email de verificación:', error.message);
+      }
+
+      console.log(`✅ Usuario registrado: ${user.email} (esperando verificación de email)`);
+
+      return res.status(201).json({
+        message: 'Usuario registrado. Por favor verifica tu email para continuar.',
+        email: user.email,
+        orientation,
+        requiresVerification: true,
+      });
     }
 
-    // Guardar orientación en una variable temporal (se usará al crear el perfil)
-    // En una app real, esto se guardaría en una sesión o cache
-    
-    // NO generar tokens aún - el usuario debe verificar su email primero
-    
-    console.log(`✅ Usuario registrado: ${user.email} (esperando verificación de email)`);
-    
+    // Sin servicio de email: generar tokens y dejar entrar directamente
+    console.log(`✅ Usuario registrado (sin verificación email): ${user.email}`);
+
+    const accessToken = generateAccessToken(user.id);
+    const refreshToken = generateRefreshToken(user.id);
+
     res.status(201).json({
-      message: 'Usuario registrado. Por favor verifica tu email para continuar.',
-      email: user.email,
-      orientation, // Devolver orientación para usarla en el frontend
-      requiresVerification: true,
+      message: 'Usuario registrado correctamente.',
+      user: {
+        id: user.id,
+        email: user.email,
+        hasProfile: false,
+      },
+      accessToken,
+      refreshToken,
+      requiresVerification: false,
     });
   } catch (error) {
     console.error('Error en registro:', error);
