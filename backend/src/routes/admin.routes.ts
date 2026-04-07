@@ -1,10 +1,9 @@
 import { Router } from 'express';
 import { authenticateAdminToken } from '../middleware/auth.middleware';
 import * as adminController from '../controllers/admin.controller';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Login de admin (sin autenticación)
 router.post('/login', adminController.login);

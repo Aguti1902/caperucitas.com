@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 // AuthRequest es simplemente un alias de Request
 // Las propiedades userId y profileId están definidas en express-extensions.d.ts

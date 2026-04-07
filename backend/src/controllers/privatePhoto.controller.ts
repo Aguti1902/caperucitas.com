@@ -1,8 +1,7 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth.middleware';
 
-const prisma = new PrismaClient();
 
 // Solicitar acceso a fotos privadas
 export const requestPrivatePhotoAccess = async (req: AuthRequest, res: Response) => {

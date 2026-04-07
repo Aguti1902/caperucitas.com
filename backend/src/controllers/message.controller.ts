@@ -1,11 +1,10 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { generateChatbotResponse } from '../services/chatbot.service';
 import { normalizeProfilePhotos } from '../utils/photo.utils';
 import { getIO } from '../services/socket.io';
 
-const prisma = new PrismaClient();
 
 // Enviar mensaje
 export const sendMessage = async (req: AuthRequest, res: Response) => {

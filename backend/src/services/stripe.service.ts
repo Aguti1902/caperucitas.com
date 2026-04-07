@@ -1,7 +1,6 @@
 import Stripe from 'stripe';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 // Inicializar Stripe solo si la clave está configurada
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;

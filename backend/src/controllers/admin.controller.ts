@@ -1,9 +1,8 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { generateFakeProfiles } from '../prisma/seedHelpers';
 import jwt from 'jsonwebtoken';
 
-const prisma = new PrismaClient();
 
 // Login de admin
 export const login = async (req: Request, res: Response) => {

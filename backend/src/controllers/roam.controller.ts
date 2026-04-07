@@ -1,8 +1,7 @@
 import { Response } from 'express'
-import { PrismaClient } from '@prisma/client'
+import prisma from '../lib/prisma'
 import { AuthRequest } from '../middleware/auth.middleware'
 
-const prisma = new PrismaClient()
 
 // Activar Roam (DEPRECATED - Ahora se usa Stripe Checkout)
 // Este endpoint se mantiene por compatibilidad, pero debería redirigir a Stripe

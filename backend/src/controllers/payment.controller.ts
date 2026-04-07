@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import {
   createSubscriptionCheckoutSession,
   createRoamCheckoutSession,
@@ -11,7 +11,6 @@ import {
 } from '../services/stripe.service';
 import { stripe } from '../services/stripe.service';
 
-const prisma = new PrismaClient();
 
 // Crear sesión de checkout para suscripción 9Plus
 export const createSubscriptionCheckout = async (req: AuthRequest, res: Response) => {

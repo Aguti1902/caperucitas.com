@@ -1,10 +1,9 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { getIO } from '../services/socket.io';
 import { normalizeProfilePhotos } from '../utils/photo.utils';
 
-const prisma = new PrismaClient();
 
 // Dar like
 export const likeProfile = async (req: AuthRequest, res: Response) => {

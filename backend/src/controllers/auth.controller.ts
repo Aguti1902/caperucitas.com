@@ -1,12 +1,11 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import bcrypt from 'bcryptjs';
 import { validationResult } from 'express-validator';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt.utils';
 import { generateVerificationToken, sendVerificationEmail, sendWelcomeEmail, sendPasswordResetEmail } from '../utils/email-resend.utils';
 import { AuthRequest } from '../middleware/auth.middleware';
 
-const prisma = new PrismaClient();
 
 // Registro
 export const register = async (req: Request, res: Response) => {

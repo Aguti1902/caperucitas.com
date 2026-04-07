@@ -1,9 +1,8 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth.middleware';
 import cloudinary from '../config/cloudinary';
 
-const prisma = new PrismaClient();
 
 // Subir foto
 export const uploadPhoto = async (req: AuthRequest, res: Response) => {

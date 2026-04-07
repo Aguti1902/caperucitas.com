@@ -1,9 +1,8 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { stripe } from '../services/stripe.service';
 
-const prisma = new PrismaClient();
 
 // Obtener suscripción actual
 export const getSubscription = async (req: AuthRequest, res: Response) => {
