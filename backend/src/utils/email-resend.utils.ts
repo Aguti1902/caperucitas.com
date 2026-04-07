@@ -83,13 +83,14 @@ export const sendVerificationEmail = async (email: string, token: string): Promi
     `,
   });
 
+  console.log('🔍 Respuesta de Resend:', JSON.stringify(result));
+
   if (result.error) {
-    // Loguear el error pero NO lanzar excepción — el registro no debe fallar por el email
-    console.error('⚠️ Resend devolvió error (no crítico):', JSON.stringify(result.error));
-    return;
+    console.error('❌ Error de Resend:', JSON.stringify(result.error));
+    throw new Error(`Resend error: ${JSON.stringify(result.error)}`);
   }
 
-  console.log(`✅ Email de verificación enviado a: ${email} (ID: ${result.data?.id})`);
+  console.log(`✅ Email enviado correctamente a: ${email} (ID: ${result.data?.id})`);
 };
 
 // Enviar email de bienvenida

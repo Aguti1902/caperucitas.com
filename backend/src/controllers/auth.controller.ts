@@ -65,7 +65,7 @@ export const register = async (req: Request, res: Response) => {
     // Hash de la contraseña
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const hasEmailService = !!(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
+    const hasEmailService = !!process.env.RESEND_API_KEY;
 
     // Crear usuario
     const user = await prisma.user.create({
