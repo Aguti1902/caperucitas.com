@@ -16,7 +16,7 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
 
     const { title, aboutMe, lookingFor, age, orientation, gender, role, city, latitude, longitude, 
           height, bodyType, relationshipStatus, relationshipGoal, occupation, education, smoking, drinking,
-          children, pets, zodiacSign, hobbies, languages, showExactLocation } = req.body;
+          children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp } = req.body;
 
     // Verificar que no tenga ya un perfil
     const existingProfile = await prisma.profile.findUnique({
@@ -27,6 +27,9 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Ya tienes un perfil creado' });
     }
 
+    // gender viene del campo orientation (chica/chico/trans/casa)
+    const profileGender = gender || orientation || 'chica';
+
     // Crear perfil
     const profile = await prisma.profile.create({
       data: {
@@ -36,16 +39,16 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
         lookingFor,
         age,
         orientation,
-        gender: gender || 'hombre', // Default si no se especifica
-        role: role || null, // ROL solo para usuarios gay
+        gender: profileGender,
+        role: role || null,
         city,
         latitude: latitude || null,
         longitude: longitude || null,
-        showExactLocation: showExactLocation !== undefined ? showExactLocation : true, // Por defecto SÍ
+        showExactLocation: showExactLocation !== undefined ? showExactLocation : true,
         height: height || null,
         bodyType: bodyType || null,
         relationshipStatus: relationshipStatus || null,
-        relationshipGoal: relationshipGoal || null, // NUEVO: Guardar tipo de relación
+        relationshipGoal: relationshipGoal || null,
         occupation: occupation || null,
         education: education || null,
         smoking: smoking || null,
@@ -55,6 +58,8 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
         zodiacSign: zodiacSign || null,
         hobbies: hobbies || [],
         languages: languages || ['Español'],
+        phone: phone || null,
+        whatsapp: whatsapp || null,
         isOnline: true,
       },
     });

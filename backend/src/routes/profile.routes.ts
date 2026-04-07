@@ -17,16 +17,16 @@ router.post(
   '/',
   [
     body('title')
-      .isLength({ min: 1, max: 15 })
-      .withMessage('El título debe tener entre 1 y 15 caracteres'),
+      .isLength({ min: 1, max: 20 })
+      .withMessage('El título debe tener entre 1 y 20 caracteres'),
     body('aboutMe').notEmpty().withMessage('La descripción es requerida'),
-    body('lookingFor').notEmpty().withMessage('El campo "Lo que buscas" es requerido'),
+    body('lookingFor').notEmpty().withMessage('El campo "Lo que ofreces" es requerido'),
     body('age')
       .isInt({ min: 18, max: 99 })
       .withMessage('La edad debe estar entre 18 y 99 años'),
     body('orientation')
-      .isIn(['hetero', 'gay'])
-      .withMessage('Orientación debe ser hetero o gay'),
+      .isIn(['chica', 'chico', 'trans', 'casa', 'hetero', 'gay'])
+      .withMessage('Categoría inválida'),
     body('city').notEmpty().withMessage('La ciudad es requerida'),
   ],
   profileController.createProfile
