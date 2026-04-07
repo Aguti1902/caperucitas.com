@@ -6,32 +6,8 @@ import Logo from '@/components/common/Logo'
 import Input from '@/components/common/Input'
 import Textarea from '@/components/common/Textarea'
 import Button from '@/components/common/Button'
-
-const SPANISH_CITIES = [
-  { name: 'Madrid', lat: 40.4168, lng: -3.7038 },
-  { name: 'Barcelona', lat: 41.3851, lng: 2.1734 },
-  { name: 'Valencia', lat: 39.4699, lng: -0.3763 },
-  { name: 'Sevilla', lat: 37.3891, lng: -5.9845 },
-  { name: 'Zaragoza', lat: 41.6488, lng: -0.8891 },
-  { name: 'Málaga', lat: 36.7213, lng: -4.4214 },
-  { name: 'Murcia', lat: 37.9922, lng: -1.1307 },
-  { name: 'Palma', lat: 39.5696, lng: 2.6502 },
-  { name: 'Las Palmas', lat: 28.1248, lng: -15.43 },
-  { name: 'Bilbao', lat: 43.263, lng: -2.935 },
-  { name: 'Alicante', lat: 38.3452, lng: -0.481 },
-  { name: 'Córdoba', lat: 37.8882, lng: -4.7794 },
-  { name: 'Valladolid', lat: 41.6523, lng: -4.7245 },
-  { name: 'Vigo', lat: 42.2406, lng: -8.7207 },
-  { name: 'Gijón', lat: 43.545, lng: -5.6619 },
-  { name: 'A Coruña', lat: 43.3623, lng: -8.4115 },
-  { name: 'Granada', lat: 37.1773, lng: -3.5986 },
-  { name: 'Vitoria', lat: 42.8467, lng: -2.6716 },
-  { name: 'Oviedo', lat: 43.3614, lng: -5.8593 },
-  { name: 'Santa Cruz de Tenerife', lat: 28.4698, lng: -16.2549 },
-  { name: 'Cartagena', lat: 37.6256, lng: -0.996 },
-  { name: 'Pamplona', lat: 42.8125, lng: -1.6458 },
-  { name: 'Figueres', lat: 42.2679, lng: 2.9616 },
-]
+import CitySelector from '@/components/common/CitySelector'
+import { SPANISH_CITIES } from '@/data/spanishCities'
 
 const GENDER_OPTIONS = [
   { id: 'chica', label: '👩 Chica', color: 'bg-pink-500' },
@@ -334,42 +310,13 @@ export default function CreateProfilePage() {
                 <span className="text-gray-300">Detectando tu ubicación...</span>
               </div>
             ) : (
-              <div>
-                {locationError && (
-                  <p className="text-yellow-400 text-xs mb-2">{locationError}</p>
-                )}
-                <div className="flex gap-2">
-                  <select
-                    value={formData.city}
-                    onChange={(e) => {
-                      const city = SPANISH_CITIES.find(c => c.name === e.target.value)
-                      setFormData(prev => ({
-                        ...prev,
-                        city: e.target.value,
-                        latitude: city?.lat || null,
-                        longitude: city?.lng || null,
-                      }))
-                    }}
-                    className="flex-1 input-field"
-                  >
-                    <option value="">Selecciona tu ciudad...</option>
-                    {SPANISH_CITIES.map(c => (
-                      <option key={c.name} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={handleDetectLocation}
-                    className="bg-gray-700 hover:bg-gray-600 text-white px-3 rounded-lg text-sm transition-colors"
-                    title="Detectar automáticamente"
-                  >
-                    📍
-                  </button>
-                </div>
-                {formData.city && (
-                  <p className="text-green-400 text-xs mt-1">✓ Ciudad: {formData.city}</p>
-                )}
-              </div>
+              <CitySelector
+                value={formData.city}
+                onChange={(city, lat, lng) => setFormData(prev => ({ ...prev, city, latitude: lat, longitude: lng }))}
+                onDetect={handleDetectLocation}
+                isDetecting={isDetectingLocation}
+                locationError={locationError}
+              />
             )}
           </div>
 

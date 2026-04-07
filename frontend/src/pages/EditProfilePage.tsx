@@ -7,33 +7,9 @@ import Textarea from '@/components/common/Textarea'
 import Button from '@/components/common/Button'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 import Modal from '@/components/common/Modal'
+import CitySelector from '@/components/common/CitySelector'
+import { SPANISH_CITIES } from '@/data/spanishCities'
 import { Eye, Pause, Play, MapPin } from 'lucide-react'
-
-const SPANISH_CITIES = [
-  { name: 'Madrid', lat: 40.4168, lng: -3.7038 },
-  { name: 'Barcelona', lat: 41.3851, lng: 2.1734 },
-  { name: 'Valencia', lat: 39.4699, lng: -0.3763 },
-  { name: 'Sevilla', lat: 37.3891, lng: -5.9845 },
-  { name: 'Zaragoza', lat: 41.6488, lng: -0.8891 },
-  { name: 'Málaga', lat: 36.7213, lng: -4.4214 },
-  { name: 'Murcia', lat: 37.9922, lng: -1.1307 },
-  { name: 'Palma', lat: 39.5696, lng: 2.6502 },
-  { name: 'Las Palmas', lat: 28.1248, lng: -15.43 },
-  { name: 'Bilbao', lat: 43.263, lng: -2.935 },
-  { name: 'Alicante', lat: 38.3452, lng: -0.481 },
-  { name: 'Córdoba', lat: 37.8882, lng: -4.7794 },
-  { name: 'Valladolid', lat: 41.6523, lng: -4.7245 },
-  { name: 'Vigo', lat: 42.2406, lng: -8.7207 },
-  { name: 'Gijón', lat: 43.545, lng: -5.6619 },
-  { name: 'A Coruña', lat: 43.3623, lng: -8.4115 },
-  { name: 'Granada', lat: 37.1773, lng: -3.5986 },
-  { name: 'Vitoria', lat: 42.8467, lng: -2.6716 },
-  { name: 'Oviedo', lat: 43.3614, lng: -5.8593 },
-  { name: 'Santa Cruz de Tenerife', lat: 28.4698, lng: -16.2549 },
-  { name: 'Cartagena', lat: 37.6256, lng: -0.996 },
-  { name: 'Pamplona', lat: 42.8125, lng: -1.6458 },
-  { name: 'Figueres', lat: 42.2679, lng: 2.9616 },
-]
 
 export default function EditProfilePage() {
   const navigate = useNavigate()
@@ -359,16 +335,10 @@ export default function EditProfilePage() {
               {isUpdatingLocation ? 'Actualizando...' : 'Actualizar ubicación'}
             </button>
           </div>
-          <select
+          <CitySelector
             value={formData.city}
-            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-            className="input-field"
-          >
-            <option value="">Seleccionar ciudad...</option>
-            {SPANISH_CITIES.map(c => (
-              <option key={c.name} value={c.name}>{c.name}</option>
-            ))}
-          </select>
+            onChange={(city, lat, lng) => setFormData(prev => ({ ...prev, city, latitude: lat, longitude: lng }))}
+          />
           <p className="text-gray-500 text-xs mt-2">
             La ubicación solo se actualiza cuando pulsas "Actualizar ubicación"
           </p>
