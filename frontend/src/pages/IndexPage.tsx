@@ -6,6 +6,7 @@ import { api } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import { MapPin, Search, Phone, MessageCircle, Zap, Clock, Share2, Info, Home } from 'lucide-react'
 import { formatLastSeen } from '@/utils/timeUtils'
+import { SPANISH_CITIES as ALL_CITIES } from '@/data/spanishCities'
 
 const GENDER_LABELS: Record<string, { label: string; color: string }> = {
   chica: { label: 'Chica', color: 'bg-pink-600' },
@@ -22,14 +23,7 @@ const GENDER_FILTERS = [
   { id: 'casa', label: 'Casas/Pisos' },
 ]
 
-const SPANISH_CITIES = [
-  'Todas las ciudades',
-  'Madrid', 'Barcelona', 'Valencia', 'Sevilla', 'Zaragoza',
-  'Málaga', 'Murcia', 'Palma', 'Las Palmas', 'Bilbao',
-  'Alicante', 'Córdoba', 'Valladolid', 'Vigo', 'Gijón',
-  'A Coruña', 'Granada', 'Vitoria', 'Oviedo', 'Santa Cruz de Tenerife',
-  'Cartagena', 'Pamplona', 'Figueres',
-]
+const SPANISH_CITIES = ['Todas las ciudades', ...ALL_CITIES.map(c => c.name)]
 
 export default function IndexPage() {
   const navigate = useNavigate()
