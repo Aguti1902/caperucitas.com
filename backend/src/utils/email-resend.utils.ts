@@ -29,9 +29,11 @@ export const sendVerificationEmail = async (email: string, token: string): Promi
   console.log(`📧 Destinatario: ${email}`);
   console.log(`📧 ========================================`);
 
-  const frontendUrl = process.env.FRONTEND_URL || process.env.VERIFICATION_URL || 'https://9citas.com';
+  // Usar solo la primera URL si hay varias separadas por coma
+  const rawFrontendUrl = process.env.FRONTEND_URL || 'https://caperucitas.com';
+  const frontendUrl = rawFrontendUrl.split(',')[0].trim();
   const verificationUrl = `${frontendUrl}/verify-email/${token}`;
-  const fromEmail = process.env.RESEND_FROM_EMAIL || '9citas <onboarding@resend.dev>';
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'Caperucitas <onboarding@resend.dev>';
 
   console.log(`📧 URL de verificación: ${verificationUrl}`);
   console.log(`📧 From: ${fromEmail}`);
@@ -41,40 +43,40 @@ export const sendVerificationEmail = async (email: string, token: string): Promi
   const result = await resend.emails.send({
     from: fromEmail,
     to: email,
-    subject: 'Verifica tu cuenta en 9citas',
+    subject: 'Verifica tu cuenta en Caperucitas.com',
     html: `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f4f4f4; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #fc4d5c 0%, #ff6b7a 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-          .button { display: inline-block; background: #fc4d5c; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-          .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+          .header { background: #c8102e; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; }
+          .button { display: inline-block; background: #c8102e; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }
+          .footer { text-align: center; margin-top: 20px; color: #999; font-size: 12px; }
         </style>
       </head>
       <body>
         <div class="container">
           <div class="header">
-            <h1>¡Bienvenido a 9citas!</h1>
+            <h1>🐺 Caperucitas.com</h1>
           </div>
           <div class="content">
             <p>Hola,</p>
-            <p>Gracias por registrarte en <strong>9citas</strong>.</p>
-            <p>Para completar tu registro y empezar a conectar con personas cerca de ti, por favor verifica tu cuenta haciendo click en el siguiente botón:</p>
+            <p>Gracias por registrarte en <strong>Caperucitas.com</strong>.</p>
+            <p>Para activar tu anuncio, verifica tu cuenta haciendo clic en el botón:</p>
             <div style="text-align: center;">
               <a href="${verificationUrl}" class="button">Verificar mi cuenta</a>
             </div>
-            <p>O copia y pega este enlace en tu navegador:</p>
-            <p style="word-break: break-all; color: #666;">${verificationUrl}</p>
+            <p>O copia este enlace en tu navegador:</p>
+            <p style="word-break: break-all; color: #666; font-size: 13px;">${verificationUrl}</p>
             <p><strong>Este enlace expira en 24 horas.</strong></p>
-            <p>Si no creaste esta cuenta, puedes ignorar este email de forma segura.</p>
+            <p style="color: #999; font-size: 13px;">Si no creaste esta cuenta, ignora este email.</p>
           </div>
           <div class="footer">
-            <p>© 2024 9citas.com - Conoce chicas y chicos cerca de ti</p>
+            <p>© ${new Date().getFullYear()} Caperucitas.com</p>
           </div>
         </div>
       </body>
@@ -82,22 +84,13 @@ export const sendVerificationEmail = async (email: string, token: string): Promi
     `,
   });
 
-  console.log('🔍 Respuesta completa de Resend:', JSON.stringify(result, null, 2));
-
   if (result.error) {
-    console.error('❌ ========================================');
-    console.error('❌ ERROR DE RESEND');
-    console.error('❌ ========================================');
-    console.error('Error:', result.error);
-    console.error('❌ ========================================\n');
-    throw new Error(`Resend error: ${JSON.stringify(result.error)}`);
+    // Loguear el error pero NO lanzar excepción — el registro no debe fallar por el email
+    console.error('⚠️ Resend devolvió error (no crítico):', JSON.stringify(result.error));
+    return;
   }
 
-  console.log(`✅ ========================================`);
-  console.log(`✅ EMAIL DE VERIFICACIÓN ENVIADO EXITOSAMENTE`);
-  console.log(`✅ Destinatario: ${email}`);
-  console.log(`✅ Message ID: ${result.data?.id || 'N/A'}`);
-  console.log(`✅ ========================================\n`);
+  console.log(`✅ Email de verificación enviado a: ${email} (ID: ${result.data?.id})`);
 };
 
 // Enviar email de bienvenida

@@ -122,35 +122,38 @@ export const register = async (req: Request, res: Response) => {
       },
     });
 
-    // Solo enviar email de verificación si RESEND está configurado
+    // Intentar enviar email de verificación si RESEND está configurado
     if (hasEmailService) {
-      const verificationToken = generateVerificationToken();
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24);
-
-      await prisma.emailVerificationToken.create({
-        data: { userId: user.id, token: verificationToken, expiresAt },
-      });
-
       try {
+        const verificationToken = generateVerificationToken();
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 24);
+
+        await prisma.emailVerificationToken.create({
+          data: { userId: user.id, token: verificationToken, expiresAt },
+        });
+
         await sendVerificationEmail(user.email, verificationToken);
         console.log(`✅ Email de verificación enviado a: ${user.email}`);
-      } catch (error: any) {
-        console.error('❌ Error enviando email de verificación:', error.message);
+
+        return res.status(201).json({
+          message: 'Usuario registrado. Por favor verifica tu email para continuar.',
+          email: user.email,
+          orientation,
+          requiresVerification: true,
+        });
+      } catch (emailError: any) {
+        // Si falla el email, registrar sin verificación para no bloquear al usuario
+        console.error('⚠️ Email flow falló, registrando sin verificación:', emailError.message);
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerified: true },
+        });
       }
-
-      console.log(`✅ Usuario registrado: ${user.email} (esperando verificación de email)`);
-
-      return res.status(201).json({
-        message: 'Usuario registrado. Por favor verifica tu email para continuar.',
-        email: user.email,
-        orientation,
-        requiresVerification: true,
-      });
     }
 
-    // Sin servicio de email: generar tokens y dejar entrar directamente
-    console.log(`✅ Usuario registrado (sin verificación email): ${user.email}`);
+    // Sin servicio de email o email fallido: generar tokens y dejar entrar directamente
+    console.log(`✅ Usuario registrado (acceso directo): ${user.email}`);
 
     const accessToken = generateAccessToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
