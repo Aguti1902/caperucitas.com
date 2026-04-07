@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Response, Request } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { validationResult } from 'express-validator';
 import { AuthRequest } from '../middleware/auth.middleware';
@@ -524,5 +524,94 @@ export const updateLocation = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Error al actualizar ubicación:', error);
     res.status(500).json({ error: 'Error al actualizar ubicación' });
+  }
+};
+
+// ============================================================
+// RUTAS PÚBLICAS (sin autenticación)
+// ============================================================
+
+const PUBLIC_PROFILE_INCLUDE = {
+  photos: {
+    where: { type: { in: ['cover', 'public'] } },
+    orderBy: [{ type: 'asc' as const }, { createdAt: 'asc' as const }],
+  },
+};
+
+// Búsqueda pública de perfiles (para visitantes sin cuenta)
+export const publicSearchProfiles = async (req: Request, res: Response) => {
+  try {
+    const { gender, city, page = 1, limit = 40, q } = req.query;
+
+    const where: any = {
+      isPaused: false,
+    };
+
+    if (gender && gender !== 'all') {
+      where.gender = gender as string;
+    }
+
+    if (city && city !== 'Todas las ciudades') {
+      where.city = { contains: city as string, mode: 'insensitive' };
+    }
+
+    if (q) {
+      where.OR = [
+        { title: { contains: q as string, mode: 'insensitive' } },
+        { aboutMe: { contains: q as string, mode: 'insensitive' } },
+      ];
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const profiles = await prisma.profile.findMany({
+      where,
+      include: PUBLIC_PROFILE_INCLUDE,
+      orderBy: [
+        { isRoaming: 'desc' },
+        { isOnline: 'desc' },
+        { lastSeenAt: 'desc' },
+      ],
+      skip,
+      take: Number(limit),
+    });
+
+    const normalized = profiles.map(p => ({
+      ...p,
+      coverPhoto: p.photos.find(ph => ph.type === 'cover')?.url || p.photos[0]?.url || null,
+      publicPhotos: p.photos.filter(ph => ph.type === 'public').map(ph => ph.url),
+    }));
+
+    res.json({ profiles: normalized, total: normalized.length });
+  } catch (error) {
+    console.error('Error en búsqueda pública:', error);
+    res.status(500).json({ error: 'Error al buscar perfiles' });
+  }
+};
+
+// Obtener perfil público por ID
+export const getPublicProfileById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const profile = await prisma.profile.findUnique({
+      where: { id },
+      include: PUBLIC_PROFILE_INCLUDE,
+    });
+
+    if (!profile || profile.isPaused) {
+      return res.status(404).json({ error: 'Perfil no encontrado' });
+    }
+
+    const normalized = {
+      ...profile,
+      coverPhoto: profile.photos.find(ph => ph.type === 'cover')?.url || profile.photos[0]?.url || null,
+      publicPhotos: profile.photos.filter(ph => ph.type === 'public').map(ph => ph.url),
+    };
+
+    res.json(normalized);
+  } catch (error) {
+    console.error('Error al obtener perfil público:', error);
+    res.status(500).json({ error: 'Error al obtener perfil' });
   }
 };

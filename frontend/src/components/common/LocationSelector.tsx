@@ -42,7 +42,7 @@ export default function LocationSelector({ currentCity, onLocationChange }: Loca
           `accept-language=es`,
           {
             headers: {
-              'User-Agent': '9citas.com/1.0'
+              'User-Agent': 'caperucitas.com/1.0'
             }
           }
         )
@@ -110,7 +110,7 @@ export default function LocationSelector({ currentCity, onLocationChange }: Loca
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1&accept-language=es`,
             {
               headers: {
-                'User-Agent': '9citas.com/1.0'
+                'User-Agent': 'caperucitas.com/1.0'
               }
             }
           )

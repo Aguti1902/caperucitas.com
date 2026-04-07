@@ -1,354 +1,215 @@
 import { useState, useEffect } from 'react'
 import { api } from '@/services/api'
-import { useAuthStore } from '@/store/authStore'
 import { showToast } from '@/store/toastStore'
 import Button from '@/components/common/Button'
 import Modal from '@/components/common/Modal'
 import Logo from '@/components/common/Logo'
-import SubscriptionPaymentForm from '@/components/payment/SubscriptionPaymentForm'
+import RoamPaymentForm from '@/components/payment/RoamPaymentForm'
+import RoamStatusContent from '@/components/common/RoamStatusContent'
+import { Zap, Crown, Check } from 'lucide-react'
 
 export default function PlusPage() {
-  const { user, refreshUserData } = useAuthStore()
-  const [showCancelModal, setShowCancelModal] = useState(false)
-  const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [showSuccessModal, setShowSuccessModal] = useState(false)
-  const [isCanceling, setIsCanceling] = useState(false)
-  const isPremium = user?.subscription?.isActive || false
+  const [showRoamPaymentModal, setShowRoamPaymentModal] = useState(false)
+  const [showRoamStatusModal, setShowRoamStatusModal] = useState(false)
+  const [roamDuration, setRoamDuration] = useState(180)
+  const [roamPrice, setRoamPrice] = useState(5)
+  const [roamStatus, setRoamStatus] = useState<any>(null)
 
-  // Manejar redirección desde Stripe
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const success = params.get('success')
-    const canceled = params.get('canceled')
-    
-    if (success === 'true') {
-      // Recargar datos del usuario para actualizar estado de suscripción
-      refreshUserData()
-      // Limpiar parámetro de URL
+    const roamSuccess = params.get('roam')
+    if (roamSuccess === 'success') {
+      showToast('¡ROAM activado exitosamente!', 'success')
       window.history.replaceState({}, '', window.location.pathname)
-    } else if (canceled === 'true') {
-      // Limpiar parámetro de URL
-      window.history.replaceState({}, '', window.location.pathname)
+      loadRoamStatus()
     }
-  }, [refreshUserData])
+    loadRoamStatus()
+  }, [])
 
-  const handleActivate = () => {
-    setShowPaymentModal(true)
-  }
-
-  const handlePaymentSuccess = async () => {
-    setShowPaymentModal(false)
-    
-    // Esperar un momento para que el webhook procese la suscripción
-    // Hacer polling para verificar que la suscripción está activa
-    let attempts = 0
-    const maxAttempts = 10
-    const checkInterval = 1000 // 1 segundo
-
-    const checkSubscription = async (): Promise<boolean> => {
-      try {
-        await refreshUserData()
-        const updatedUser = useAuthStore.getState().user
-        return updatedUser?.subscription?.isActive || false
-      } catch (error) {
-        console.error('Error al verificar suscripción:', error)
-        return false
-      }
-    }
-
-    // Esperar inicial y luego hacer polling
-    await new Promise(resolve => setTimeout(resolve, 2000))
-
-    while (attempts < maxAttempts) {
-      const isActive = await checkSubscription()
-      
-      if (isActive) {
-        // Suscripción activada exitosamente
-        setShowSuccessModal(true)
-        showToast('¡Bienvenido a 9Plus! Tu suscripción está activa', 'success')
-        return
-      }
-
-      attempts++
-      await new Promise(resolve => setTimeout(resolve, checkInterval))
-    }
-
-    // Si después de todos los intentos no se activó, mostrar mensaje
-    showToast('Pago procesado. Tu suscripción se activará en breve', 'info')
-    setShowSuccessModal(true)
-  }
-
-  const handlePaymentCancel = () => {
-    setShowPaymentModal(false)
-  }
-
-  const handleCancel = async () => {
-    setIsCanceling(true)
+  const loadRoamStatus = async () => {
     try {
-      // Cancelar suscripción directamente
-      await api.post('/subscriptions/cancel')
-      
-      // Recargar datos del usuario
-      await refreshUserData()
-      
-      // Cerrar modal y mostrar mensaje de éxito
-      setShowCancelModal(false)
-      showToast('Suscripción cancelada exitosamente. Mantendrás acceso hasta el final del periodo de facturación.', 'success')
-    } catch (error: any) {
-      console.error('Error al cancelar suscripción:', error)
-      showToast(error.response?.data?.error || 'Error al cancelar suscripción', 'error')
-      setIsCanceling(false)
-    }
+      const response = await api.get('/roam/status')
+      setRoamStatus(response.data)
+    } catch {}
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Header */}
+    <div className="max-w-2xl mx-auto px-4 py-8 pb-24">
       <div className="text-center mb-8">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <Logo size="md" />
-          <span className="text-4xl font-bold text-accent">Plus</span>
-        </div>
-        {isPremium && (
-          <div className="inline-block bg-gradient-to-r from-accent to-warning text-black px-6 py-2 rounded-full font-bold">
-            ⭐ Ya eres usuario 9Plus
-          </div>
-        )}
+        <Logo size="md" className="mx-auto mb-4" />
+        <h1 className="text-2xl font-bold text-white">Destaca tu anuncio</h1>
+        <p className="text-gray-400 mt-2">Consigue más clientes con nuestras opciones de visibilidad</p>
       </div>
 
-      {/* Comparación de planes */}
-      <div className="grid md:grid-cols-2 gap-6 mb-8">
-        {/* Plan Gratis */}
-        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-          <h3 className="text-2xl font-bold text-white mb-4">Plan Gratis</h3>
-          <ul className="space-y-2.5 text-gray-300 text-sm">
-            <li className="flex items-start">
-              <span className="text-green-500 mr-2 mt-0.5">✓</span>
-              <span>Ver hasta 50 perfiles en tu ubicación actual <span className="text-accent">(los primeros 50 usuarios)</span></span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-green-500 mr-2 mt-0.5">✓</span>
-              <span>Chatear con cualquier usuario <span className="text-accent">(sin restricciones)</span></span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-green-500 mr-2 mt-0.5">✓</span>
-              <span>Ver los últimos 5 "Me gusta" recibidos</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-green-500 mr-2 mt-0.5">✓</span>
-              <span>Filtros básicos: <strong>TODOS</strong>, <strong>RECIENTES</strong>, <strong>NUEVOS</strong></span>
-            </li>
-            {/* OCULTO TEMPORALMENTE PARA VERIFICACIÓN DE GOOGLE ADS */}
-            {false && (
-            <li className="flex items-start">
-              <span className="text-green-500 mr-2 mt-0.5">✓</span>
-              <span>Solicitar y compartir fotos privadas</span>
-            </li>
-            )}
-          </ul>
-        </div>
-
-        {/* Plan 9Plus */}
-        <div className="bg-gradient-to-br from-primary to-secondary rounded-xl p-6 border-2 border-accent relative overflow-hidden">
-          <div className="absolute top-4 right-4 bg-accent text-black px-3 py-1 rounded-full text-xs font-bold">
-            PREMIUM
+      {/* Estado actual de ROAM */}
+      {roamStatus?.isActive && (
+        <div className="bg-yellow-500/10 border border-yellow-500 rounded-xl p-4 mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center">
+              <Zap className="w-5 h-5 text-gray-900" fill="currentColor" strokeWidth={0} />
+            </div>
+            <div>
+              <p className="text-yellow-400 font-bold">¡ROAM Activo!</p>
+              <p className="text-gray-400 text-xs">Tu anuncio aparece primero en los resultados</p>
+            </div>
           </div>
-          
-          <h3 className="text-2xl font-bold text-white mb-1">Plan 9Plus</h3>
-          <p className="text-accent font-bold text-lg mb-4">5 €/mes</p>
-          <ul className="space-y-2.5 text-white text-sm">
-            <li className="flex items-start">
-              <span className="text-accent mr-2 mt-0.5 font-bold">✓</span>
-              <span>Perfiles ilimitados <span className="text-accent">(sin límite de 50)</span></span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-accent mr-2 mt-0.5 font-bold">✓</span>
-              <span>Filtros avanzados: distancia, edad, género, tipo de relación, ROL <span className="text-accent">(gay)</span></span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-accent mr-2 mt-0.5 font-bold">✓</span>
-              <span>Ver distancia exacta en km a cada usuario</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-accent mr-2 mt-0.5 font-bold">✓</span>
-              <span>Ver ciudad de todos los usuarios</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-accent mr-2 mt-0.5 font-bold">✓</span>
-              <span>Ver todos los "Me gusta" recibidos <span className="text-accent">(sin límite)</span></span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-accent mr-2 mt-0.5 font-bold">✓</span>
-              <span>Confirmación de lectura de mensajes <span className="text-accent">(✓✓ leído)</span></span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-accent mr-2 mt-0.5 font-bold">✓</span>
-              <span>Función RoAM: boost de visibilidad 10x <span className="text-accent">(6,49€/hora)</span></span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-accent mr-2 mt-0.5 font-bold">✓</span>
-              <span>Cambiar ubicación manualmente cuando quieras</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-accent mr-2 mt-0.5 font-bold">✓</span>
-              <span>Prioridad en resultados de búsqueda</span>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      {/* Precio y CTA */}
-      {!isPremium ? (
-        <div className="bg-gray-900 rounded-xl p-8 text-center">
-          <div className="mb-6">
-            <p className="text-gray-400 text-lg mb-2">Precio normal:</p>
-            <p className="text-gray-500 line-through text-3xl mb-2">6,50 €/mes</p>
-            <p className="text-accent text-5xl font-bold mb-2">5 €/mes</p>
-            <p className="text-accent font-semibold text-xl">¡OFERTA DE LANZAMIENTO!</p>
-          </div>
-
-          <Button
-            fullWidth
-            variant="accent"
-            onClick={handleActivate}
-            className="text-xl py-4"
+          <button
+            onClick={() => setShowRoamStatusModal(true)}
+            className="text-yellow-400 text-sm hover:text-yellow-300 underline"
           >
-            ⭐ Contratar 9Plus por solo 5 € al mes
-          </Button>
-
-          <p className="text-gray-500 text-sm mt-4">
-            * Pago seguro con Stripe • Sin permanencia • Cancela cuando quieras
-          </p>
-        </div>
-      ) : (
-        <div className="bg-gray-900 rounded-xl p-8 text-center">
-          <div className="mb-6">
-            <h3 className="text-2xl font-bold text-white mb-4">Ya eres usuario 9Plus</h3>
-            <p className="text-gray-300">
-              Disfruta de todas las funciones premium
-            </p>
-          </div>
-
-          <Button
-            fullWidth
-            variant="danger"
-            onClick={() => setShowCancelModal(true)}
-          >
-            Cancelar suscripción
-          </Button>
-
-          <p className="text-gray-500 text-sm mt-4">
-            Si cancelas, seguirás teniendo acceso hasta el final de tu periodo de facturación
-          </p>
+            Ver estado
+          </button>
         </div>
       )}
 
-      {/* Información adicional */}
-      <div className="mt-8 text-center text-gray-400 space-y-2">
-        <p>Sin permanencia • Cancela cuando quieras</p>
-        <p>Pago seguro • Protección de datos</p>
-      </div>
-
-      {/* Modal de cancelación */}
-      <Modal
-        isOpen={showCancelModal}
-        onClose={() => setShowCancelModal(false)}
-        title="Cancelar suscripción 9Plus"
-        maxWidth="sm"
-      >
-        <div className="space-y-4">
-          <p className="text-gray-300">
-            ¿Estás seguro de que quieres cancelar tu suscripción 9Plus?
-          </p>
-          <p className="text-gray-400 text-sm">
-            Perderás acceso a todas las funciones premium:
-          </p>
-          <ul className="text-gray-400 text-sm space-y-1.5 max-h-60 overflow-y-auto">
-            <li>• Perfiles ilimitados</li>
-            <li>• Ver distancia y ciudad exacta</li>
-            <li>• Ver todos los "Me gusta"</li>
-            <li>• Filtros por distancia, edad, online</li>
-            <li>• Filtros por género, tipo de relación, ROL</li>
-            <li>• Confirmación de lectura de mensajes</li>
-            <li>• Función RoAM (boost de visibilidad)</li>
-            <li>• Cambiar ubicación manualmente</li>
-          </ul>
-          <div className="flex gap-3 pt-4">
-            <Button
-              fullWidth
-              variant="outline"
-              onClick={() => setShowCancelModal(false)}
-            >
-              No, mantener 9Plus
-            </Button>
-            <Button
-              fullWidth
-              variant="danger"
-              isLoading={isCanceling}
-              onClick={handleCancel}
-            >
-              Sí, cancelar
-            </Button>
+      {/* ROAM - Función de destacar */}
+      <section className="bg-gray-900 rounded-2xl p-6 border border-gray-800 mb-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-yellow-500 rounded-xl flex items-center justify-center">
+            <Zap className="w-6 h-6 text-gray-900" fill="currentColor" strokeWidth={0} />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white">Función ROAM</h2>
+            <p className="text-gray-400 text-sm">Destaca en los resultados de búsqueda</p>
           </div>
         </div>
-      </Modal>
 
-      {/* Modal de pago embebido */}
+        <ul className="space-y-2 mb-5">
+          {[
+            'Tu anuncio aparece primero en los resultados',
+            'Visible en un radio de 8km para más clientes',
+            'Indicador especial ⚡ en tu perfil',
+            'Más visibilidad = más contactos',
+          ].map(benefit => (
+            <li key={benefit} className="flex items-center gap-2 text-gray-300 text-sm">
+              <Check className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+              {benefit}
+            </li>
+          ))}
+        </ul>
+
+        {/* Planes ROAM */}
+        <div className="space-y-3 mb-5">
+          <button
+            onClick={() => { setRoamDuration(180); setRoamPrice(5) }}
+            className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+              roamDuration === 180 ? 'border-yellow-500 bg-yellow-500/10' : 'border-gray-700 bg-gray-800 hover:border-gray-600'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white font-bold">3 horas</p>
+                <p className="text-gray-400 text-sm">Desde que lo actives</p>
+              </div>
+              <div className="text-right">
+                <p className="text-yellow-400 font-bold text-2xl">5€</p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => { setRoamDuration(960); setRoamPrice(35) }}
+            className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+              roamDuration === 960 ? 'border-yellow-500 bg-yellow-500/10' : 'border-gray-700 bg-gray-800 hover:border-gray-600'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white font-bold">4 horas/día — 1 semana</p>
+                <p className="text-gray-400 text-sm">Eliges las horas cada día</p>
+                <span className="inline-block bg-green-600 text-white text-xs font-bold px-2 py-0.5 rounded mt-1">AHORRO</span>
+              </div>
+              <div className="text-right">
+                <p className="text-yellow-400 font-bold text-2xl">35€</p>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        <Button
+          fullWidth
+          variant="accent"
+          onClick={() => setShowRoamPaymentModal(true)}
+          className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 border-0 font-bold py-4 text-lg"
+        >
+          <Zap className="w-5 h-5 mr-2" fill="currentColor" strokeWidth={0} />
+          Activar ROAM — {roamPrice}€
+        </Button>
+      </section>
+
+      {/* Suscripción mensual */}
+      <section className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center">
+            <Crown className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white">Suscripción mensual</h2>
+            <p className="text-gray-400 text-sm">Para aparecer en los listados de búsqueda</p>
+          </div>
+        </div>
+
+        <div className="bg-green-900/20 border border-green-700 rounded-xl p-4 mb-4">
+          <p className="text-green-400 font-bold text-lg">🎉 GRATIS hasta el 1 de enero de 2027</p>
+          <p className="text-gray-300 text-sm mt-1">
+            Aprovecha el período de lanzamiento gratuito. A partir del 1/1/2027, la suscripción será de <strong className="text-white">20€/mes</strong>.
+          </p>
+        </div>
+
+        <ul className="space-y-2 mb-4">
+          {[
+            'Aparece en los resultados de búsqueda',
+            'Filtros por ciudad y categoría',
+            'Perfil completo con fotos y contacto',
+            'Sin límite de visualizaciones',
+          ].map(benefit => (
+            <li key={benefit} className="flex items-center gap-2 text-gray-300 text-sm">
+              <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+              {benefit}
+            </li>
+          ))}
+        </ul>
+
+        <div className="bg-gray-800 rounded-lg p-3 text-center">
+          <p className="text-gray-400 text-sm">
+            Si no renuevas la suscripción cuando expire, tu anuncio dejará de aparecer en los listados hasta que la renueves.
+          </p>
+        </div>
+      </section>
+
+      {/* Modal pago ROAM */}
       <Modal
-        isOpen={showPaymentModal}
-        onClose={handlePaymentCancel}
-        title="Suscribirse a 9Plus"
+        isOpen={showRoamPaymentModal}
+        onClose={() => setShowRoamPaymentModal(false)}
+        title={`Activar ROAM — ${roamDuration === 180 ? '3 horas · 5€' : '1 semana · 35€'}`}
         maxWidth="md"
       >
-        <SubscriptionPaymentForm
-          onSuccess={handlePaymentSuccess}
-          onCancel={handlePaymentCancel}
+        <RoamPaymentForm
+          duration={roamDuration}
+          price={roamPrice}
+          onSuccess={async () => {
+            setShowRoamPaymentModal(false)
+            showToast('¡ROAM activado!', 'success')
+            await loadRoamStatus()
+          }}
+          onCancel={() => setShowRoamPaymentModal(false)}
         />
       </Modal>
 
-      {/* Modal de éxito */}
-      <Modal
-        isOpen={showSuccessModal}
-        onClose={() => {
-          setShowSuccessModal(false)
-          refreshUserData()
-        }}
-        title=""
-        maxWidth="sm"
-      >
-        <div className="text-center py-6">
-          <div className="mb-4 inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-accent to-warning rounded-full">
-            <span className="text-4xl">⭐</span>
-          </div>
-          <h3 className="text-2xl font-bold text-white mb-3">
-            ¡Bienvenido a 9Plus!
-          </h3>
-          <p className="text-gray-300 mb-4">
-            Tu suscripción está <strong className="text-accent">activa</strong>. Ahora puedes disfrutar de todas las funciones premium.
-          </p>
-          <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/30 rounded-lg p-4 mb-4">
-            <p className="text-white font-semibold mb-2">🚀 Funciones activas:</p>
-            <ul className="text-gray-300 text-sm space-y-1 text-left">
-              <li>✓ Perfiles ilimitados</li>
-              <li>✓ Ver distancia y ciudad exacta</li>
-              <li>✓ Ver todos los "Me gusta"</li>
-              <li>✓ Todos los filtros premium</li>
-              <li>✓ Función RoAM disponible</li>
-            </ul>
-          </div>
-          <Button
-            fullWidth
-            variant="accent"
-            onClick={() => {
-              setShowSuccessModal(false)
-              refreshUserData()
-            }}
-          >
-            ¡Empezar a usar 9Plus!
-          </Button>
-        </div>
-      </Modal>
+      {/* Modal estado ROAM */}
+      {roamStatus?.isActive && roamStatus?.roamingUntil && (
+        <Modal
+          isOpen={showRoamStatusModal}
+          onClose={() => setShowRoamStatusModal(false)}
+          title=""
+          maxWidth="md"
+        >
+          <RoamStatusContent
+            roamingUntil={new Date(roamStatus.roamingUntil)}
+            onClose={() => setShowRoamStatusModal(false)}
+          />
+        </Modal>
+      )}
     </div>
   )
 }
-

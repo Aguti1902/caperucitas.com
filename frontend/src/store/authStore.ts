@@ -133,9 +133,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     try {
       const response = await api.get('/auth/me')
-      get().setUser(response.data)
-    } catch (error) {
-      // Token inválido, limpiar
+      const user = response.data
+      // Un solo set para evitar múltiples re-renders
+      set({
+        user,
+        isAuthenticated: !!user,
+        hasProfile: user?.hasProfile || false,
+        isLoading: false,
+      })
+    } catch {
+      // Token inválido, limpiar todo en un solo set
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')
       set({
@@ -143,9 +150,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         accessToken: null,
         isAuthenticated: false,
         hasProfile: false,
+        isLoading: false,
       })
-    } finally {
-      set({ isLoading: false })
     }
   },
 

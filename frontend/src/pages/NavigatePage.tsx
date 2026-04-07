@@ -2,68 +2,46 @@ import { useState, useEffect } from 'react'
 import { api } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import { showToast } from '@/store/toastStore'
-import SwipeCard from '@/components/profile/SwipeCard'
-import PremiumPromoCard from '@/components/profile/PremiumPromoCard'
 import ProfileCard from '@/components/profile/ProfileCard'
 import FilterBar from '@/components/common/FilterBar'
-import LocationSelector from '@/components/common/LocationSelector'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 import Modal from '@/components/common/Modal'
 import Button from '@/components/common/Button'
 import RoamStatusContent from '@/components/common/RoamStatusContent'
 import RoamPaymentForm from '@/components/payment/RoamPaymentForm'
 import { useNavigate } from 'react-router-dom'
-import { LayoutGrid, Layers, Zap, Share2 } from 'lucide-react'
+import { Zap, Share2, MapPin } from 'lucide-react'
+
 
 export default function NavigatePage() {
   const navigate = useNavigate()
-  const { user, logout } = useAuthStore()
+  const { user } = useAuthStore()
   const [profiles, setProfiles] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [activeFilters, setActiveFilters] = useState<string[]>(['all'])
-  const [showPremiumModal, setShowPremiumModal] = useState(false)
-  const [showLogoutModal, setShowLogoutModal] = useState(false)
-  const [showShareModal, setShowShareModal] = useState(false)
   const [showRoamModal, setShowRoamModal] = useState(false)
   const [showRoamPaymentModal, setShowRoamPaymentModal] = useState(false)
-  const [roamDuration, setRoamDuration] = useState(60)
-  const [roamPrice, setRoamPrice] = useState(6.49)
-  const [showRoamSuccessModal, setShowRoamSuccessModal] = useState(false)
   const [showRoamStatusModal, setShowRoamStatusModal] = useState(false)
+  const [roamDuration, setRoamDuration] = useState(180) // 3 horas por defecto
+  const [roamPrice, setRoamPrice] = useState(5)
   const [roamStatus, setRoamStatus] = useState<any>(null)
-  const [viewMode, setViewMode] = useState<'swipe' | 'grid'>('swipe')
-  const [currentProfileIndex, setCurrentProfileIndex] = useState(0)
-  const [swipeCount, setSwipeCount] = useState(0)
-  const [showPromoCard, setShowPromoCard] = useState(false)
-  const [currentCity, setCurrentCity] = useState(user?.profile?.city || 'Madrid')
-  const [detectedCity, setDetectedCity] = useState<string | null>(null)
-  const [ageRange, setAgeRange] = useState({ min: 18, max: 99 })
-  const [distanceRange, setDistanceRange] = useState({ min: 0, max: 500 })
-  const [selectedGender, setSelectedGender] = useState<string | null>(null)
-  const [relationshipGoalFilter, setRelationshipGoalFilter] = useState<string>('') // Nuevo filtro
-  const [roleFilter, setRoleFilter] = useState<string>('') // Filtro de ROL solo para usuarios gay
+  const [currentCity] = useState(user?.profile?.city || 'Madrid')
+  const [ageRange] = useState({ min: 18, max: 99 })
+  const [distanceRange] = useState({ min: 0, max: 500 })
 
   const isPremium = user?.subscription?.isActive || false
-  const userOrientation = user?.profile?.orientation || 'hetero'
 
-  // Asegurar que main siempre tenga scroll al inicio al cargar la página
   useEffect(() => {
     const main = document.querySelector('main')
-    if (main) {
-      main.scrollTop = 0
-    }
+    if (main) main.scrollTop = 0
   }, [])
 
-  // Manejar redirección desde Stripe
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const roamSuccess = params.get('roam')
-    
     if (roamSuccess === 'success') {
-      showToast('¡RoAM activado exitosamente!', 'success')
-      // Limpiar parámetro de URL
+      showToast('¡ROAM activado exitosamente!', 'success')
       window.history.replaceState({}, '', window.location.pathname)
-      // Recargar estado de RoAM
       loadRoamStatus()
     } else if (roamSuccess === 'canceled') {
       showToast('Pago cancelado', 'info')
@@ -71,237 +49,27 @@ export default function NavigatePage() {
     }
   }, [])
 
-  // Lista de ciudades españolas (misma que LocationSelector)
-  const SPANISH_CITIES = [
-    { name: 'Madrid', lat: 40.4168, lng: -3.7038 },
-    { name: 'Barcelona', lat: 41.3851, lng: 2.1734 },
-    { name: 'Valencia', lat: 39.4699, lng: -0.3763 },
-    { name: 'Sevilla', lat: 37.3891, lng: -5.9845 },
-    { name: 'Zaragoza', lat: 41.6488, lng: -0.8891 },
-    { name: 'Málaga', lat: 36.7213, lng: -4.4214 },
-    { name: 'Murcia', lat: 37.9922, lng: -1.1307 },
-    { name: 'Palma', lat: 39.5696, lng: 2.6502 },
-    { name: 'Las Palmas', lat: 28.1248, lng: -15.4300 },
-    { name: 'Bilbao', lat: 43.2630, lng: -2.9350 },
-    { name: 'Alicante', lat: 38.3452, lng: -0.4810 },
-    { name: 'Córdoba', lat: 37.8882, lng: -4.7794 },
-    { name: 'Valladolid', lat: 41.6523, lng: -4.7245 },
-    { name: 'Vigo', lat: 42.2406, lng: -8.7207 },
-    { name: 'Gijón', lat: 43.5450, lng: -5.6619 },
-    { name: 'Hospitalet de Llobregat', lat: 41.3598, lng: 2.0994 },
-    { name: 'A Coruña', lat: 43.3623, lng: -8.4115 },
-    { name: 'Granada', lat: 37.1773, lng: -3.5986 },
-    { name: 'Vitoria', lat: 42.8467, lng: -2.6716 },
-    { name: 'Elche', lat: 38.2699, lng: -0.6983 },
-    { name: 'Oviedo', lat: 43.3614, lng: -5.8593 },
-    { name: 'Santa Cruz de Tenerife', lat: 28.4698, lng: -16.2549 },
-    { name: 'Badalona', lat: 41.4502, lng: 2.2451 },
-    { name: 'Cartagena', lat: 37.6256, lng: -0.9960 },
-    { name: 'Terrassa', lat: 41.5633, lng: 2.0099 },
-    { name: 'Jerez', lat: 36.6862, lng: -6.1367 },
-    { name: 'Sabadell', lat: 41.5433, lng: 2.1092 },
-    { name: 'Móstoles', lat: 40.3230, lng: -3.8651 },
-    { name: 'Alcalá de Henares', lat: 40.4818, lng: -3.3634 },
-    { name: 'Pamplona', lat: 42.8125, lng: -1.6458 },
-    { name: 'Figueres', lat: 42.2679, lng: 2.9616 },
-  ]
-
-  // Detectar ubicación actual al cargar y actualizar en el backend
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude, accuracy } = position.coords
-          
-          console.log(`📍 Ubicación obtenida en NavigatePage: ${latitude}, ${longitude} (precisión: ${accuracy}m)`)
-          
-          try {
-            // Usar geocodificación inversa para obtener la ciudad exacta
-            const response = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1&accept-language=es`,
-              {
-                headers: {
-                  'User-Agent': '9citas.com/1.0'
-                }
-              }
-            )
-            
-            if (response.ok) {
-              const data = await response.json()
-              const address = data.address
-              
-              // Intentar obtener la ciudad de diferentes campos
-              let cityName = address.city || 
-                            address.town || 
-                            address.municipality || 
-                            address.village ||
-                            address.county ||
-                            address.state_district
-              
-              // Si no encontramos ciudad, buscar la más cercana de nuestra lista
-              if (!cityName) {
-                console.log('⚠️ No se encontró ciudad en geocodificación, usando ciudad más cercana')
-                let closestCity = SPANISH_CITIES[0]
-                let minDistance = Infinity
-
-                SPANISH_CITIES.forEach(city => {
-                  const distance = Math.sqrt(
-                    Math.pow(city.lat - latitude, 2) + Math.pow(city.lng - longitude, 2)
-                  )
-                  if (distance < minDistance) {
-                    minDistance = distance
-                    closestCity = city
-                  }
-                })
-                cityName = closestCity.name
-              } else {
-                // Normalizar nombre de ciudad (capitalizar primera letra)
-                cityName = cityName.split(' ').map((word: string) => 
-                  word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-                ).join(' ')
-                
-                // Verificar si la ciudad está en nuestra lista, si no, usar la más cercana
-                const cityInList = SPANISH_CITIES.find(c => 
-                  c.name.toLowerCase() === cityName.toLowerCase()
-                )
-                
-                if (!cityInList) {
-                  console.log(`⚠️ Ciudad "${cityName}" no está en lista, usando ciudad más cercana`)
-                  let closestCity = SPANISH_CITIES[0]
-                  let minDistance = Infinity
-
-                  SPANISH_CITIES.forEach(city => {
-                    const distance = Math.sqrt(
-                      Math.pow(city.lat - latitude, 2) + Math.pow(city.lng - longitude, 2)
-                    )
-                    if (distance < minDistance) {
-                      minDistance = distance
-                      closestCity = city
-                    }
-                  })
-                  cityName = closestCity.name
-                }
-              }
-              
-              console.log(`✅ Ciudad detectada en NavigatePage: ${cityName}`)
-              
-              setDetectedCity(cityName)
-              setCurrentCity(cityName)
-              
-              // Actualizar ubicación en el backend
-              try {
-                await api.put('/profile/location', {
-                  city: cityName,
-                  latitude,
-                  longitude,
-                })
-                console.log(`✅ Ubicación actualizada en backend: ${cityName}`)
-              } catch (error) {
-                console.error('Error al actualizar ubicación en backend:', error)
-              }
-            } else {
-              throw new Error('Error en geocodificación')
-            }
-          } catch (error) {
-            console.error('Error en geocodificación inversa:', error)
-            // Fallback: buscar la ciudad más cercana
-            let closestCity = SPANISH_CITIES[0]
-            let minDistance = Infinity
-
-            SPANISH_CITIES.forEach(city => {
-              const distance = Math.sqrt(
-                Math.pow(city.lat - latitude, 2) + Math.pow(city.lng - longitude, 2)
-              )
-              if (distance < minDistance) {
-                minDistance = distance
-                closestCity = city
-              }
-            })
-
-            setDetectedCity(closestCity.name)
-            setCurrentCity(closestCity.name)
-            
-            // Actualizar ubicación en el backend
-            try {
-              await api.put('/profile/location', {
-                city: closestCity.name,
-                latitude,
-                longitude,
-              })
-            } catch (error) {
-              console.error('Error al actualizar ubicación en backend:', error)
-            }
-          }
-        },
-        (error) => {
-          console.error('Error de geolocalización:', error)
-        },
-        {
-          enableHighAccuracy: true, // Máxima precisión usando GPS
-          timeout: 30000, // 30 segundos para obtener ubicación precisa
-          maximumAge: 0, // No usar ubicación en caché, siempre obtener nueva
-        }
-      )
-    }
-  }, [])
-
   const loadProfiles = async () => {
     setIsLoading(true)
     try {
       const queryParams: any = {}
-      
-      // Determinar filtro principal
-      if (activeFilters.includes('online')) {
-        queryParams.filter = 'online'
-      } else if (activeFilters.includes('new')) {
-        queryParams.filter = 'new'
-      } else {
-        queryParams.filter = 'all'
-      }
-      
-      // Filtro de relationshipGoal (solo si es premium)
-      if (relationshipGoalFilter && isPremium) {
-        queryParams.relationshipGoal = relationshipGoalFilter
-      }
-      
-      // Filtro de ROL (solo si es premium y es usuario gay)
-      if (roleFilter && isPremium && userOrientation === 'gay') {
-        queryParams.role = roleFilter
-      }
-      
-      // Añadir filtros de edad si está activo
+      if (activeFilters.includes('online')) queryParams.filter = 'online'
+      else if (activeFilters.includes('new')) queryParams.filter = 'new'
+      else queryParams.filter = 'all'
+
       if (activeFilters.includes('age')) {
         queryParams.ageMin = ageRange.min
         queryParams.ageMax = ageRange.max
       }
-      
-      // Añadir filtros de distancia si está activo
-      if (activeFilters.includes('distance')) {
-        queryParams.distanceMin = distanceRange.min
-        queryParams.distanceMax = distanceRange.max
-      }
 
-      // Añadir filtro de género si está seleccionado (solo para 9PLUS hetero)
-      if (selectedGender && isPremium && userOrientation === 'hetero') {
-        queryParams.gender = selectedGender
-      }
-
-      const response = await api.get('/profile/search', {
-        params: queryParams,
-      })
-      
-      // Eliminar duplicados por ID (asegurar que cada perfil aparece solo una vez)
-      const uniqueProfiles = response.data.profiles.filter((profile: any, index: number, self: any[]) =>
-        index === self.findIndex(p => p.id === profile.id)
+      const response = await api.get('/profile/search', { params: queryParams })
+      const uniqueProfiles = response.data.profiles.filter(
+        (profile: any, index: number, self: any[]) =>
+          index === self.findIndex(p => p.id === profile.id)
       )
-      
       setProfiles(uniqueProfiles)
-    } catch (error: any) {
-      if (error.response?.data?.requiresPremium) {
-        setShowPremiumModal(true)
-      } else {
-        console.error('Error al cargar perfiles:', error)
-      }
+    } catch {
+      console.error('Error al cargar perfiles')
     } finally {
       setIsLoading(false)
     }
@@ -310,181 +78,74 @@ export default function NavigatePage() {
   useEffect(() => {
     loadProfiles()
     loadRoamStatus()
-    const interval = setInterval(loadRoamStatus, 30000) // Check every 30s
+    const interval = setInterval(loadRoamStatus, 30000)
     return () => clearInterval(interval)
-  }, [activeFilters, ageRange, distanceRange, selectedGender, relationshipGoalFilter, roleFilter])
+  }, [activeFilters])
 
   const loadRoamStatus = async () => {
     try {
       const response = await api.get('/roam/status')
       setRoamStatus(response.data)
-    } catch (error) {
-      console.error('Error loading roam status:', error)
-    }
-  }
-
-  const handleFilterChange = (filters: string[]) => {
-    setActiveFilters(filters)
-  }
-
-  const handlePremiumRequired = () => {
-    setShowPremiumModal(true)
-  }
-
-  const handleLocationChange = async (city: string, lat: number, lng: number) => {
-    // Si no es premium y la ciudad es diferente de la detectada, mostrar mensaje de 9Plus
-    if (!isPremium && detectedCity && city !== detectedCity) {
-      setShowPremiumModal(true)
-      showToast('Suscríbete a 9Plus para cambiar tu ubicación', 'info')
-      return
-    }
-
-    setCurrentCity(city)
-    // Actualizar ubicación en el backend SIN recargar perfiles
-    try {
-      await api.put('/profile', {
-        city,
-        latitude: lat,
-        longitude: lng,
-      })
-      
-      // Actualizar el estado del usuario para que persista
-      const { refreshUserData } = useAuthStore.getState()
-      await refreshUserData()
-      
-      // NO llamar a loadProfiles() para evitar que la card se mueva
-      // Los perfiles se recargarán automáticamente cuando el usuario navegue
-      
-      showToast(`Ubicación actualizada a ${city}`, 'success')
-    } catch (error) {
-      console.error('Error al actualizar ubicación:', error)
-      showToast('Error al actualizar ubicación', 'error')
+    } catch {
+      console.error('Error loading roam status')
     }
   }
 
   const handleShare = () => {
     const shareData = {
-      title: '9citas.com',
-      text: '¡Únete a 9citas! La mejor forma de conocer gente cerca de ti',
+      title: 'Caperucitas.com',
+      text: '¡Encuentra escorts cerca de ti en Caperucitas.com!',
       url: window.location.origin,
     }
-
     if (navigator.share) {
-      navigator.share(shareData).catch((err) => console.log('Error al compartir:', err))
+      navigator.share(shareData).catch(() => {})
     } else {
-      setShowShareModal(true)
+      navigator.clipboard.writeText(window.location.origin)
+      showToast('¡Enlace copiado!', 'success')
     }
   }
 
-  const handleLogout = async () => {
-    await logout()
-    navigate('/')
+  const handleProfileClick = (profileId: string, index: number) => {
+    sessionStorage.setItem('browseProfiles', JSON.stringify(profiles.map(p => p.id)))
+    sessionStorage.setItem('browseIndex', String(index))
+    navigate(`/profile/${profileId}`)
   }
-
-  const handleSwipeLeft = async () => {
-    // Incrementar contador de swipes
-    const newCount = swipeCount + 1
-    setSwipeCount(newCount)
-    
-    // Mostrar card promocional cada 10 swipes (solo usuarios free)
-    if (!isPremium && newCount % 10 === 0) {
-      setShowPromoCard(true)
-      return
-    }
-    
-    // Pasar al siguiente perfil
-    if (currentProfileIndex < profiles.length - 1) {
-      setCurrentProfileIndex(prev => prev + 1)
-    } else {
-      // Cargar más perfiles
-      await loadProfiles()
-      setCurrentProfileIndex(0)
-    }
-  }
-
-  const handleSwipeRight = async () => {
-    const currentProfile = profiles[currentProfileIndex]
-    
-    // Dar like
-    try {
-      await api.post(`/likes/${currentProfile.id}`)
-    } catch (error) {
-      console.error('Error al dar like:', error)
-    }
-    
-    // Siguiente perfil
-    handleSwipeLeft()
-  }
-
-  const handleClosePromoCard = () => {
-    setShowPromoCard(false)
-    
-    // Continuar con el siguiente perfil
-    if (currentProfileIndex < profiles.length - 1) {
-      setCurrentProfileIndex(prev => prev + 1)
-    } else {
-      loadProfiles()
-      setCurrentProfileIndex(0)
-    }
-  }
-
-  const currentProfile = profiles[currentProfileIndex]
 
   return (
-    <div className={`pb-4 ${viewMode === 'swipe' ? 'overflow-hidden h-screen touch-none' : 'overflow-y-auto h-auto'}`} style={{ pointerEvents: 'auto' }}>
-      {/* Ubicación + Botones especiales - SIEMPRE FIJO */}
-      <div 
-        className="bg-gray-900 fixed left-0 right-0 z-30 border-t border-gray-800" 
-        style={{ 
-          position: 'fixed', 
-          top: '56px', 
-          left: 0, 
-          right: 0, 
-          zIndex: 30,
-          transform: 'translateZ(0)',
-          willChange: 'transform',
-        }}
+    <div className="pb-4">
+      {/* Barra superior con ciudad y botones */}
+      <div
+        className="bg-gray-900 border-b border-gray-800"
+        style={{ position: 'fixed', top: '56px', left: 0, right: 0, zIndex: 30 }}
       >
-        {/* Fila 1: Ubicación y botones */}
         <div className="flex items-center justify-between px-3 py-2 gap-2">
-          {/* Selector de ubicación */}
-          <LocationSelector
-            currentCity={currentCity}
-            onLocationChange={handleLocationChange}
-          />
-          
-          {/* Botones especiales - Más pequeños en móvil */}
-          <div className="flex items-center gap-1.5">
-            {/* Botón Roam - cambia según estado */}
+          {/* Ciudad actual */}
+          <div className="flex items-center gap-1.5 text-gray-300 text-sm">
+            <MapPin className="w-4 h-4 text-red-400" />
+            <span className="font-medium">{currentCity}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Botón ROAM */}
             <button
               onClick={() => {
                 if (roamStatus?.isActive) {
                   setShowRoamStatusModal(true)
-                } else if (!isPremium) {
-                  setShowPremiumModal(true)
                 } else {
                   setShowRoamModal(true)
                 }
               }}
               className={`${
                 roamStatus?.isActive
-                  ? 'bg-gradient-to-r from-accent to-yellow-500 px-4 py-2 rounded-full'
-                  : 'w-10 h-10 bg-accent rounded-full'
-              } flex items-center justify-center gap-2 hover:scale-105 transition-transform border-2 border-yellow-300 shadow-lg flex-shrink-0 relative`}
-              title={roamStatus?.isActive ? 'Roam activado - Ver estado' : 'Activar Roam'}
+                  ? 'bg-gradient-to-r from-yellow-500 to-orange-500 px-4 py-1.5 rounded-full text-sm font-bold'
+                  : 'w-9 h-9 bg-yellow-500 rounded-full'
+              } flex items-center justify-center gap-1.5 hover:scale-105 transition-transform border-2 border-yellow-300 shadow-lg flex-shrink-0 relative`}
             >
-              <Zap className="w-5 h-5 text-gray-900" fill="currentColor" strokeWidth={0} />
+              <Zap className="w-4 h-4 text-gray-900" fill="currentColor" strokeWidth={0} />
               {roamStatus?.isActive && (
                 <>
-                  <span className="text-gray-900 font-bold text-sm whitespace-nowrap hidden sm:inline">
-                    Roam activado
-                  </span>
-                  <div className="absolute -top-1 -right-1">
-                    <div className="relative">
-                      <div className="w-3 h-3 bg-success rounded-full animate-ping absolute"></div>
-                      <div className="w-3 h-3 bg-success rounded-full"></div>
-                    </div>
-                  </div>
+                  <span className="text-gray-900 font-bold text-xs">ROAM activo</span>
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-ping absolute -top-0.5 -right-0.5"></span>
                 </>
               )}
             </button>
@@ -492,339 +153,134 @@ export default function NavigatePage() {
             {/* Botón Compartir */}
             <button
               onClick={handleShare}
-              className="w-9 h-9 sm:w-10 sm:h-10 bg-success rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg flex-shrink-0"
-              title="Compartir"
+              className="w-9 h-9 bg-gray-700 rounded-full flex items-center justify-center hover:bg-gray-600 transition-colors"
+              title="Compartir Caperucitas"
             >
-              <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-            </button>
-
-            {/* Toggle vista - Visible siempre */}
-            <button
-              onClick={() => setViewMode(viewMode === 'swipe' ? 'grid' : 'swipe')}
-              className="w-9 h-9 sm:w-10 sm:h-10 bg-gray-700 rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg flex-shrink-0"
-              title={viewMode === 'swipe' ? 'Vista cuadrícula' : 'Vista swipe'}
-            >
-              {viewMode === 'swipe' ? (
-                <LayoutGrid className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-              ) : (
-                <Layers className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-              )}
+              <Share2 className="w-4 h-4 text-white" />
             </button>
           </div>
         </div>
 
-        {/* Fila 2: Filtros */}
+        {/* Filtros */}
         <div className="px-2 pb-2 border-t border-gray-800 pt-2">
           <FilterBar
             activeFilters={activeFilters}
-            onFilterChange={handleFilterChange}
+            onFilterChange={setActiveFilters}
             isPremium={isPremium}
-            onPremiumRequired={handlePremiumRequired}
+            onPremiumRequired={() => {}}
             ageRange={ageRange}
             distanceRange={distanceRange}
-            onAgeRangeChange={(min, max) => {
-              setAgeRange({ min, max })
-            }}
-            onDistanceRangeChange={(min, max) => {
-              setDistanceRange({ min, max })
-            }}
-            userOrientation={userOrientation}
-            selectedGender={selectedGender}
-            onGenderChange={setSelectedGender}
-            relationshipGoalFilter={relationshipGoalFilter}
-            onRelationshipGoalChange={(goal) => {
-              setRelationshipGoalFilter(goal)
-            }}
-            roleFilter={roleFilter}
-            onRoleChange={(role) => {
-              setRoleFilter(role)
-            }}
+            onAgeRangeChange={() => {}}
+            onDistanceRangeChange={() => {}}
+            userOrientation="hetero"
+            selectedGender={null}
+            onGenderChange={() => {}}
+            relationshipGoalFilter=""
+            onRelationshipGoalChange={() => {}}
+            roleFilter=""
+            onRoleChange={() => {}}
           />
         </div>
       </div>
 
-      {/* Contenido - Con padding para que se vea debajo de filtros Y para que footer no tape */}
-      <div className={`max-w-7xl mx-auto px-4 pb-20 ${viewMode === 'swipe' ? 'pt-32' : 'pt-32'}`} style={{ minHeight: viewMode === 'swipe' ? 'calc(100vh - 120px)' : 'auto' }}>
+      {/* Grid de perfiles - 3 por fila */}
+      <div className="max-w-7xl mx-auto px-3 pt-32 pb-20">
         {isLoading ? (
           <LoadingSpinner />
         ) : profiles.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-400 text-lg">
-              No hay perfiles disponibles en este momento
-            </p>
-          </div>
-        ) : viewMode === 'swipe' ? (
-          // Vista Swipe tipo Tinder
-          <div className="relative max-w-md mx-auto h-[calc(100vh-280px)] overflow-hidden">
-            {showPromoCard ? (
-              // Card promocional de 9Plus
-              <PremiumPromoCard onClose={handleClosePromoCard} />
-            ) : currentProfile ? (
-              <>
-                <SwipeCard
-                  key={currentProfile.id}
-                  profile={currentProfile}
-                  onSwipeLeft={handleSwipeLeft}
-                  onSwipeRight={handleSwipeRight}
-                  onProfileClick={() => navigate(`/app/profile/${currentProfile.id}`)}
-                  isPremium={isPremium}
-                />
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <div className="text-6xl mb-4">🎉</div>
-                <h3 className="text-2xl font-bold text-white mb-2">
-                  ¡Has visto todos los perfiles!
-                </h3>
-                <p className="text-gray-400 mb-6">
-                  Cambia los filtros o vuelve más tarde para ver nuevos perfiles
-                </p>
-                <Button
-                  variant="primary"
-                  onClick={() => {
-                    setCurrentProfileIndex(0)
-                    loadProfiles()
-                  }}
-                >
-                  Recargar perfiles
-                </Button>
-              </div>
-            )}
+            <p className="text-gray-400">No hay perfiles disponibles</p>
           </div>
         ) : (
-          // Vista Grid (original)
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4" style={{ pointerEvents: 'auto' }}>
-            {profiles.map((profile) => (
-              <ProfileCard
+          <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-3">
+            {profiles.map((profile, index) => (
+              <div
                 key={profile.id}
-                profile={profile}
-                onLikeToggle={() => loadProfiles()}
-                isPremium={isPremium}
-              />
+                onClick={() => handleProfileClick(profile.id, index)}
+                className="cursor-pointer"
+              >
+                <ProfileCard
+                  profile={profile}
+                  isPremium={true}
+                />
+              </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Modal de Premium requerido */}
-      <Modal
-        isOpen={showPremiumModal}
-        onClose={() => setShowPremiumModal(false)}
-        title="9Plus Requerido"
-        maxWidth="sm"
-      >
-        <div className="text-center space-y-4">
-          <p className="text-gray-300">
-            Esta función está disponible solo para usuarios 9Plus
-          </p>
-          <Button
-            fullWidth
-            variant="accent"
-            onClick={() => {
-              setShowPremiumModal(false)
-              navigate('/app/plus')
-            }}
-          >
-            Ver planes 9Plus
-          </Button>
-          <button
-            onClick={() => setShowPremiumModal(false)}
-            className="text-gray-500 hover:text-gray-300 transition-colors"
-          >
-            Cerrar
-          </button>
-        </div>
-      </Modal>
-
-      {/* Modal de Cerrar sesión */}
-      <Modal
-        isOpen={showLogoutModal}
-        onClose={() => setShowLogoutModal(false)}
-        title="Cerrar sesión"
-        maxWidth="sm"
-      >
-        <div className="text-center space-y-4">
-          <p className="text-gray-300">
-            ¿Estás seguro de que quieres cerrar sesión?
-          </p>
-          <div className="flex gap-3">
-            <Button
-              fullWidth
-              variant="outline"
-              onClick={() => setShowLogoutModal(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              fullWidth
-              variant="danger"
-              onClick={handleLogout}
-            >
-              Salir
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Modal de Compartir */}
-      <Modal
-        isOpen={showShareModal}
-        onClose={() => setShowShareModal(false)}
-        title="Compartir 9citas"
-        maxWidth="sm"
-      >
-        <div className="space-y-3">
-          <p className="text-gray-300 text-center mb-4">
-            ¡Comparte 9citas con tus amigos!
-          </p>
-          <Button
-            fullWidth
-            onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent('¡Únete a 9citas! ' + window.location.origin)}`, '_blank')}
-          >
-            WhatsApp
-          </Button>
-          <Button
-            fullWidth
-            onClick={() => window.open(`https://telegram.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${encodeURIComponent('¡Únete a 9citas!')}`, '_blank')}
-          >
-            Telegram
-          </Button>
-          <Button
-            fullWidth
-            onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.origin)}`, '_blank')}
-          >
-            Facebook
-          </Button>
-          <Button
-            fullWidth
-            onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('¡Únete a 9citas!')}&url=${encodeURIComponent(window.location.origin)}`, '_blank')}
-          >
-            X (Twitter)
-          </Button>
-        </div>
-      </Modal>
-
-      {/* Modal de Roam */}
+      {/* Modal de ROAM */}
       <Modal
         isOpen={showRoamModal}
         onClose={() => setShowRoamModal(false)}
-        title="Función Roam ⚡"
+        title="Activar ROAM ⚡"
         maxWidth="md"
       >
         <div className="space-y-4">
           <p className="text-gray-300">
-            <strong className="text-accent">Aumenta tu visibilidad 10x</strong> y aparece en los primeros resultados para todos los usuarios.
+            <strong className="text-yellow-400">Aumenta tu visibilidad</strong> y aparece en los primeros resultados para más clientes.
           </p>
-          
-          <div className="bg-gradient-to-r from-accent/10 to-yellow-500/10 border border-accent/30 rounded-lg p-4">
-            <h4 className="text-white font-bold mb-3">Beneficios del Roam:</h4>
-            <ul className="space-y-2 text-gray-300">
-              <li className="flex items-center gap-2">
-                <span className="text-success">✓</span>
-                <span>10x más visualizaciones de perfil</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-success">✓</span>
-                <span>Apareces primero en los resultados</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-success">✓</span>
-                <span>Más likes y matches</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-success">✓</span>
-                <span>Resumen de métricas al finalizar</span>
-              </li>
+
+          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+            <h4 className="text-white font-bold mb-3">Beneficios de ROAM:</h4>
+            <ul className="space-y-2 text-gray-300 text-sm">
+              <li>✓ Tu anuncio aparece primero en los resultados</li>
+              <li>✓ Más clientes potenciales te ven</li>
+              <li>✓ Indicador especial ⚡ en tu perfil</li>
+              <li>✓ Radio de 8km en la sección ROAM</li>
             </ul>
           </div>
 
-          {/* Selector de duración */}
           <div className="space-y-3">
-            <h4 className="text-white font-semibold">Selecciona la duración:</h4>
-            <div className="grid grid-cols-1 gap-3">
-              {/* 1 hora */}
-              <button
-                onClick={() => {
-                  setRoamDuration(60)
-                  setRoamPrice(6.49)
-                }}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  roamDuration === 60
-                    ? 'border-accent bg-accent/10'
-                    : 'border-gray-700 bg-gray-800 hover:border-gray-600'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="text-left">
-                    <div className="text-white font-bold">1 hora</div>
-                    <div className="text-gray-400 text-sm">Boost de visibilidad</div>
-                  </div>
-                  <div className="text-accent font-bold text-xl">6,49€</div>
-                </div>
-              </button>
+            <h4 className="text-white font-semibold">Selecciona el plan:</h4>
 
-              {/* 2 horas */}
-              <button
-                onClick={() => {
-                  setRoamDuration(120)
-                  setRoamPrice(11.99)
-                }}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  roamDuration === 120
-                    ? 'border-accent bg-accent/10'
-                    : 'border-gray-700 bg-gray-800 hover:border-gray-600'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="text-left">
-                    <div className="text-white font-bold">2 horas</div>
-                    <div className="text-gray-400 text-sm">Más tiempo, mejor resultado</div>
-                  </div>
-                  <div className="text-accent font-bold text-xl">11,99€</div>
+            <button
+              onClick={() => { setRoamDuration(180); setRoamPrice(5) }}
+              className={`w-full p-4 rounded-lg border-2 transition-all ${
+                roamDuration === 180 ? 'border-yellow-500 bg-yellow-500/10' : 'border-gray-700 bg-gray-800 hover:border-gray-600'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-left">
+                  <div className="text-white font-bold">3 horas</div>
+                  <div className="text-gray-400 text-sm">Desde que lo actives</div>
                 </div>
-              </button>
+                <div className="text-yellow-400 font-bold text-xl">5€</div>
+              </div>
+            </button>
 
-              {/* 4 horas */}
-              <button
-                onClick={() => {
-                  setRoamDuration(240)
-                  setRoamPrice(19.99)
-                }}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  roamDuration === 240
-                    ? 'border-accent bg-accent/10'
-                    : 'border-gray-700 bg-gray-800 hover:border-gray-600'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="text-left">
-                    <div className="text-white font-bold">4 horas</div>
-                    <div className="text-gray-400 text-sm">Máxima visibilidad</div>
-                  </div>
-                  <div className="text-accent font-bold text-xl">19,99€</div>
+            <button
+              onClick={() => { setRoamDuration(960); setRoamPrice(35) }}
+              className={`w-full p-4 rounded-lg border-2 transition-all ${
+                roamDuration === 960 ? 'border-yellow-500 bg-yellow-500/10' : 'border-gray-700 bg-gray-800 hover:border-gray-600'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-left">
+                  <div className="text-white font-bold">4h/día durante 1 semana</div>
+                  <div className="text-gray-400 text-sm">Eliges las horas cada día</div>
                 </div>
-              </button>
-            </div>
+                <div className="text-yellow-400 font-bold text-xl">35€</div>
+              </div>
+            </button>
           </div>
 
           <Button
             fullWidth
             variant="accent"
-            onClick={() => {
-              setShowRoamModal(false)
-              setShowRoamPaymentModal(true)
-            }}
+            onClick={() => { setShowRoamModal(false); setShowRoamPaymentModal(true) }}
+            className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 border-0 font-bold"
           >
-            Activar Roam - {roamPrice.toFixed(2)}€
+            Activar ROAM - {roamPrice}€
           </Button>
         </div>
       </Modal>
 
-      {/* Modal de pago embebido de RoAM */}
+      {/* Modal pago ROAM */}
       <Modal
         isOpen={showRoamPaymentModal}
         onClose={() => setShowRoamPaymentModal(false)}
-        title={`Activar RoAM - ${roamDuration === 60 ? '1 hora' : roamDuration === 120 ? '2 horas' : '4 horas'}`}
+        title={`Activar ROAM - ${roamDuration === 180 ? '3 horas' : '1 semana'}`}
         maxWidth="md"
       >
         <RoamPaymentForm
@@ -832,77 +288,14 @@ export default function NavigatePage() {
           price={roamPrice}
           onSuccess={async () => {
             setShowRoamPaymentModal(false)
-            
-            // Esperar un momento para que el webhook procese la activación
-            // Hacer polling para verificar que RoAM está activo
-            let attempts = 0
-            const maxAttempts = 10
-            const checkInterval = 1000 // 1 segundo
-
-            const checkRoamStatus = async (): Promise<boolean> => {
-              try {
-                await loadRoamStatus()
-                // Verificar si RoAM está activo revisando el estado del perfil
-                const updatedUser = useAuthStore.getState().user
-                return updatedUser?.profile?.isRoaming || false
-              } catch (error) {
-                console.error('Error al verificar estado de RoAM:', error)
-                return false
-              }
-            }
-
-            // Esperar inicial y luego hacer polling
-            await new Promise(resolve => setTimeout(resolve, 2000))
-
-            while (attempts < maxAttempts) {
-              const isActive = await checkRoamStatus()
-              
-              if (isActive) {
-                // RoAM activado exitosamente
-                showToast(`¡RoAM activado exitosamente durante ${roamDuration === 60 ? '1 hora' : roamDuration === 120 ? '2 horas' : '4 horas'}!`, 'success')
-                return
-              }
-
-              attempts++
-              await new Promise(resolve => setTimeout(resolve, checkInterval))
-            }
-
-            // Si después de todos los intentos no se activó, mostrar mensaje
-            showToast('Pago procesado. RoAM se activará en breve', 'info')
+            showToast('¡ROAM activado!', 'success')
+            await loadRoamStatus()
           }}
           onCancel={() => setShowRoamPaymentModal(false)}
         />
       </Modal>
 
-      {/* Modal de éxito de Roam */}
-      <Modal
-        isOpen={showRoamSuccessModal}
-        onClose={() => setShowRoamSuccessModal(false)}
-        title=""
-        maxWidth="sm"
-      >
-        <div className="text-center py-6">
-          <div className="mb-4 inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-accent to-yellow-500 rounded-full">
-            <Zap className="w-10 h-10 text-gray-900" fill="currentColor" strokeWidth={0} />
-          </div>
-          <h3 className="text-2xl font-bold text-white mb-3">
-            ¡Roam Activado!
-          </h3>
-          <p className="text-gray-300 mb-4">
-            Tu perfil tendrá <strong className="text-accent">10x más visibilidad</strong> durante la próxima hora.
-          </p>
-          <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/30 rounded-lg p-4">
-            <p className="text-white font-semibold mb-2">🚀 Beneficios activos:</p>
-            <ul className="text-gray-300 text-sm space-y-1">
-              <li>✓ Apareces 10 veces más en búsquedas</li>
-              <li>✓ Prioridad en resultados</li>
-              <li>✓ Resumen de métricas al finalizar</li>
-            </ul>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Modal de estado de Roam (cuando está activo y hace click en el botón) */}
+      {/* Modal estado ROAM activo */}
       {roamStatus?.isActive && roamStatus?.roamingUntil && showRoamStatusModal && (
         <Modal
           isOpen={showRoamStatusModal}
@@ -919,4 +312,3 @@ export default function NavigatePage() {
     </div>
   )
 }
-

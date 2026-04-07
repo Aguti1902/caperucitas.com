@@ -5,6 +5,10 @@ import { authenticateToken, requireProfile } from '../middleware/auth.middleware
 
 const router = Router();
 
+// Rutas PÚBLICAS (sin autenticación)
+router.get('/public-search', profileController.publicSearchProfiles);
+router.get('/public/:id', profileController.getPublicProfileById);
+
 // Todas las rutas requieren autenticación
 router.use(authenticateToken);
 

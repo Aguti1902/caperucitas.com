@@ -69,10 +69,10 @@ export default function InstallPWA() {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-2xl">📱</span>
-              <h3 className="text-white font-bold text-lg">Instalar 9citas</h3>
+              <h3 className="text-white font-bold text-lg">Instalar Caperucitas</h3>
             </div>
             <p className="text-white/90 text-sm mb-3">
-              Añade 9citas a tu pantalla de inicio para una experiencia completa como app nativa
+              Añade Caperucitas a tu pantalla de inicio para una experiencia completa como app nativa
             </p>
             
             {/* Android Chrome - Botón automático */}

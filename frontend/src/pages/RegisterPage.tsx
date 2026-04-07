@@ -1,34 +1,52 @@
 import { useState, useRef } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import Logo from '@/components/common/Logo'
 import Input from '@/components/common/Input'
 import Button from '@/components/common/Button'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, CheckCircle } from 'lucide-react'
 import ReCAPTCHA from 'react-google-recaptcha'
 
-// Verificar si hay una clave de reCAPTCHA real configurada
 const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY
 const hasRealRecaptchaKey = recaptchaSiteKey && recaptchaSiteKey !== '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
 
+const GENDER_OPTIONS = [
+  { id: 'chica', label: '👩 Chica', desc: 'Escort femenina' },
+  { id: 'chico', label: '👨 Chico', desc: 'Escort masculino' },
+  { id: 'trans', label: '🏳️‍⚧️ Trans', desc: 'Escort trans' },
+  { id: 'casa', label: '🏠 Casa / Piso', desc: 'Anuncio de local o piso' },
+]
+
 export default function RegisterPage() {
-  const { orientation } = useParams<{ orientation: 'hetero' | 'gay' }>()
   const navigate = useNavigate()
   const { register } = useAuthStore()
   const recaptchaRef = useRef<ReCAPTCHA>(null)
 
+  const [step, setStep] = useState<1 | 2>(1)
+  const [selectedGender, setSelectedGender] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  const handleGenderSelect = (gender: string) => {
+    setSelectedGender(gender)
+    setStep(2)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    if (!selectedGender) {
+      setError('Debes seleccionar una categoría')
+      return
+    }
 
     if (password !== confirmPassword) {
       setError('Las contraseñas no coinciden')
@@ -40,42 +58,33 @@ export default function RegisterPage() {
       return
     }
 
-    // Solo requerir CAPTCHA si hay una clave real configurada
+    if (!acceptedTerms) {
+      setError('Debes aceptar los términos y condiciones')
+      return
+    }
+
     if (hasRealRecaptchaKey && !captchaToken) {
-      setError('Por favor, completa el CAPTCHA para verificar que no eres un robot')
+      setError('Por favor, completa el CAPTCHA')
       return
     }
 
     setIsLoading(true)
 
     try {
-      const result = await register(email, password, orientation!, captchaToken || undefined)
+      // Usamos la orientación como el género seleccionado para compatibilidad con el backend
+      const result = await register(email, password, selectedGender, captchaToken || undefined)
       
-      // Guardar orientación en localStorage para usarla al crear el perfil
-      localStorage.setItem('userOrientation', orientation!)
+      localStorage.setItem('userGender', selectedGender)
       
-      // Determinar género basado en orientación para hetero
-      // Hetero: el usuario elige si es hombre o mujer (por defecto hombre)
-      // Gay: tanto hombres como mujeres pueden ser gay
-      // Se guardará el género seleccionado más adelante
-      
-      // Si requiere verificación, redirigir a página de confirmación
       if (result.requiresVerification) {
         navigate('/email-sent', {
-          state: {
-            email: result.email,
-            orientation: result.orientation || orientation,
-          },
+          state: { email: result.email, orientation: selectedGender },
         })
       } else {
-        // Flujo legacy (sin verificación)
         navigate('/create-profile')
       }
     } catch (err: any) {
-      console.error('Error en registro:', err)
       setError(err.message || 'Error al registrar usuario')
-      
-      // Resetear captcha si hay error
       if (hasRealRecaptchaKey && recaptchaRef.current) {
         recaptchaRef.current.reset()
         setCaptchaToken(null)
@@ -86,157 +95,190 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-dark flex flex-col items-center justify-center p-4">
-      <div className="max-w-md w-full space-y-4 animate-fade-in">
+    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-4">
+      <div className="max-w-md w-full space-y-5 animate-fade-in">
         {/* Logo */}
         <div className="text-center">
-          <Logo size="md" className="mb-2" />
-          <h2 className="text-2xl font-bold text-white">
-            Registro como {orientation === 'hetero' ? 'Hetero' : 'Gay'}
-          </h2>
-        </div>
-
-        {/* Formulario */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="bg-red-500 bg-opacity-10 border border-red-500 text-red-500 px-4 py-3 rounded-lg">
-              {error}
-            </div>
-          )}
-
-          <Input
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            placeholder="tu@email.com"
-          />
-
-          {/* Campo de contraseña con icono para mostrar/ocultar */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Contraseña
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                placeholder="Mínimo 6 caracteres"
-                className="input-field pr-12"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
-                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              >
-                {showPassword ? (
-                  <EyeOff className="w-5 h-5" />
-                ) : (
-                  <Eye className="w-5 h-5" />
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Campo de confirmar contraseña con icono para mostrar/ocultar */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Confirmar contraseña
-            </label>
-            <div className="relative">
-              <input
-                type={showConfirmPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                placeholder="Repite tu contraseña"
-                className="input-field pr-12"
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
-                aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              >
-                {showConfirmPassword ? (
-                  <EyeOff className="w-5 h-5" />
-                ) : (
-                  <Eye className="w-5 h-5" />
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* CAPTCHA - Verificación anti-robots (solo si hay clave real configurada) */}
-          {hasRealRecaptchaKey && recaptchaSiteKey && (
-            <div className="flex justify-center">
-              <ReCAPTCHA
-                ref={recaptchaRef}
-                sitekey={recaptchaSiteKey}
-                onChange={(token) => {
-                  setCaptchaToken(token)
-                  setError('')
-                }}
-                onExpired={() => {
-                  setCaptchaToken(null)
-                }}
-                onErrored={() => {
-                  setCaptchaToken(null)
-                  setError('Error al cargar CAPTCHA. Recarga la página.')
-                }}
-                theme="dark"
-              />
-            </div>
-          )}
-
-          <div className="bg-gray-900 rounded-lg p-4 text-sm text-gray-400">
-            <p className="mb-2">
-              ℹ️ Al registrarte, se enviará un email de confirmación a tu correo.
-            </p>
-            <p>
-              Asegúrate de verificar tu cuenta para acceder a todas las funciones.
-            </p>
-          </div>
-
-          <Button
-            type="submit"
-            fullWidth
-            variant={orientation === 'hetero' ? 'primary' : 'secondary'}
-            isLoading={isLoading}
-            className="mt-6"
-          >
-            REGISTRAR COMO {orientation?.toUpperCase()}
-          </Button>
-        </form>
-
-        {/* Login */}
-        <div className="text-center text-gray-400">
-          <p>
-            ¿Ya tienes cuenta?{' '}
-            <Link
-              to={`/login/${orientation}`}
-              className="text-primary hover:underline font-semibold"
-            >
-              Inicia sesión
-            </Link>
+          <Logo size="md" className="mx-auto mb-3" />
+          <h2 className="text-2xl font-bold text-white">Publicar mi anuncio</h2>
+          <p className="text-gray-400 text-sm mt-1">
+            Gratis hasta el 1 de enero de 2027
           </p>
         </div>
 
-        {/* Volver */}
-        <div className="text-center">
-          <button
-            onClick={() => navigate('/')}
-            className="text-gray-500 hover:text-gray-300 transition-colors"
-          >
-            ← Volver
-          </button>
-        </div>
+        {/* Paso 1: Seleccionar categoría */}
+        {step === 1 && (
+          <div className="space-y-4">
+            <p className="text-gray-300 text-center font-medium">
+              ¿Qué tipo de anuncio quieres publicar?
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {GENDER_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => handleGenderSelect(opt.id)}
+                  className="bg-gray-900 hover:bg-gray-800 border-2 border-gray-700 hover:border-red-600 rounded-xl p-4 text-left transition-all group"
+                >
+                  <div className="text-2xl mb-2">{opt.label.split(' ')[0]}</div>
+                  <div className="text-white font-semibold text-sm">{opt.label.split(' ').slice(1).join(' ')}</div>
+                  <div className="text-gray-400 text-xs mt-1">{opt.desc}</div>
+                </button>
+              ))}
+            </div>
+
+            <div className="text-center">
+              <button
+                onClick={() => navigate('/')}
+                className="text-gray-500 hover:text-gray-300 transition-colors text-sm"
+              >
+                ← Volver
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Paso 2: Datos de cuenta */}
+        {step === 2 && (
+          <div className="space-y-4">
+            {/* Categoría seleccionada */}
+            <div className="bg-red-600/10 border border-red-600/30 rounded-xl p-3 flex items-center justify-between">
+              <div>
+                <span className="text-gray-400 text-xs">Categoría:</span>
+                <p className="text-white font-semibold">
+                  {GENDER_OPTIONS.find(o => o.id === selectedGender)?.label}
+                </p>
+              </div>
+              <button
+                onClick={() => setStep(1)}
+                className="text-gray-400 hover:text-white text-sm underline"
+              >
+                Cambiar
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="bg-red-500/10 border border-red-500 text-red-400 px-4 py-3 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+
+              <Input
+                label="Email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="tu@email.com"
+              />
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Contraseña
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    placeholder="Mínimo 6 caracteres"
+                    className="input-field pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Confirmar contraseña
+                </label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    placeholder="Repite tu contraseña"
+                    className="input-field pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Info sobre email */}
+              <div className="bg-gray-900 rounded-lg p-3 text-sm text-gray-400 flex items-start gap-2">
+                <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                <p>
+                  Se enviará un email de confirmación. Verifica tu cuenta para activar tu anuncio.
+                </p>
+              </div>
+
+              {/* CAPTCHA */}
+              {hasRealRecaptchaKey && recaptchaSiteKey && (
+                <div className="flex justify-center">
+                  <ReCAPTCHA
+                    ref={recaptchaRef}
+                    sitekey={recaptchaSiteKey}
+                    onChange={(token) => { setCaptchaToken(token); setError('') }}
+                    onExpired={() => setCaptchaToken(null)}
+                    onErrored={() => { setCaptchaToken(null); setError('Error al cargar CAPTCHA') }}
+                    theme="dark"
+                  />
+                </div>
+              )}
+
+              {/* Términos */}
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className="mt-1 w-4 h-4 accent-red-600"
+                />
+                <span className="text-gray-400 text-sm">
+                  Acepto los{' '}
+                  <a href="/app/info" target="_blank" className="text-red-400 hover:underline">
+                    Términos y Condiciones
+                  </a>{' '}
+                  y confirmo que tengo 18 años o más.
+                </span>
+              </label>
+
+              <Button
+                type="submit"
+                fullWidth
+                variant="primary"
+                isLoading={isLoading}
+                className="bg-red-600 hover:bg-red-700 border-0"
+              >
+                Crear mi anuncio gratis
+              </Button>
+            </form>
+
+            <div className="text-center text-gray-400 text-sm">
+              <p>
+                ¿Ya tienes cuenta?{' '}
+                <Link to="/login" className="text-red-400 hover:underline font-semibold">
+                  Iniciar sesión
+                </Link>
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
 }
-

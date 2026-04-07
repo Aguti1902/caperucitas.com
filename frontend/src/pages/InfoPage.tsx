@@ -1,5 +1,4 @@
 import Logo from '@/components/common/Logo'
-import Button from '@/components/common/Button'
 import { BookOpen, FileText, Shield, Cookie, Users } from 'lucide-react'
 import { useState } from 'react'
 import TermsAndConditions from '@/components/legal/TermsAndConditions'
@@ -12,16 +11,6 @@ type LegalTab = 'info' | 'terms' | 'privacy' | 'cookies' | 'community'
 export default function InfoPage() {
   const [activeTab, setActiveTab] = useState<LegalTab>('info')
 
-  const handleShowTutorial = () => {
-    // Eliminar la marca de que ya vio el tutorial
-    localStorage.removeItem('hasSeenOnboarding')
-    // Establecer flag para mostrar el tutorial
-    sessionStorage.setItem('showTutorial', 'true')
-    // Redirigir a la página principal para que se muestre el tutorial
-    // Usar window.location para forzar una recarga completa y asegurar que el flag se lea
-    window.location.href = '/app'
-  }
-
   const tabs = [
     { id: 'info' as LegalTab, label: 'Información', icon: BookOpen },
     { id: 'terms' as LegalTab, label: 'Términos', icon: FileText },
@@ -31,9 +20,9 @@ export default function InfoPage() {
   ]
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="text-center mb-8">
-        <Logo size="md" className="mb-4" />
+        <Logo size="md" className="mx-auto mb-4" />
       </div>
 
       {/* Tabs de navegación */}
@@ -44,223 +33,149 @@ export default function InfoPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-6 py-3 font-semibold transition-colors whitespace-nowrap rounded-t-lg ${
+              className={`flex items-center gap-2 px-4 py-2.5 font-semibold transition-colors whitespace-nowrap rounded-t-lg text-sm ${
                 activeTab === tab.id
-                  ? 'text-primary bg-gray-900 border-b-2 border-primary'
+                  ? 'text-red-400 bg-gray-900 border-b-2 border-red-500'
                   : 'text-gray-400 hover:text-white hover:bg-gray-800'
               }`}
             >
-              <Icon className="w-5 h-5" />
+              <Icon className="w-4 h-4" />
               {tab.label}
             </button>
           )
         })}
       </div>
 
-      {/* Contenido según tab activo */}
       {activeTab === 'info' && (
         <div className="space-y-8">
-        {/* Botón para ver tutorial */}
-        <div className="bg-gradient-to-r from-primary to-secondary rounded-xl p-6 text-center">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <BookOpen className="w-6 h-6 text-white" />
-            <h3 className="text-xl font-bold text-white">Tutorial interactivo</h3>
-          </div>
-          <p className="text-white mb-4">
-            ¿Necesitas ayuda? Vuelve a ver el tutorial paso a paso de cómo funciona 9citas
-          </p>
-          <Button
-            variant="accent"
-            onClick={handleShowTutorial}
-          >
-            Ver tutorial de nuevo
-          </Button>
-        </div>
-
-        {/* Cómo funciona */}
-        <section className="bg-gray-900 rounded-xl p-6">
-          <h2 className="text-2xl font-bold text-white mb-4">¿Cómo funciona 9citas?</h2>
-          <div className="text-gray-300 space-y-3">
-            <p>
-              <strong className="text-white">1. Registro gratuito:</strong> Crea tu cuenta en menos de un minuto indicando tu orientación (hetero o gay).
-            </p>
-            <p>
-              <strong className="text-white">2. Completa tu perfil:</strong> Añade tu información, fotos y preferencias.
-            </p>
-            <p>
-              <strong className="text-white">3. Explora perfiles:</strong> Con el plan gratuito puedes ver hasta 50 perfiles y chatear con cualquiera.
-            </p>
-            <p>
-              <strong className="text-white">4. Dale "Me gusta":</strong> Marca los perfiles que te interesan y empieza a chatear.
-            </p>
-            <p>
-              <strong className="text-white">5. Mejora con 9Plus:</strong> Obtén acceso ilimitado, filtros avanzados, ver quién te dio like y más funciones premium.
-            </p>
-          </div>
-        </section>
-
-        {/* Planes */}
-        <section className="bg-gray-900 rounded-xl p-6">
-          <h2 className="text-2xl font-bold text-white mb-4">Planes disponibles</h2>
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-xl font-semibold text-white mb-2">Plan Gratis</h3>
-              <ul className="text-gray-300 space-y-2 list-disc list-inside">
-                <li>Ver hasta 50 perfiles en tu ubicación actual</li>
-                <li>Chatear con cualquier usuario (sin restricciones)</li>
-                <li>Ver los últimos 5 "Me gusta" recibidos</li>
-                <li>Filtros básicos: TODOS, RECIENTES, NUEVOS</li>
-                {/* OCULTO TEMPORALMENTE PARA VERIFICACIÓN DE GOOGLE ADS */}
-                {false && <li>Solicitar y compartir fotos privadas</li>}
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="text-xl font-semibold text-accent mb-2">Plan 9Plus - 5 €/mes</h3>
-              <ul className="text-gray-300 space-y-2 list-disc list-inside">
-                <li>Perfiles ilimitados (sin límite de 50)</li>
-                <li>Filtros avanzados: distancia, edad, género, tipo de relación, ROL (gay)</li>
-                <li>Ver distancia exacta en km a cada usuario</li>
-                <li>Ver ciudad de todos los usuarios</li>
-                <li>Ver todos los "Me gusta" recibidos (sin límite)</li>
-                <li>Confirmación de lectura de mensajes (✓✓ leído)</li>
-                <li>Función RoAM: boost de visibilidad 10x (6,49€/hora)</li>
-                <li>Cambiar ubicación manualmente cuando quieras</li>
-                <li>Prioridad en resultados de búsqueda</li>
-              </ul>
-            </div>
-          </div>
-        </section>
-
-        {/* Reglas y normas */}
-        <section className="bg-gray-900 rounded-xl p-6">
-          <h2 className="text-2xl font-bold text-white mb-4">Reglas y normas de uso</h2>
-          <div className="text-gray-300 space-y-3">
-            <p className="text-red-400 font-semibold">
-              ⚠️ El incumplimiento de estas reglas puede resultar en la eliminación de tu perfil
-            </p>
-            
-            <div className="space-y-2">
+          {/* Cómo funciona */}
+          <section className="bg-gray-900 rounded-xl p-6">
+            <h2 className="text-2xl font-bold text-white mb-4">¿Cómo funciona Caperucitas.com?</h2>
+            <div className="text-gray-300 space-y-3">
               <p>
-                <strong className="text-white">1. Contenido apropiado:</strong> No se permiten fotos de desnudos mostrando pechos, genitales o glúteos en las fotos públicas.
+                <strong className="text-white">1. Sin registro:</strong> Cualquier persona puede ver todos los anuncios sin necesidad de crear una cuenta.
               </p>
               <p>
-                <strong className="text-white">2. Prostitución:</strong> Está prohibido pedir dinero a cambio de servicios sexuales.
+                <strong className="text-white">2. Registro de escorts:</strong> Solo las escorts necesitan registrarse para aparecer en los resultados de búsqueda.
               </p>
               <p>
-                <strong className="text-white">3. Respeto:</strong> Evita mensajes con insultos, xenofobia, racismo o cualquier tipo de discriminación.
+                <strong className="text-white">3. Anuncio completo:</strong> Añade fotos, descripción, servicios, teléfono y WhatsApp para que los clientes te encuentren fácilmente.
               </p>
               <p>
-                <strong className="text-white">4. Veracidad:</strong> No te registres en una categoría que no te corresponda (si eres hetero no te registres como gay y viceversa).
+                <strong className="text-white">4. Actualiza tu ubicación:</strong> La ubicación solo se actualiza cuando tú lo decides, pulsando "Actualizar ubicación".
               </p>
               <p>
-                <strong className="text-white">5. Edad:</strong> Debes tener al menos 18 años para usar esta plataforma.
-              </p>
-              <p>
-                <strong className="text-white">6. Autenticidad:</strong> Usa fotos reales tuyas. Los perfiles falsos o suplantación de identidad serán eliminados.
+                <strong className="text-white">5. Pausa cuando quieras:</strong> Puedes pausar y reactivar tu anuncio en cualquier momento desde tu perfil.
               </p>
             </div>
-          </div>
-        </section>
+          </section>
 
-        {/* Legal */}
-        <section className="bg-gray-900 rounded-xl p-6">
-          <h2 className="text-2xl font-bold text-white mb-4">Información legal</h2>
-          <div className="text-gray-300 space-y-2">
-            <button
-              onClick={() => setActiveTab('terms')}
-              className="block text-primary hover:underline text-left"
-            >
-              Términos y condiciones
-            </button>
-            <button
-              onClick={() => setActiveTab('privacy')}
-              className="block text-primary hover:underline text-left"
-            >
-              Política de privacidad
-            </button>
-            <button
-              onClick={() => setActiveTab('cookies')}
-              className="block text-primary hover:underline text-left"
-            >
-              Política de cookies
-            </button>
-            <button
-              onClick={() => setActiveTab('community')}
-              className="block text-primary hover:underline text-left"
-            >
-              Normas de la comunidad
-            </button>
-          </div>
-        </section>
+          {/* Planes y tarifas */}
+          <section className="bg-gray-900 rounded-xl p-6">
+            <h2 className="text-2xl font-bold text-white mb-4">Planes y tarifas</h2>
+            <div className="space-y-5">
+              <div className="bg-green-900/20 border border-green-700 rounded-xl p-4">
+                <h3 className="text-xl font-semibold text-green-400 mb-2">Anuncio Gratis</h3>
+                <p className="text-gray-300 text-sm mb-3">
+                  <strong className="text-white">Gratis hasta el 1 de enero de 2027</strong>
+                </p>
+                <ul className="text-gray-300 space-y-1.5 text-sm list-disc list-inside">
+                  <li>Perfil completo con fotos (1 portada + 6 adicionales)</li>
+                  <li>Teléfono y WhatsApp de contacto visibles</li>
+                  <li>Apareces en las búsquedas por ciudad y categoría</li>
+                  <li>Pausar y activar tu anuncio cuando quieras</li>
+                  <li>Actualizar tu ubicación manualmente</li>
+                </ul>
+              </div>
 
-        {/* Contacto */}
-        <section className="bg-gray-900 rounded-xl p-6">
-          <h2 className="text-2xl font-bold text-white mb-4">Contacto y soporte</h2>
-          <div className="text-gray-300 space-y-3">
-            <div>
-              <p className="font-semibold text-white mb-1">Soporte General</p>
-              <p>📧 soporte@9citas.com</p>
+              <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                <h3 className="text-xl font-semibold text-gray-300 mb-2">A partir del 1 de enero de 2027</h3>
+                <p className="text-yellow-400 font-bold text-lg mb-3">20€/mes</p>
+                <p className="text-gray-400 text-sm">
+                  Si al finalizar la suscripción no se ha renovado, el anuncio dejará de aparecer en los listados de búsqueda.
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="font-semibold text-white mb-1">Asuntos Legales</p>
-              <p>⚖️ legal@9citas.com</p>
-            </div>
-            <div>
-              <p className="font-semibold text-white mb-1">Privacidad y Datos</p>
-              <p>🔒 privacy@9citas.com</p>
-            </div>
-            <div>
-              <p className="font-semibold text-white mb-1">Seguridad y Reportes</p>
-              <p>🛡️ safety@9citas.com</p>
-            </div>
-            <div>
-              <p className="font-semibold text-white mb-1">Horario de Atención</p>
-              <p>🕐 Lunes a Viernes, 9:00 - 18:00h (CET)</p>
-            </div>
-          </div>
-        </section>
+          </section>
 
-        {/* Empresa */}
-        <section className="bg-gray-900 rounded-xl p-6">
-          <h2 className="text-2xl font-bold text-white mb-4">Información de la empresa</h2>
-          <div className="text-gray-300 space-y-2">
-            <p>
-              <strong className="text-white">Empresa:</strong> SMM4U LLC Social Media Marketing Four You
+          {/* ROAM */}
+          <section className="bg-gray-900 rounded-xl p-6">
+            <h2 className="text-2xl font-bold text-white mb-4">⚡ Función ROAM</h2>
+            <p className="text-gray-300 mb-4">
+              ROAM te permite destacar en los resultados y aparecer primero en un radio de 8km, consiguiendo más visibilidad y clientes.
             </p>
-            <p>
-              <strong className="text-white">Servicio:</strong> 9citas.com
+
+            <div className="space-y-3 mb-4">
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-white font-bold">3 horas</p>
+                  <p className="text-gray-400 text-sm">Desde que lo actives</p>
+                </div>
+                <span className="text-yellow-400 font-bold text-xl">5€</span>
+              </div>
+
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-white font-bold">4 horas/día durante 1 semana</p>
+                  <p className="text-gray-400 text-sm">Eliges las horas cada día</p>
+                </div>
+                <span className="text-yellow-400 font-bold text-xl">35€</span>
+              </div>
+            </div>
+
+            <p className="text-gray-400 text-sm">
+              ROAM está disponible desde tu panel de escort. Si no estás registrada, créate una cuenta gratuita primero.
             </p>
-            <p className="text-sm text-gray-400 mt-4">
-              © {new Date().getFullYear()} SMM4U LLC Social Media Marketing Four You. Todos los derechos reservados.
-            </p>
-          </div>
-        </section>
+          </section>
+
+          {/* Normas */}
+          <section className="bg-gray-900 rounded-xl p-6">
+            <h2 className="text-2xl font-bold text-white mb-4">Normas de uso</h2>
+            <div className="text-gray-300 space-y-2 text-sm">
+              <p className="text-red-400 font-semibold text-base">
+                ⚠️ El incumplimiento puede resultar en la eliminación del perfil
+              </p>
+              <p><strong className="text-white">1. Mayoría de edad:</strong> Debes tener al menos 18 años para publicar o usar Caperucitas.com.</p>
+              <p><strong className="text-white">2. Fotos reales:</strong> Usa fotos tuyas reales y actuales. Queda prohibida la suplantación de identidad.</p>
+              <p><strong className="text-white">3. Contenido apropiado:</strong> Las fotos de portada no pueden mostrar contenido explícito.</p>
+              <p><strong className="text-white">4. Categoría correcta:</strong> Regístrate en la categoría que te corresponde (Chica, Chico, Trans o Casa/Piso).</p>
+              <p><strong className="text-white">5. Respeto:</strong> Evita mensajes ofensivos, xenófobos o discriminatorios.</p>
+            </div>
+          </section>
+
+          {/* Contacto */}
+          <section className="bg-gray-900 rounded-xl p-6">
+            <h2 className="text-2xl font-bold text-white mb-4">Contacto</h2>
+            <div className="text-gray-300 space-y-2 text-sm">
+              <p>📧 soporte@caperucitas.com</p>
+              <p>⚖️ legal@caperucitas.com</p>
+              <p>🛡️ safety@caperucitas.com</p>
+              <p className="text-gray-500 mt-3 text-xs">
+                © {new Date().getFullYear()} Caperucitas.com — Todos los derechos reservados
+              </p>
+            </div>
+          </section>
         </div>
       )}
 
-      {/* Términos y Condiciones */}
       {activeTab === 'terms' && (
         <div className="bg-gray-900 rounded-xl p-8">
           <TermsAndConditions />
         </div>
       )}
 
-      {/* Política de Privacidad */}
       {activeTab === 'privacy' && (
         <div className="bg-gray-900 rounded-xl p-8">
           <PrivacyPolicy />
         </div>
       )}
 
-      {/* Política de Cookies */}
       {activeTab === 'cookies' && (
         <div className="bg-gray-900 rounded-xl p-8">
           <CookiePolicy />
         </div>
       )}
 
-      {/* Normas de la Comunidad */}
       {activeTab === 'community' && (
         <div className="bg-gray-900 rounded-xl p-8">
           <CommunityGuidelines />
@@ -269,4 +184,3 @@ export default function InfoPage() {
     </div>
   )
 }
-

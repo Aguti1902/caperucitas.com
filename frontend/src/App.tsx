@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import { useEffect } from 'react'
 import CookieBanner from './components/common/CookieBanner'
@@ -11,14 +11,9 @@ import CreateProfilePage from './pages/CreateProfilePage'
 import EditProfilePage from './pages/EditProfilePage'
 import DashboardLayout from './components/layout/DashboardLayout'
 import NavigatePage from './pages/NavigatePage'
-import ProfileDetailPage from './pages/ProfileDetailPage'
-import LikesPage from './pages/LikesPage'
-import FavoritesPage from './pages/FavoritesPage'
-import InboxPage from './pages/InboxPage'
-import ChatPage from './pages/ChatPage'
+import PublicProfileDetailPage from './pages/ProfileDetailPage'
 import PlusPage from './pages/PlusPage'
 import InfoPage from './pages/InfoPage'
-import PrivatePhotoRequestsPage from './pages/PrivatePhotoRequestsPage'
 import VerifyEmailPage from './pages/VerifyEmailPage'
 import EmailSentPage from './pages/EmailSentPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
@@ -30,99 +25,119 @@ import AdminUsersPage from './pages/AdminUsersPage'
 import AdminRoute from './components/admin/AdminRoute'
 
 function App() {
-  const { isAuthenticated, hasProfile, initAuth } = useAuthStore()
+  const { isAuthenticated, hasProfile, isLoading, initAuth, logout } = useAuthStore()
+  const navigate = useNavigate()
 
   useEffect(() => {
     initAuth()
-  }, [initAuth])
+  }, [])
+
+  // Escuchar evento de sesión expirada y hacer logout limpio sin reload
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      logout().then(() => navigate('/'))
+    }
+    window.addEventListener('auth:session-expired', handleSessionExpired)
+    return () => window.removeEventListener('auth:session-expired', handleSessionExpired)
+  }, [logout, navigate])
+
+  // Mostrar pantalla de carga mientras se verifica la sesión
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-gray-400 text-sm">Cargando...</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>
       <CookieBanner />
       <Routes>
-        {/* Rutas públicas */}
-        <Route path="/" element={isAuthenticated ? <Navigate to="/app" /> : <IndexPage />} />
-        <Route path="/login/:orientation" element={<LoginPage />} />
-        <Route path="/register/:orientation" element={<RegisterPage />} />
+        {/* Rutas públicas - accesibles sin login */}
+        <Route path="/" element={<IndexPage />} />
+        <Route path="/profile/:id" element={<PublicProfileDetailPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
         <Route path="/email-sent" element={<EmailSentPage />} />
         <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
 
-      {/* Ruta de crear perfil */}
-      <Route
-        path="/create-profile"
-        element={
-          isAuthenticated && !hasProfile ? (
-            <CreateProfilePage />
-          ) : isAuthenticated ? (
-            <Navigate to="/app" />
-          ) : (
-            <Navigate to="/" />
-          )
-        }
-      />
+        {/* Rutas legacy con orientación - redirigir */}
+        <Route path="/login/:orientation" element={<LoginPage />} />
+        <Route path="/register/:orientation" element={<RegisterPage />} />
 
-      {/* Rutas protegidas (requieren autenticación y perfil) */}
-      <Route
-        path="/app"
-        element={
-          isAuthenticated && hasProfile ? (
-            <DashboardLayout />
-          ) : isAuthenticated ? (
-            <Navigate to="/create-profile" />
-          ) : (
-            <Navigate to="/" />
-          )
-        }
-      >
-        <Route index element={<NavigatePage />} />
-        <Route path="profile/:id" element={<ProfileDetailPage />} />
-        <Route path="likes" element={<LikesPage />} />
-        <Route path="favorites" element={<FavoritesPage />} />
-        <Route path="inbox" element={<InboxPage />} />
-        <Route path="chat/:profileId" element={<ChatPage />} />
-        <Route path="plus" element={<PlusPage />} />
-        <Route path="info" element={<InfoPage />} />
-        <Route path="edit-profile" element={<EditProfilePage />} />
-        <Route path="private-photo-requests" element={<PrivatePhotoRequestsPage />} />
-      </Route>
+        {/* Ruta de crear perfil */}
+        <Route
+          path="/create-profile"
+          element={
+            isAuthenticated && !hasProfile ? (
+              <CreateProfilePage />
+            ) : isAuthenticated ? (
+              <Navigate to="/app" />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
 
-      {/* Rutas de admin */}
-      <Route path="/admin/login" element={<AdminLoginPage />} />
-      <Route
-        path="/admin/dashboard"
-        element={
-          <AdminRoute>
-            <AdminDashboardPage />
-          </AdminRoute>
-        }
-      />
-      <Route
-        path="/admin/reports"
-        element={
-          <AdminRoute>
-            <AdminReportsPage />
-          </AdminRoute>
-        }
-      />
-      <Route
-        path="/admin/users"
-        element={
-          <AdminRoute>
-            <AdminUsersPage />
-          </AdminRoute>
-        }
-      />
-      {/* Ruta de admin legacy */}
-      <Route path="/admin" element={<Navigate to="/admin/login" />} />
+        {/* Rutas protegidas para escorts (requieren autenticación y perfil) */}
+        <Route
+          path="/app"
+          element={
+            isAuthenticated && hasProfile ? (
+              <DashboardLayout />
+            ) : isAuthenticated ? (
+              <Navigate to="/create-profile" />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        >
+          <Route index element={<NavigatePage />} />
+          <Route path="profile/:id" element={<PublicProfileDetailPage />} />
+          <Route path="plus" element={<PlusPage />} />
+          <Route path="info" element={<InfoPage />} />
+          <Route path="edit-profile" element={<EditProfilePage />} />
+        </Route>
 
-      {/* Redirección por defecto */}
-      <Route path="*" element={<Navigate to="/" />} />
+        {/* Rutas de admin */}
+        <Route path="/admin/login" element={<AdminLoginPage />} />
+        <Route
+          path="/admin/dashboard"
+          element={
+            <AdminRoute>
+              <AdminDashboardPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/reports"
+          element={
+            <AdminRoute>
+              <AdminReportsPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <AdminRoute>
+              <AdminUsersPage />
+            </AdminRoute>
+          }
+        />
+        <Route path="/admin" element={<Navigate to="/admin/login" />} />
+
+        {/* Redirección por defecto */}
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </>
   )
 }
 
 export default App
-

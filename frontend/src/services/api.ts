@@ -47,10 +47,10 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${accessToken}`
         return api(originalRequest)
       } catch (refreshError) {
-        // Si falla el refresh, cerrar sesión
+        // Limpiar tokens y notificar via evento, sin hacer reload de página
         localStorage.removeItem('accessToken')
         localStorage.removeItem('refreshToken')
-        window.location.href = '/'
+        window.dispatchEvent(new CustomEvent('auth:session-expired'))
         return Promise.reject(refreshError)
       }
     }

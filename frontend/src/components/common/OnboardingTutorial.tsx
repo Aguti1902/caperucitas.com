@@ -9,7 +9,7 @@ interface OnboardingTutorialProps {
 const tutorialSteps = [
   {
     id: 1,
-    title: 'Bienvenido a 9citas',
+    title: 'Bienvenido a Caperucitas',
     description: 'Te vamos a enseñar cómo funciona la app en unos pocos pasos. Es muy fácil y podrás empezar a conectar con personas cerca de ti.',
     icon: null,
     iconComponent: Heart,

@@ -93,6 +93,13 @@ model Profile {
   isOnline        Boolean   @default(false)
   lastSeenAt      DateTime  @default(now())
   
+  // Contacto
+  phone           String?   // Número de teléfono
+  whatsapp        String?   // Número de WhatsApp
+  
+  // Estado de visibilidad
+  isPaused        Boolean   @default(false) // Perfil pausado temporalmente
+  
   // Roam
   isRoaming       Boolean   @default(false)
   roamingUntil    DateTime?

@@ -4,25 +4,25 @@ import { Globe, X, Instagram, Youtube, Music } from 'lucide-react'
 const socialLinks = [
   {
     name: 'Twitter/X',
-    url: 'https://x.com/9citas_com',
+    url: 'https://x.com/Caperucitas_com',
     icon: X,
     color: 'text-white hover:text-gray-300',
   },
   {
     name: 'Instagram',
-    url: 'https://www.instagram.com/9citas_com/',
+    url: 'https://www.instagram.com/Caperucitas_com/',
     icon: Instagram,
     color: 'text-white hover:text-pink-400',
   },
   {
     name: 'YouTube',
-    url: 'https://www.youtube.com/@9citas',
+    url: 'https://www.youtube.com/@Caperucitas',
     icon: Youtube,
     color: 'text-white hover:text-red-500',
   },
   {
     name: 'TikTok',
-    url: 'https://www.tiktok.com/@9citas.com',
+    url: 'https://www.tiktok.com/@caperucitas.com',
     icon: Music,
     color: 'text-white hover:text-cyan-400',
   },

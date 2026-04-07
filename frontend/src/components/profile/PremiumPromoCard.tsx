@@ -39,7 +39,7 @@ export default function PremiumPromoCard({ onClose }: PremiumPromoCardProps) {
           </h2>
           
           <p className="text-gray-800 text-center font-semibold text-base">
-            Desbloquea todo el potencial de 9citas
+            Desbloquea todo el potencial de Caperucitas
           </p>
         </div>
 

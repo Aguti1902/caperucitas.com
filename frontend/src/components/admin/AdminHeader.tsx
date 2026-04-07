@@ -19,7 +19,7 @@ export default function AdminHeader() {
             <div className="flex items-center">
               <img 
                 src="/logo4.png" 
-                alt="9citas.com" 
+                alt="caperucitas.com" 
                 className="h-14 w-auto object-contain"
               />
             </div>

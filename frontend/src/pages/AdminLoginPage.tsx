@@ -32,7 +32,7 @@ export default function AdminLoginPage() {
           <div className="flex justify-center mb-6">
             <img 
               src="/logo4.png" 
-              alt="9citas.com" 
+              alt="caperucitas.com" 
               className="h-24 w-auto object-contain"
             />
           </div>
