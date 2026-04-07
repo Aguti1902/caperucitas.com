@@ -59,100 +59,22 @@ export const register = async (req: Request, res: Response) => {
     });
 
     if (existingUser) {
-      // Si el usuario existe pero NO ha verificado su email, reenviar el email de verificación
-      if (!existingUser.emailVerified) {
-        // Eliminar tokens antiguos
-        await prisma.emailVerificationToken.deleteMany({
-          where: { userId: existingUser.id },
-        });
-
-        // Crear nuevo token
-        const verificationToken = generateVerificationToken();
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + 24);
-
-        await prisma.emailVerificationToken.create({
-          data: {
-            userId: existingUser.id,
-            token: verificationToken,
-            expiresAt,
-          },
-        });
-
-        // Reenviar email de forma SÍNCRONA para capturar errores
-        try {
-          await sendVerificationEmail(existingUser.email, verificationToken);
-          console.log(`✅ Email de verificación reenviado a: ${existingUser.email}`);
-        } catch (error: any) {
-          console.error('\n❌ ========================================');
-          console.error('❌ ERROR CRÍTICO AL REENVIAR EMAIL');
-          console.error('❌ ========================================');
-          console.error('Email:', existingUser.email);
-          console.error('Error:', error.message);
-          console.error('Stack:', error.stack);
-          console.error('❌ ========================================\n');
-          // No bloquear el flujo si falla el email
-        }
-
-        return res.status(200).json({
-          message: 'Este email ya está registrado pero no verificado. Te hemos reenviado el email de confirmación.',
-          email: existingUser.email,
-          orientation,
-          requiresVerification: true,
-          isResend: true,
-        });
-      }
-
-      // Si ya está verificado, mostrar error
       return res.status(400).json({ error: 'Este email ya está registrado' });
     }
 
     // Hash de la contraseña
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const hasEmailService = !!process.env.RESEND_API_KEY;
-
-    // Si no hay servicio de email, verificar directamente para no bloquear el registro
+    // Crear usuario con email ya verificado (sin verificación por email)
     const user = await prisma.user.create({
       data: {
         email: email.toLowerCase(),
         passwordHash,
-        emailVerified: !hasEmailService, // Si no hay email service, verificar automáticamente
+        emailVerified: true,
       },
     });
 
-    // Intentar enviar email de verificación si RESEND está configurado
-    if (hasEmailService) {
-      try {
-        const verificationToken = generateVerificationToken();
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + 24);
-
-        await prisma.emailVerificationToken.create({
-          data: { userId: user.id, token: verificationToken, expiresAt },
-        });
-
-        await sendVerificationEmail(user.email, verificationToken);
-        console.log(`✅ Email de verificación enviado a: ${user.email}`);
-
-        return res.status(201).json({
-          message: 'Usuario registrado. Por favor verifica tu email para continuar.',
-          email: user.email,
-          orientation,
-          requiresVerification: true,
-        });
-      } catch (emailError: any) {
-        // Si falla el email, registrar sin verificación para no bloquear al usuario
-        console.error('⚠️ Email flow falló, registrando sin verificación:', emailError.message);
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { emailVerified: true },
-        });
-      }
-    }
-
-    // Sin servicio de email o email fallido: generar tokens y dejar entrar directamente
-    console.log(`✅ Usuario registrado (acceso directo): ${user.email}`);
+    console.log(`✅ Usuario registrado: ${user.email}`);
 
     const accessToken = generateAccessToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
