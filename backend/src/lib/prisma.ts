@@ -1,12 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 
-// Asegurar SSL en la URL antes de instanciar PrismaClient
-function getDatabaseUrl(): string {
-  const url = process.env.DATABASE_URL || '';
-  if (url && !url.includes('sslmode')) {
-    return url + '?sslmode=require';
-  }
-  return url;
+function ensureSsl(url: string | undefined): string {
+  if (!url) return '';
+  if (url.includes('sslmode')) return url;
+  return url + (url.includes('?') ? '&sslmode=require' : '?sslmode=require');
 }
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
@@ -15,9 +12,7 @@ export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     datasources: {
-      db: {
-        url: getDatabaseUrl(),
-      },
+      db: { url: ensureSsl(process.env.DATABASE_URL) },
     },
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   });
