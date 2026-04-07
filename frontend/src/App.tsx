@@ -23,6 +23,8 @@ import AdminDashboardPage from './pages/AdminDashboardPage'
 import AdminReportsPage from './pages/AdminReportsPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import AdminRoute from './components/admin/AdminRoute'
+import PublicRoamPage from './pages/PublicRoamPage'
+import PublicInfoPage from './pages/PublicInfoPage'
 
 function App() {
   const { isAuthenticated, hasProfile, isLoading, initAuth, logout } = useAuthStore()
@@ -66,6 +68,10 @@ function App() {
         <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+
+        {/* Páginas públicas informativas */}
+        <Route path="/roam" element={<PublicRoamPage />} />
+        <Route path="/info" element={<PublicInfoPage />} />
 
         {/* Rutas legacy con orientación - redirigir */}
         <Route path="/login/:orientation" element={<LoginPage />} />

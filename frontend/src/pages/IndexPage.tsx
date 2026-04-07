@@ -4,8 +4,15 @@ import Logo from '@/components/common/Logo'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 import { api } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
-import { MapPin, Search, Phone, MessageCircle, Zap, Clock } from 'lucide-react'
+import { MapPin, Search, Phone, MessageCircle, Zap, Clock, Share2, Info, Home } from 'lucide-react'
 import { formatLastSeen } from '@/utils/timeUtils'
+
+const GENDER_LABELS: Record<string, { label: string; color: string }> = {
+  chica: { label: 'Chica', color: 'bg-pink-600' },
+  chico: { label: 'Chico', color: 'bg-blue-600' },
+  trans: { label: 'Trans', color: 'bg-purple-600' },
+  casa: { label: 'Casa/Piso', color: 'bg-gray-600' },
+}
 
 const GENDER_FILTERS = [
   { id: 'all', label: 'Todas' },
@@ -165,22 +172,72 @@ export default function IndexPage() {
 
       {/* Footer */}
       <footer className="bg-gray-900 border-t border-gray-800 py-8 px-4 mt-8">
-        <div className="max-w-7xl mx-auto text-center space-y-3">
-          <Logo size="sm" className="mx-auto" />
-          <p className="text-gray-400 text-sm">
-            Directorio de escorts adultos. Solo mayores de 18 años.
-          </p>
-          <div className="flex justify-center gap-4 text-xs text-gray-500">
-            <button onClick={() => navigate('/login')} className="hover:text-gray-300">
-              Acceso escorts
+        <div className="max-w-7xl mx-auto space-y-6">
+
+          {/* Botones principales del footer */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="flex flex-col items-center gap-2 bg-gray-800 hover:bg-gray-700 rounded-xl p-4 transition-colors"
+            >
+              <Home className="w-6 h-6 text-red-400" />
+              <span className="text-white text-sm font-semibold">Navegar</span>
             </button>
-            <button onClick={() => navigate('/register')} className="hover:text-gray-300">
-              Publicar anuncio
+
+            <button
+              onClick={() => navigate('/roam')}
+              className="flex flex-col items-center gap-2 bg-gray-800 hover:bg-gray-700 rounded-xl p-4 transition-colors"
+            >
+              <Zap className="w-6 h-6 text-yellow-400" fill="currentColor" strokeWidth={0} />
+              <span className="text-white text-sm font-semibold">ROAM</span>
+            </button>
+
+            <button
+              onClick={() => {
+                const shareData = { title: 'Caperucitas.com', text: 'Directorio de escorts en España', url: window.location.origin }
+                if (navigator.share) navigator.share(shareData).catch(() => {})
+                else { navigator.clipboard.writeText(window.location.origin); alert('¡Enlace copiado!') }
+              }}
+              className="flex flex-col items-center gap-2 bg-gray-800 hover:bg-gray-700 rounded-xl p-4 transition-colors"
+            >
+              <Share2 className="w-6 h-6 text-blue-400" />
+              <span className="text-white text-sm font-semibold">Compartir</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/info')}
+              className="flex flex-col items-center gap-2 bg-gray-800 hover:bg-gray-700 rounded-xl p-4 transition-colors"
+            >
+              <Info className="w-6 h-6 text-gray-400" />
+              <span className="text-white text-sm font-semibold">Info</span>
             </button>
           </div>
-          <p className="text-xs text-gray-600">
-            © {new Date().getFullYear()} Caperucitas.com — Todos los derechos reservados
-          </p>
+
+          {/* Redes sociales */}
+          <div className="flex justify-center gap-4">
+            <a href="https://twitter.com/caperucitascom" target="_blank" rel="noopener noreferrer"
+              className="text-gray-500 hover:text-white transition-colors text-sm">Twitter / X</a>
+            <a href="https://instagram.com/caperucitascom" target="_blank" rel="noopener noreferrer"
+              className="text-gray-500 hover:text-white transition-colors text-sm">Instagram</a>
+            <a href="https://t.me/caperucitascom" target="_blank" rel="noopener noreferrer"
+              className="text-gray-500 hover:text-white transition-colors text-sm">Telegram</a>
+          </div>
+
+          {/* Links legales */}
+          <div className="text-center space-y-2">
+            <Logo size="sm" className="mx-auto" />
+            <p className="text-gray-500 text-xs">
+              Directorio de escorts para adultos. Solo mayores de 18 años.
+            </p>
+            <div className="flex justify-center flex-wrap gap-3 text-xs text-gray-600">
+              <button onClick={() => navigate('/login')} className="hover:text-gray-400">Acceso escorts</button>
+              <button onClick={() => navigate('/register')} className="hover:text-gray-400">Publicar anuncio</button>
+              <button onClick={() => navigate('/info')} className="hover:text-gray-400">Aviso legal</button>
+            </div>
+            <p className="text-xs text-gray-700">
+              © {new Date().getFullYear()} Caperucitas.com — Todos los derechos reservados
+            </p>
+          </div>
         </div>
       </footer>
     </div>
@@ -210,6 +267,13 @@ function ProfileCard({ profile, onClick }: { profile: any; onClick: () => void }
           </div>
         )}
 
+        {/* Badge género */}
+        {profile.gender && GENDER_LABELS[profile.gender] && (
+          <div className={`absolute top-2 left-2 ${GENDER_LABELS[profile.gender].color} rounded-full px-2 py-0.5 shadow-lg`}>
+            <span className="text-white text-[10px] font-bold">{GENDER_LABELS[profile.gender].label}</span>
+          </div>
+        )}
+
         {/* ROAM badge */}
         {profile.isRoaming && (
           <div className="absolute top-2 right-2 bg-yellow-500 rounded-full p-1 shadow-lg">
@@ -218,11 +282,14 @@ function ProfileCard({ profile, onClick }: { profile: any; onClick: () => void }
         )}
 
         {/* Online badge */}
-        {profile.isOnline && (
+        {profile.isOnline && !profile.gender && (
           <div className="absolute top-2 left-2 flex items-center bg-green-500/90 rounded-full px-1.5 py-0.5">
             <span className="w-1.5 h-1.5 bg-white rounded-full mr-1 animate-pulse"></span>
             <span className="text-white text-[10px] font-bold">Online</span>
           </div>
+        )}
+        {profile.isOnline && profile.gender && (
+          <div className="absolute bottom-2 right-2 w-2 h-2 bg-green-500 rounded-full border border-gray-900 shadow-lg" />
         )}
 
         {/* Overlay con info */}
