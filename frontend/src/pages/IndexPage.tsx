@@ -143,7 +143,7 @@ export default function IndexPage() {
         <img
           src="/logo-caperucitas.jpeg"
           alt="Caperucitas.com"
-          className="w-full max-h-48 object-cover object-center"
+          className="w-full object-contain"
         />
       </div>
 
