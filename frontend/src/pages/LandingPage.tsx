@@ -4,7 +4,7 @@ import { ArrowRight } from 'lucide-react'
 export default function LandingPage() {
   const navigate = useNavigate()
 
-  const handleEnter = () => navigate('/perfiles')
+  const handleEnter = () => navigate('/register')
   const handleNotAdult = () => { window.location.href = 'https://www.google.com' }
 
   return (
