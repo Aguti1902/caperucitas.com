@@ -14,6 +14,8 @@ const GENDER_OPTIONS = [
   { id: 'chico', label: '👨 Chico', color: 'bg-blue-500' },
   { id: 'trans', label: '🏳️‍⚧️ Trans', color: 'bg-purple-500' },
   { id: 'casa', label: '🏠 Casa / Piso', color: 'bg-orange-500' },
+  { id: 'gay', label: '🌈 Gay', color: 'bg-green-500' },
+  { id: 'masajes', label: '💆 Masajes', color: 'bg-teal-500' },
 ]
 
 export default function CreateProfilePage() {
@@ -200,10 +202,22 @@ export default function CreateProfilePage() {
       <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
         <div className="text-center">
           <Logo size="md" className="mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white">Completa tu anuncio</h2>
+          <h2 className="text-2xl font-bold text-white">Completa tu perfil</h2>
           <p className="text-gray-400 mt-2 text-sm">
             Cuéntanos sobre ti para aparecer en los resultados
           </p>
+        </div>
+
+        {/* Video explicativo */}
+        <div className="relative w-full rounded-xl overflow-hidden shadow-xl" style={{ paddingTop: '56.25%' }}>
+          <iframe
+            className="absolute inset-0 w-full h-full"
+            src="https://www.youtube.com/embed/n0k2VE4UNaI"
+            title="Cómo completar tu perfil"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -323,7 +337,7 @@ export default function CreateProfilePage() {
           {/* FOTOS PÚBLICAS */}
           <div className="bg-gray-800 rounded-xl p-4">
             <label className="block text-sm font-medium text-white mb-3">
-              📸 Fotos (1 portada + hasta 6 adicionales)
+              📸 Fotos (hasta 7 fotos)
             </label>
             <div className="mb-3">
               <input
@@ -365,7 +379,7 @@ export default function CreateProfilePage() {
               </div>
             )}
             <p className="text-xs text-gray-400 mt-2">
-              • 1ª foto: Portada (se muestra en listados) · Fotos 2-7: Adicionales en tu perfil
+              • La primera foto que subas aparecerá en los listados · Puedes subir hasta 7 fotos
             </p>
           </div>
 
@@ -467,7 +481,7 @@ export default function CreateProfilePage() {
             isLoading={isLoading}
             className="bg-red-600 hover:bg-red-700 border-0 py-4 text-lg"
           >
-            Publicar mi anuncio
+            Publicar perfil
           </Button>
         </form>
       </div>

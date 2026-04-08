@@ -14,7 +14,7 @@ router.post(
       .isLength({ min: 6 })
       .withMessage('La contraseña debe tener al menos 6 caracteres'),
     body('orientation')
-      .isIn(['hetero', 'gay', 'chica', 'chico', 'trans', 'casa'])
+      .isIn(['chica', 'chico', 'trans', 'casa', 'gay', 'masajes', 'hetero'])
       .withMessage('Categoría inválida'),
   ],
   authController.register

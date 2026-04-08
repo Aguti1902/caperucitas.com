@@ -14,7 +14,9 @@ const GENDER_OPTIONS = [
   { id: 'chica', label: '👩 Chica', desc: 'Escort femenina' },
   { id: 'chico', label: '👨 Chico', desc: 'Escort masculino' },
   { id: 'trans', label: '🏳️‍⚧️ Trans', desc: 'Escort trans' },
-  { id: 'casa', label: '🏠 Casa / Piso', desc: 'Anuncio de local o piso' },
+  { id: 'casa', label: '🏠 Casa / Piso', desc: 'Perfil de local o piso' },
+  { id: 'gay', label: '🌈 Gay', desc: 'Escort gay' },
+  { id: 'masajes', label: '💆 Masajes', desc: 'Servicios de masajes' },
 ]
 
 export default function RegisterPage() {
@@ -100,17 +102,27 @@ export default function RegisterPage() {
         {/* Logo */}
         <div className="text-center">
           <Logo size="md" className="mx-auto mb-3" />
-          <h2 className="text-2xl font-bold text-white">Publicar mi anuncio</h2>
+          <h2 className="text-2xl font-bold text-white">Publicar mi perfil</h2>
           <p className="text-gray-400 text-sm mt-1">
             Gratis hasta el 1 de enero de 2027
           </p>
+        </div>
+
+        {/* Videos explicativos */}
+        <div className="space-y-3">
+          <div className="relative w-full rounded-xl overflow-hidden" style={{ paddingTop: '56.25%' }}>
+            <iframe className="absolute inset-0 w-full h-full" src="https://www.youtube.com/embed/1uSOwbfVdtA" title="Cómo registrarte" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+          </div>
+          <div className="relative w-full rounded-xl overflow-hidden" style={{ paddingTop: '56.25%' }}>
+            <iframe className="absolute inset-0 w-full h-full" src="https://www.youtube.com/embed/vUVizeSgAkg" title="Funciones" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+          </div>
         </div>
 
         {/* Paso 1: Seleccionar categoría */}
         {step === 1 && (
           <div className="space-y-4">
             <p className="text-gray-300 text-center font-medium">
-              ¿Qué tipo de anuncio quieres publicar?
+              ¿Qué tipo de perfil quieres publicar?
             </p>
             <div className="grid grid-cols-2 gap-3">
               {GENDER_OPTIONS.map((opt) => (
@@ -222,7 +234,7 @@ export default function RegisterPage() {
               <div className="bg-gray-900 rounded-lg p-3 text-sm text-gray-400 flex items-start gap-2">
                 <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
                 <p>
-                  Se enviará un email de confirmación. Verifica tu cuenta para activar tu anuncio.
+                  Se enviará un email de confirmación. Verifica tu cuenta para activar tu perfil.
                 </p>
               </div>
 
@@ -264,7 +276,7 @@ export default function RegisterPage() {
                 isLoading={isLoading}
                 className="bg-red-600 hover:bg-red-700 border-0"
               >
-                Crear mi anuncio gratis
+                Crear mi perfil
               </Button>
             </form>
 

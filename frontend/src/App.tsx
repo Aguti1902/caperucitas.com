@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import CookieBanner from './components/common/CookieBanner'
 
 // Páginas
+import LandingPage from './pages/LandingPage'
 import IndexPage from './pages/IndexPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -60,7 +61,8 @@ function App() {
       <CookieBanner />
       <Routes>
         {/* Rutas públicas - accesibles sin login */}
-        <Route path="/" element={<IndexPage />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/perfiles" element={<IndexPage />} />
         <Route path="/profile/:id" element={<PublicProfileDetailPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />

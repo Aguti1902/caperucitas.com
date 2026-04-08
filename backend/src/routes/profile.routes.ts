@@ -25,7 +25,7 @@ router.post(
       .isInt({ min: 18, max: 99 })
       .withMessage('La edad debe estar entre 18 y 99 años'),
     body('orientation')
-      .isIn(['chica', 'chico', 'trans', 'casa', 'hetero', 'gay'])
+      .isIn(['chica', 'chico', 'trans', 'casa', 'gay', 'masajes', 'hetero'])
       .withMessage('Categoría inválida'),
     body('city').notEmpty().withMessage('La ciudad es requerida'),
   ],

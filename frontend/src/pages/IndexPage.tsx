@@ -12,6 +12,8 @@ const GENDER_LABELS: Record<string, { label: string; color: string }> = {
   chico: { label: 'Chico', color: 'bg-blue-600' },
   trans: { label: 'Trans', color: 'bg-purple-600' },
   casa: { label: 'Casa/Piso', color: 'bg-orange-600' },
+  gay: { label: 'Gay', color: 'bg-green-600' },
+  masajes: { label: 'Masajes', color: 'bg-teal-600' },
 }
 
 const GENDER_FILTERS = [
@@ -19,6 +21,8 @@ const GENDER_FILTERS = [
   { id: 'chica', label: 'Chicas' },
   { id: 'chico', label: 'Chicos' },
   { id: 'trans', label: 'Trans' },
+  { id: 'gay', label: 'Gay' },
+  { id: 'masajes', label: 'Masajes' },
   { id: 'casa', label: 'Casas/Pisos' },
 ]
 
