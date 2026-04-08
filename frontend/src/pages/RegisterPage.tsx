@@ -11,11 +11,11 @@ const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY
 const hasRealRecaptchaKey = recaptchaSiteKey && recaptchaSiteKey !== '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
 
 const GENDER_OPTIONS = [
-  { id: 'chica', label: '👩 Chica', desc: 'Escort femenina' },
-  { id: 'chico', label: '👨 Chico', desc: 'Escort masculino' },
-  { id: 'trans', label: '🏳️‍⚧️ Trans', desc: 'Escort trans' },
+  { id: 'chica', label: '👩 Chica', desc: 'Perfil femenino' },
+  { id: 'chico', label: '👨 Chico', desc: 'Perfil masculino' },
+  { id: 'trans', label: '🏳️‍⚧️ Trans', desc: 'Perfil trans' },
   { id: 'casa', label: '🏠 Casa / Piso', desc: 'Perfil de local o piso' },
-  { id: 'gay', label: '🌈 Gay', desc: 'Escort gay' },
+  { id: 'gay', label: '🌈 Gay', desc: 'Perfil gay' },
   { id: 'masajes', label: '💆 Masajes', desc: 'Servicios de masajes' },
 ]
 

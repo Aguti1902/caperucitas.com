@@ -39,7 +39,7 @@ export default function PublicRoamPage() {
           </div>
           <h1 className="text-3xl font-bold text-white">¿Qué es ROAM?</h1>
           <p className="text-gray-300 text-lg">
-            Destaca tu anuncio y aparece en la sección prioritaria de tu zona durante horas.
+            Destaca tu perfil y aparece en la sección prioritaria de tu zona durante horas.
             Más visibilidad = más clientes.
           </p>
         </div>
@@ -54,7 +54,7 @@ export default function PublicRoamPage() {
               </div>
               <div>
                 <p className="text-white font-semibold">Activa ROAM desde tu perfil</p>
-                <p className="text-gray-400 text-sm">En cuanto lo activas, tu anuncio aparece destacado en las búsquedas de tu zona.</p>
+                <p className="text-gray-400 text-sm">En cuanto lo activas, tu perfil aparece destacado en las búsquedas de tu zona.</p>
               </div>
             </div>
             <div className="flex items-start gap-4">
@@ -63,7 +63,7 @@ export default function PublicRoamPage() {
               </div>
               <div>
                 <p className="text-white font-semibold">Radio de 8 km</p>
-                <p className="text-gray-400 text-sm">Tu anuncio se muestra a clientes en un radio de 8 km alrededor de tu ubicación actual.</p>
+                <p className="text-gray-400 text-sm">Tu perfil se muestra a clientes en un radio de 8 km alrededor de tu ubicación actual.</p>
               </div>
             </div>
             <div className="flex items-start gap-4">

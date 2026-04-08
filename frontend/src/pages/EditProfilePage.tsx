@@ -228,7 +228,7 @@ export default function EditProfilePage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 pb-24">
-      <h1 className="text-2xl font-bold text-white mb-6">Editar mi anuncio</h1>
+      <h1 className="text-2xl font-bold text-white mb-6">Editar mi perfil</h1>
 
       {/* Estado del perfil */}
       <div className={`rounded-xl p-4 mb-6 border flex items-center justify-between ${
@@ -242,8 +242,8 @@ export default function EditProfilePage() {
           </p>
           <p className="text-gray-400 text-xs mt-0.5">
             {profilePaused
-              ? 'Tu anuncio no aparece en los listados'
-              : 'Tu anuncio es visible para todos'}
+              ? 'Tu perfil no aparece en los listados'
+              : 'Tu perfil es visible para todos'}
           </p>
         </div>
         <button

@@ -65,14 +65,14 @@ export default function PublicInfoPage() {
                 <li>✅ Navega y consulta perfiles <strong className="text-white">sin registrarte</strong></li>
                 <li>✅ Filtra por género, ciudad y búsqueda de texto</li>
                 <li>✅ Contacta directamente por teléfono o WhatsApp</li>
-                <li>✅ Sin suscripciones ni pagos para ver anuncios</li>
+                <li>✅ Sin suscripciones ni pagos para ver perfiles</li>
               </ul>
             </div>
 
             <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800 space-y-4">
-              <h2 className="text-xl font-bold text-white">Para escorts</h2>
+              <h2 className="text-xl font-bold text-white">Para publicar tu perfil</h2>
               <ul className="space-y-2 text-sm">
-                <li>📝 Regístrate gratis y crea tu anuncio en minutos</li>
+                <li>📝 Regístrate gratis y crea tu perfil en minutos</li>
                 <li>📸 Sube hasta 7 fotos (1 portada + 6 adicionales)</li>
                 <li>📍 Tu ubicación solo se actualiza cuando tú lo decides</li>
                 <li>⏸️ Pausa tu perfil cuando no estés disponible</li>
@@ -104,7 +104,7 @@ export default function PublicInfoPage() {
                 onClick={() => navigate('/register')}
                 className="bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-3 rounded-xl transition-colors"
               >
-                Publicar mi anuncio gratis
+                Publicar mi perfil
               </button>
             </div>
           </div>
@@ -113,11 +113,11 @@ export default function PublicInfoPage() {
         {activeTab === 'terms' && (
           <div className="prose prose-invert max-w-none text-gray-300 text-sm space-y-4">
             <h2 className="text-xl font-bold text-white">Términos y Condiciones</h2>
-            <p>Al usar Caperucitas.com aceptas estos términos. Este sitio es un directorio de anuncios para adultos.</p>
+            <p>Al usar Caperucitas.com aceptas estos términos. Este sitio es un directorio de perfiles para adultos.</p>
             <h3 className="text-white font-semibold">Uso del servicio</h3>
             <ul>
               <li>Debes ser mayor de 18 años para usar este sitio.</li>
-              <li>Los anuncios publicados son responsabilidad del anunciante.</li>
+              <li>Los perfiles publicados son responsabilidad del anunciante.</li>
               <li>Caperucitas.com no media ni participa en los servicios anunciados.</li>
               <li>Queda prohibida la publicación de contenido ilegal o que implique menores de edad.</li>
             </ul>

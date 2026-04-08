@@ -57,9 +57,9 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center">
           <Logo size="md" className="mx-auto mb-3" />
-          <h2 className="text-2xl font-bold text-white">Acceso Escorts</h2>
+          <h2 className="text-2xl font-bold text-white">Acceso Mi Perfil</h2>
           <p className="text-gray-400 text-sm mt-1">
-            Gestiona tu perfil y anuncio
+            Gestiona tu perfil
           </p>
         </div>
 
@@ -136,12 +136,12 @@ export default function LoginPage() {
 
         {/* Registro */}
         <div className="text-center bg-gray-900 rounded-xl p-4 border border-gray-800">
-          <p className="text-gray-400 text-sm mb-3">¿No tienes cuenta de escort?</p>
+          <p className="text-gray-400 text-sm mb-3">¿No tienes cuenta?</p>
           <Link
             to="/register"
             className="block w-full bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 rounded-lg transition-colors text-center"
           >
-            Publicar mi anuncio gratis
+            Publicar mi perfil
           </Link>
           <p className="text-gray-500 text-xs mt-2">
             Gratis hasta el 1 de enero de 2027

@@ -224,7 +224,7 @@ export default function NavigatePage() {
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
             <h4 className="text-white font-bold mb-3">Beneficios de ROAM:</h4>
             <ul className="space-y-2 text-gray-300 text-sm">
-              <li>✓ Tu anuncio aparece primero en los resultados</li>
+              <li>✓ Tu perfil aparece primero en los resultados</li>
               <li>✓ Más clientes potenciales te ven</li>
               <li>✓ Indicador especial ⚡ en tu perfil</li>
               <li>✓ Radio de 8km en la sección ROAM</li>

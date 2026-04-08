@@ -53,19 +53,19 @@ export default function InfoPage() {
             <h2 className="text-2xl font-bold text-white mb-4">¿Cómo funciona Caperucitas.com?</h2>
             <div className="text-gray-300 space-y-3">
               <p>
-                <strong className="text-white">1. Sin registro:</strong> Cualquier persona puede ver todos los anuncios sin necesidad de crear una cuenta.
+                <strong className="text-white">1. Sin registro:</strong> Cualquier persona puede ver todos los perfiles sin necesidad de crear una cuenta.
               </p>
               <p>
-                <strong className="text-white">2. Registro de escorts:</strong> Solo las escorts necesitan registrarse para aparecer en los resultados de búsqueda.
+                <strong className="text-white">2. Registro de perfiles:</strong> Solo las escorts necesitan registrarse para aparecer en los resultados de búsqueda.
               </p>
               <p>
-                <strong className="text-white">3. Anuncio completo:</strong> Añade fotos, descripción, servicios, teléfono y WhatsApp para que los clientes te encuentren fácilmente.
+                <strong className="text-white">3. Perfil completo:</strong> Añade fotos, descripción, servicios, teléfono y WhatsApp para que los clientes te encuentren fácilmente.
               </p>
               <p>
                 <strong className="text-white">4. Actualiza tu ubicación:</strong> La ubicación solo se actualiza cuando tú lo decides, pulsando "Actualizar ubicación".
               </p>
               <p>
-                <strong className="text-white">5. Pausa cuando quieras:</strong> Puedes pausar y reactivar tu anuncio en cualquier momento desde tu perfil.
+                <strong className="text-white">5. Pausa cuando quieras:</strong> Puedes pausar y reactivar tu perfil en cualquier momento desde tu perfil.
               </p>
             </div>
           </section>
@@ -75,7 +75,7 @@ export default function InfoPage() {
             <h2 className="text-2xl font-bold text-white mb-4">Planes y tarifas</h2>
             <div className="space-y-5">
               <div className="bg-green-900/20 border border-green-700 rounded-xl p-4">
-                <h3 className="text-xl font-semibold text-green-400 mb-2">Anuncio Gratis</h3>
+                <h3 className="text-xl font-semibold text-green-400 mb-2">Perfil Gratis</h3>
                 <p className="text-gray-300 text-sm mb-3">
                   <strong className="text-white">Gratis hasta el 1 de enero de 2027</strong>
                 </p>
@@ -83,7 +83,7 @@ export default function InfoPage() {
                   <li>Perfil completo con fotos (1 portada + 6 adicionales)</li>
                   <li>Teléfono y WhatsApp de contacto visibles</li>
                   <li>Apareces en las búsquedas por ciudad y categoría</li>
-                  <li>Pausar y activar tu anuncio cuando quieras</li>
+                  <li>Pausar y activar tu perfil cuando quieras</li>
                   <li>Actualizar tu ubicación manualmente</li>
                 </ul>
               </div>
@@ -92,7 +92,7 @@ export default function InfoPage() {
                 <h3 className="text-xl font-semibold text-gray-300 mb-2">A partir del 1 de enero de 2027</h3>
                 <p className="text-yellow-400 font-bold text-lg mb-3">20€/mes</p>
                 <p className="text-gray-400 text-sm">
-                  Si al finalizar la suscripción no se ha renovado, el anuncio dejará de aparecer en los listados de búsqueda.
+                  Si al finalizar la suscripción no se ha renovado, el perfil dejará de aparecer en los listados de búsqueda.
                 </p>
               </div>
             </div>
@@ -124,7 +124,7 @@ export default function InfoPage() {
             </div>
 
             <p className="text-gray-400 text-sm">
-              ROAM está disponible desde tu panel de escort. Si no estás registrada, créate una cuenta gratuita primero.
+              ROAM está disponible desde tu perfil. Si no estás registrada, créate una cuenta gratuita primero.
             </p>
           </section>
 

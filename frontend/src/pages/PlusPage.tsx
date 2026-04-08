@@ -37,7 +37,7 @@ export default function PlusPage() {
     <div className="max-w-2xl mx-auto px-4 py-8 pb-24">
       <div className="text-center mb-8">
         <Logo size="md" className="mx-auto mb-4" />
-        <h1 className="text-2xl font-bold text-white">Destaca tu anuncio</h1>
+        <h1 className="text-2xl font-bold text-white">Destaca tu perfil</h1>
         <p className="text-gray-400 mt-2">Consigue más clientes con nuestras opciones de visibilidad</p>
       </div>
 
@@ -50,7 +50,7 @@ export default function PlusPage() {
             </div>
             <div>
               <p className="text-yellow-400 font-bold">¡ROAM Activo!</p>
-              <p className="text-gray-400 text-xs">Tu anuncio aparece primero en los resultados</p>
+              <p className="text-gray-400 text-xs">Tu perfil aparece primero en los resultados</p>
             </div>
           </div>
           <button
@@ -76,7 +76,7 @@ export default function PlusPage() {
 
         <ul className="space-y-2 mb-5">
           {[
-            'Tu anuncio aparece primero en los resultados',
+            'Tu perfil aparece primero en los resultados',
             'Visible en un radio de 8km para más clientes',
             'Indicador especial ⚡ en tu perfil',
             'Más visibilidad = más contactos',
@@ -172,7 +172,7 @@ export default function PlusPage() {
 
         <div className="bg-gray-800 rounded-lg p-3 text-center">
           <p className="text-gray-400 text-sm">
-            Si no renuevas la suscripción cuando expire, tu anuncio dejará de aparecer en los listados hasta que la renueves.
+            Si no renuevas la suscripción cuando expire, tu perfil dejará de aparecer en los listados hasta que la renueves.
           </p>
         </div>
       </section>

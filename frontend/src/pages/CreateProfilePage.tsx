@@ -202,13 +202,9 @@ export default function CreateProfilePage() {
       <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
         <div className="text-center">
           <Logo size="md" className="mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white">Completa tu perfil</h2>
-          <p className="text-gray-400 mt-2 text-sm">
-            Cuéntanos sobre ti para aparecer en los resultados
-          </p>
         </div>
 
-        {/* Video explicativo */}
+        {/* Video explicativo — antes del formulario */}
         <div className="relative w-full rounded-xl overflow-hidden shadow-xl" style={{ paddingTop: '56.25%' }}>
           <iframe
             className="absolute inset-0 w-full h-full"
@@ -218,6 +214,13 @@ export default function CreateProfilePage() {
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
+        </div>
+
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-white">Completa tu perfil</h2>
+          <p className="text-gray-400 mt-1 text-sm">
+            Cuéntanos sobre ti para aparecer en los resultados
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
