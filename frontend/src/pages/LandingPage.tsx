@@ -1,40 +1,14 @@
 import { useNavigate } from 'react-router-dom'
-import Logo from '@/components/common/Logo'
-import { useAuthStore } from '@/store/authStore'
+import { ArrowRight } from 'lucide-react'
 
 export default function LandingPage() {
   const navigate = useNavigate()
-  const { isAuthenticated, hasProfile } = useAuthStore()
 
-  const handleEscortAccess = () => {
-    if (isAuthenticated && hasProfile) navigate('/app')
-    else if (isAuthenticated) navigate('/create-profile')
-    else navigate('/register')
-  }
-
-  const handleEnter = () => {
-    navigate('/perfiles')
-  }
-
-  const handleNotAdult = () => {
-    window.location.href = 'https://www.google.com'
-  }
+  const handleEnter = () => navigate('/perfiles')
+  const handleNotAdult = () => { window.location.href = 'https://www.google.com' }
 
   return (
     <div className="min-h-screen bg-black flex flex-col">
-      {/* Header mínimo */}
-      <header className="sticky top-0 z-50 bg-black/90 backdrop-blur border-b border-gray-800">
-        <div className="max-w-2xl mx-auto px-4 flex items-center justify-between h-14">
-          <Logo size="sm" />
-          <button
-            onClick={handleEscortAccess}
-            className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
-          >
-            Soy Escort
-          </button>
-        </div>
-      </header>
-
       <main className="flex-1 max-w-2xl mx-auto w-full px-0 flex flex-col">
 
         {/* Banner logo - ancho completo */}
@@ -107,12 +81,13 @@ export default function LandingPage() {
             />
           </div>
 
-          {/* Botón entrar de nuevo al final */}
+          {/* Botón entrar al final */}
           <button
             onClick={handleEnter}
-            className="w-full bg-red-600 hover:bg-red-700 text-white font-black text-xl py-5 rounded-xl transition-all shadow-lg shadow-red-900/40"
+            className="w-full bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black text-xl py-5 rounded-xl transition-all shadow-lg shadow-red-900/40 flex items-center justify-center gap-3"
           >
-            🐺 Entrar al bosque
+            <ArrowRight className="w-6 h-6" />
+            Entrar al bosque
           </button>
 
           {/* Legal */}
