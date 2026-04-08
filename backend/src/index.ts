@@ -6,6 +6,8 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import * as fs from 'fs';
 import * as path from 'path';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -86,6 +88,38 @@ import { setIO } from './services/socket.io';
 
 const app = express();
 const httpServer = createServer(app);
+
+// ============================================================
+// SEGURIDAD: Helmet (HTTP security headers)
+// ============================================================
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }, // Necesario para Cloudinary/imágenes
+  contentSecurityPolicy: false, // CSP gestionado en el frontend (Vercel)
+}));
+
+// ============================================================
+// SEGURIDAD: Rate limiting
+// ============================================================
+// Límite global: 200 req / 15 min por IP
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas peticiones. Inténtalo de nuevo en unos minutos.' },
+});
+
+// Límite estricto para autenticación: 20 req / 15 min por IP
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados intentos de autenticación. Espera 15 minutos.' },
+  skip: (req) => process.env.NODE_ENV === 'development', // Desactivar en desarrollo
+});
+
+app.use(globalLimiter);
 
 // Configurar Socket.IO
 // Obtener URLs del frontend desde variables de entorno o usar defaults
@@ -206,7 +240,7 @@ if (fs.existsSync(fakePhotosPath)) {
 }
 
 // Rutas
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/photos', photoRoutes);
 app.use('/api/likes', likeRoutes);
@@ -222,7 +256,7 @@ app.use('/api/payments', paymentRoutes);
 
 // Ruta de health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: '9citas API is running' });
+  res.json({ status: 'ok', message: 'Caperucitas API is running' });
 });
 
 // Socket.IO handlers

@@ -279,11 +279,14 @@ export default function IndexPage() {
           </div>
 
           <div className="text-center space-y-2">
-            <p className="text-gray-500 text-xs">Directorio de escorts para adultos. Solo mayores de 18 años.</p>
+            <p className="text-gray-500 text-xs">Directorio para adultos. Solo mayores de 18 años.</p>
             <div className="flex justify-center flex-wrap gap-3 text-xs text-gray-600">
               <button onClick={() => navigate('/register')} className="hover:text-gray-400">Publicar perfil</button>
               <button onClick={() => navigate('/login')} className="hover:text-gray-400">Acceso Mi Perfil</button>
-              <button onClick={() => navigate('/info')} className="hover:text-gray-400">Aviso legal</button>
+              <button onClick={() => navigate('/privacidad')} className="hover:text-gray-400">Privacidad</button>
+              <button onClick={() => navigate('/terminos')} className="hover:text-gray-400">Términos</button>
+              <button onClick={() => navigate('/cookies')} className="hover:text-gray-400">Cookies</button>
+              <button onClick={() => navigate('/normas')} className="hover:text-gray-400">Normas</button>
             </div>
             <p className="text-xs text-gray-700">© {new Date().getFullYear()} Caperucitas.com — Todos los derechos reservados</p>
           </div>

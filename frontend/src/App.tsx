@@ -26,6 +26,10 @@ import AdminUsersPage from './pages/AdminUsersPage'
 import AdminRoute from './components/admin/AdminRoute'
 import PublicRoamPage from './pages/PublicRoamPage'
 import PublicInfoPage from './pages/PublicInfoPage'
+import PrivacyPage from './pages/PrivacyPage'
+import TermsPage from './pages/TermsPage'
+import CookiesPage from './pages/CookiesPage'
+import NormasPage from './pages/NormasPage'
 
 function App() {
   const { isAuthenticated, hasProfile, isLoading, initAuth, logout } = useAuthStore()
@@ -74,6 +78,12 @@ function App() {
         {/* Páginas públicas informativas */}
         <Route path="/roam" element={<PublicRoamPage />} />
         <Route path="/info" element={<PublicInfoPage />} />
+
+        {/* Páginas legales */}
+        <Route path="/privacidad" element={<PrivacyPage />} />
+        <Route path="/terminos" element={<TermsPage />} />
+        <Route path="/cookies" element={<CookiesPage />} />
+        <Route path="/normas" element={<NormasPage />} />
 
         {/* Rutas legacy con orientación - redirigir */}
         <Route path="/login/:orientation" element={<LoginPage />} />
