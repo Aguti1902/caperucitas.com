@@ -471,7 +471,6 @@ export default function CreateProfilePage() {
             <p className="font-semibold text-white mb-2">📋 Normas importantes:</p>
             <ul className="list-disc list-inside space-y-1 text-xs">
               <li>No se permiten fotos de menores de edad</li>
-              <li>Las fotos de portada no pueden mostrar genitales explícitamente</li>
               <li>Confirmas que tienes 18 años o más</li>
               <li>El incumplimiento de las normas resulta en eliminación del perfil</li>
             </ul>
