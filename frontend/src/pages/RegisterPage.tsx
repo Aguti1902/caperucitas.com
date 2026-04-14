@@ -138,6 +138,17 @@ export default function RegisterPage() {
               ))}
             </div>
 
+            {/* Ya tengo cuenta */}
+            <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 text-center space-y-2">
+              <p className="text-gray-300 text-sm font-medium">¿Ya tienes cuenta?</p>
+              <Link
+                to="/login"
+                className="block w-full bg-gray-800 hover:bg-gray-700 border border-gray-600 hover:border-red-500 text-white font-semibold py-2.5 rounded-lg transition-all text-sm"
+              >
+                Iniciar sesión →
+              </Link>
+            </div>
+
             <div className="text-center">
               <button
                 onClick={() => navigate('/')}
