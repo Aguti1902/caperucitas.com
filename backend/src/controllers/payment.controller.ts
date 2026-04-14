@@ -29,7 +29,7 @@ export const createSubscriptionCheckout = async (req: AuthRequest, res: Response
     }
 
     // URLs de éxito y cancelación
-    const frontendUrl = process.env.FRONTEND_URL || 'https://9citas.com';
+    const frontendUrl = process.env.FRONTEND_URL?.split(',')[0] || 'https://caperucitas.com';
     const successUrl = `${frontendUrl}/app/plus?success=true`;
     const cancelUrl = `${frontendUrl}/app/plus?canceled=true`;
 
@@ -61,9 +61,9 @@ export const createRoamCheckout = async (req: AuthRequest, res: Response) => {
     const { duration = 60 } = req.body; // minutos
 
     // Validar duración
-    const validDurations = [60, 120, 240]; // 1h, 2h, 4h
+    const validDurations = [60, 120, 180, 240, 1440]; // 1h, 2h, 3h, 4h, 24h
     if (!validDurations.includes(duration)) {
-      return res.status(400).json({ error: 'Duración no válida. Opciones: 60, 120, 240 minutos' });
+      return res.status(400).json({ error: 'Duración no válida. Opciones: 60, 120, 180, 240, 1440 minutos' });
     }
 
     // Verificar que el usuario tiene 9Plus
@@ -85,7 +85,7 @@ export const createRoamCheckout = async (req: AuthRequest, res: Response) => {
     const isPremium = profile.user?.subscription?.isActive || false;
     if (!isPremium) {
       return res.status(403).json({
-        error: 'Necesitas 9Plus para usar RoAM',
+        error: 'Necesitas suscripción para usar ROAM',
         requiresPremium: true,
       });
     }
@@ -93,7 +93,7 @@ export const createRoamCheckout = async (req: AuthRequest, res: Response) => {
     // Verificar si ya tiene un RoAM activo
     if (profile.isRoaming && profile.roamingUntil && new Date(profile.roamingUntil) > new Date()) {
       return res.status(400).json({
-        error: 'Ya tienes un RoAM activo',
+        error: 'Ya tienes un ROAM activo',
         roamingUntil: profile.roamingUntil,
       });
     }
@@ -108,7 +108,7 @@ export const createRoamCheckout = async (req: AuthRequest, res: Response) => {
     }
 
     // URLs de éxito y cancelación
-    const frontendUrl = process.env.FRONTEND_URL || 'https://9citas.com';
+    const frontendUrl = process.env.FRONTEND_URL?.split(',')[0] || 'https://caperucitas.com';
     const successUrl = `${frontendUrl}/app?roam=success`;
     const cancelUrl = `${frontendUrl}/app?roam=canceled`;
 
@@ -242,12 +242,12 @@ export const createRoamPaymentIntentController = async (req: AuthRequest, res: R
     const { duration = 60 } = req.body; // minutos
 
     // Validar duración
-    const validDurations = [60, 120, 240]; // 1h, 2h, 4h
+    const validDurations = [60, 120, 180, 240, 1440]; // 1h, 2h, 3h, 4h, 24h
     if (!validDurations.includes(duration)) {
-      return res.status(400).json({ error: 'Duración no válida. Opciones: 60, 120, 240 minutos' });
+      return res.status(400).json({ error: 'Duración no válida. Opciones: 60, 120, 180, 240, 1440 minutos' });
     }
 
-    // Verificar que el usuario tiene 9Plus
+    // Verificar que el usuario tiene suscripción activa
     const profile = await prisma.profile.findUnique({
       where: { id: req.profileId },
       include: {
@@ -266,7 +266,7 @@ export const createRoamPaymentIntentController = async (req: AuthRequest, res: R
     const isPremium = profile.user?.subscription?.isActive || false;
     if (!isPremium) {
       return res.status(403).json({
-        error: 'Necesitas 9Plus para usar RoAM',
+        error: 'Necesitas suscripción para usar ROAM',
         requiresPremium: true,
       });
     }
@@ -274,7 +274,7 @@ export const createRoamPaymentIntentController = async (req: AuthRequest, res: R
     // Verificar si ya tiene un RoAM activo
     if (profile.isRoaming && profile.roamingUntil && new Date(profile.roamingUntil) > new Date()) {
       return res.status(400).json({
-        error: 'Ya tienes un RoAM activo',
+        error: 'Ya tienes un ROAM activo',
         roamingUntil: profile.roamingUntil,
       });
     }

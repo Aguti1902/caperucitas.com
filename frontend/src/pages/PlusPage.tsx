@@ -1,35 +1,51 @@
 import { useState, useEffect } from 'react'
 import { api } from '@/services/api'
 import { showToast } from '@/store/toastStore'
+import { useAuthStore } from '@/store/authStore'
 import Button from '@/components/common/Button'
 import Modal from '@/components/common/Modal'
 import Logo from '@/components/common/Logo'
 import RoamPaymentForm from '@/components/payment/RoamPaymentForm'
+import SubscriptionPaymentForm from '@/components/payment/SubscriptionPaymentForm'
 import RoamStatusContent from '@/components/common/RoamStatusContent'
 import { Zap, Crown, Check } from 'lucide-react'
 
 export default function PlusPage() {
+  const { refreshUserData } = useAuthStore()
   const [showRoamPaymentModal, setShowRoamPaymentModal] = useState(false)
   const [showRoamStatusModal, setShowRoamStatusModal] = useState(false)
+  const [showSubModal, setShowSubModal] = useState(false)
   const [roamDuration, setRoamDuration] = useState(180)
   const [roamPrice, setRoamPrice] = useState(5)
   const [roamStatus, setRoamStatus] = useState<any>(null)
+  const [subStatus, setSubStatus] = useState<any>(null)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const roamSuccess = params.get('roam')
-    if (roamSuccess === 'success') {
+    if (params.get('roam') === 'success') {
       showToast('¡ROAM activado exitosamente!', 'success')
       window.history.replaceState({}, '', window.location.pathname)
-      loadRoamStatus()
+    }
+    if (params.get('success') === 'true') {
+      showToast('¡Suscripción activada!', 'success')
+      window.history.replaceState({}, '', window.location.pathname)
+      refreshUserData()
     }
     loadRoamStatus()
+    loadSubStatus()
   }, [])
 
   const loadRoamStatus = async () => {
     try {
       const response = await api.get('/roam/status')
       setRoamStatus(response.data)
+    } catch {}
+  }
+
+  const loadSubStatus = async () => {
+    try {
+      const response = await api.get('/subscriptions')
+      setSubStatus(response.data)
     } catch {}
   }
 
@@ -108,16 +124,16 @@ export default function PlusPage() {
           </button>
 
           <button
-            onClick={() => { setRoamDuration(960); setRoamPrice(35) }}
+            onClick={() => { setRoamDuration(1440); setRoamPrice(35) }}
             className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
-              roamDuration === 960 ? 'border-yellow-500 bg-yellow-500/10' : 'border-gray-700 bg-gray-800 hover:border-gray-600'
+              roamDuration === 1440 ? 'border-yellow-500 bg-yellow-500/10' : 'border-gray-700 bg-gray-800 hover:border-gray-600'
             }`}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-white font-bold">4 horas/día — 1 semana</p>
-                <p className="text-gray-400 text-sm">Eliges las horas cada día</p>
-                <span className="inline-block bg-green-600 text-white text-xs font-bold px-2 py-0.5 rounded mt-1">AHORRO</span>
+                <p className="text-white font-bold">24 horas continuas</p>
+                <p className="text-gray-400 text-sm">Máxima visibilidad todo el día</p>
+                <span className="inline-block bg-green-600 text-white text-xs font-bold px-2 py-0.5 rounded mt-1">MEJOR VALOR</span>
               </div>
               <div className="text-right">
                 <p className="text-yellow-400 font-bold text-2xl">35€</p>
@@ -149,12 +165,25 @@ export default function PlusPage() {
           </div>
         </div>
 
-        <div className="bg-green-900/20 border border-green-700 rounded-xl p-4 mb-4">
-          <p className="text-green-400 font-bold text-lg">🎉 GRATIS hasta el 1 de enero de 2027</p>
-          <p className="text-gray-300 text-sm mt-1">
-            Aprovecha el período de lanzamiento gratuito. A partir del 1/1/2027, la suscripción será de <strong className="text-white">20€/mes</strong>.
-          </p>
-        </div>
+        {subStatus?.isActive ? (
+          <div className="bg-green-900/20 border border-green-700 rounded-xl p-4 mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-green-400 font-bold">✅ Suscripción activa</p>
+              {subStatus?.subscription?.endDate && (
+                <p className="text-gray-400 text-sm mt-1">
+                  Válida hasta: {new Date(subStatus.subscription.endDate).toLocaleDateString('es-ES')}
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-green-900/20 border border-green-700 rounded-xl p-4 mb-4">
+            <p className="text-green-400 font-bold text-lg">🎉 GRATIS hasta el 1 de enero de 2027</p>
+            <p className="text-gray-300 text-sm mt-1">
+              Aprovecha el período de lanzamiento. A partir del 1/1/2027 serán <strong className="text-white">20€/mes</strong>.
+            </p>
+          </div>
+        )}
 
         <ul className="space-y-2 mb-4">
           {[
@@ -162,6 +191,7 @@ export default function PlusPage() {
             'Filtros por ciudad y categoría',
             'Perfil completo con fotos y contacto',
             'Sin límite de visualizaciones',
+            'Acceso a la función ROAM',
           ].map(benefit => (
             <li key={benefit} className="flex items-center gap-2 text-gray-300 text-sm">
               <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
@@ -170,18 +200,28 @@ export default function PlusPage() {
           ))}
         </ul>
 
-        <div className="bg-gray-800 rounded-lg p-3 text-center">
-          <p className="text-gray-400 text-sm">
-            Si no renuevas la suscripción cuando expire, tu perfil dejará de aparecer en los listados hasta que la renueves.
-          </p>
-        </div>
+        {!subStatus?.isActive && (
+          <Button
+            fullWidth
+            variant="primary"
+            onClick={() => setShowSubModal(true)}
+            className="bg-red-600 hover:bg-red-700 border-0 font-bold py-3"
+          >
+            <Crown className="w-5 h-5 mr-2" />
+            Suscribirme — 20€/mes
+          </Button>
+        )}
+
+        <p className="text-gray-600 text-xs text-center mt-3">
+          Pago seguro con Stripe · Cancela cuando quieras
+        </p>
       </section>
 
       {/* Modal pago ROAM */}
       <Modal
         isOpen={showRoamPaymentModal}
         onClose={() => setShowRoamPaymentModal(false)}
-        title={`Activar ROAM — ${roamDuration === 180 ? '3 horas · 5€' : '1 semana · 35€'}`}
+        title={`Activar ROAM — ${roamDuration === 180 ? '3 horas · 5€' : '24 horas · 35€'}`}
         maxWidth="md"
       >
         <RoamPaymentForm
@@ -193,6 +233,24 @@ export default function PlusPage() {
             await loadRoamStatus()
           }}
           onCancel={() => setShowRoamPaymentModal(false)}
+        />
+      </Modal>
+
+      {/* Modal pago suscripción */}
+      <Modal
+        isOpen={showSubModal}
+        onClose={() => setShowSubModal(false)}
+        title="Suscripción mensual — 20€/mes"
+        maxWidth="md"
+      >
+        <SubscriptionPaymentForm
+          onSuccess={async () => {
+            setShowSubModal(false)
+            showToast('¡Suscripción activada!', 'success')
+            await loadSubStatus()
+            await refreshUserData()
+          }}
+          onCancel={() => setShowSubModal(false)}
         />
       </Modal>
 

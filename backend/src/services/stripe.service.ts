@@ -141,14 +141,26 @@ export const createRoamCheckoutSession = async (
   } else if (duration === 120) {
     priceId = STRIPE_PRICES.ROAM_2_HOURS;
     price = 11.99;
+  } else if (duration === 180) {
+    priceId = STRIPE_PRICES.ROAM_1_HOUR; // reutiliza el ID base
+    price = 5.00;
   } else if (duration === 240) {
     priceId = STRIPE_PRICES.ROAM_4_HOURS;
     price = 19.99;
+  } else if (duration === 1440) {
+    priceId = STRIPE_PRICES.ROAM_4_HOURS; // reutiliza el ID base
+    price = 35.00;
   } else {
-    // Default: 1 hora
     priceId = STRIPE_PRICES.ROAM_1_HOUR;
-    price = 6.49;
+    price = 5.00;
   }
+
+  const durationLabel = duration === 60 ? '1 hora'
+    : duration === 120 ? '2 horas'
+    : duration === 180 ? '3 horas'
+    : duration === 240 ? '4 horas'
+    : duration === 1440 ? '24 horas'
+    : `${duration} minutos`;
 
   const session = await stripe.checkout.sessions.create({
     customer: customer.id,
@@ -159,10 +171,10 @@ export const createRoamCheckoutSession = async (
         price_data: {
           currency: 'eur',
           product_data: {
-            name: `RoAM Boost - ${duration} minutos`,
-            description: `Aumenta tu visibilidad durante ${duration} minutos`,
+            name: `ROAM Boost — ${durationLabel}`,
+            description: `Tu perfil aparece primero en Caperucitas.com durante ${durationLabel}`,
           },
-          unit_amount: Math.round(price * 100), // Convertir a céntimos
+          unit_amount: Math.round(price * 100),
         },
         quantity: 1,
       },
@@ -201,11 +213,14 @@ export const createRoamPaymentIntent = async (
     price = 6.49;
   } else if (duration === 120) {
     price = 11.99;
+  } else if (duration === 180) {
+    price = 5.00;
   } else if (duration === 240) {
     price = 19.99;
+  } else if (duration === 1440) {
+    price = 35.00;
   } else {
-    // Default: 1 hora
-    price = 6.49;
+    price = 5.00;
   }
 
   const paymentIntent = await stripe.paymentIntents.create({

@@ -221,17 +221,18 @@ function PaymentFormContent({
         </Button>
         <Button
           type="submit"
-          variant="accent"
+          variant="primary"
           isLoading={isProcessing}
           disabled={!stripe || isProcessing}
           fullWidth
+          className="bg-red-600 hover:bg-red-700 border-0"
         >
-          Suscribirme por 5€/mes
+          Suscribirme — 20€/mes
         </Button>
       </div>
 
       <p className="text-gray-500 text-xs text-center">
-        Pago seguro procesado por Stripe. Se te cobrará 5€ al mes. Puedes cancelar en cualquier momento.
+        Pago seguro procesado por Stripe · 20€/mes · Cancela cuando quieras.
       </p>
     </form>
   )
