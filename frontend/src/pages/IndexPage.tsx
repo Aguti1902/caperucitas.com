@@ -39,10 +39,24 @@ export default function IndexPage() {
   const [maxAge, setMaxAge] = useState('')
   const [showAgeFilter, setShowAgeFilter] = useState(false)
   const roamRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLElement>(null)
+  const [headerHeight, setHeaderHeight] = useState(0)
 
   useEffect(() => {
     loadProfiles()
   }, [selectedGender])
+
+  // Mide el alto real del header y lo actualiza cuando cambia (filtro edad abierto/cerrado)
+  useEffect(() => {
+    const el = headerRef.current
+    if (!el) return
+    const observer = new ResizeObserver(() => {
+      setHeaderHeight(el.offsetHeight)
+    })
+    observer.observe(el)
+    setHeaderHeight(el.offsetHeight)
+    return () => observer.disconnect()
+  }, [])
 
   const loadProfiles = async () => {
     setIsLoading(true)
@@ -97,8 +111,8 @@ export default function IndexPage() {
 
   return (
     <div className="min-h-screen bg-gray-950">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-gray-900/95 backdrop-blur border-b border-gray-800 shadow-lg">
+      {/* Header — fixed para que nunca tape el contenido */}
+      <header ref={headerRef} className="fixed top-0 left-0 right-0 z-50 bg-gray-900/95 backdrop-blur border-b border-gray-800 shadow-lg">
         <div className="max-w-7xl mx-auto px-3 flex items-center justify-between h-14">
           <Logo size="sm" />
           <button
@@ -198,6 +212,9 @@ export default function IndexPage() {
           </div>
         </div>
       </header>
+
+      {/* Espaciador dinámico — empuja el contenido justo debajo del header fixed */}
+      <div style={{ paddingTop: headerHeight }} />
 
       {/* Banner principal — justo debajo del header, sin márgenes */}
       <div className="w-full overflow-hidden">
