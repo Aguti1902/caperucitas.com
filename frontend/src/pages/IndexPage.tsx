@@ -5,7 +5,6 @@ import LoadingSpinner from '@/components/common/LoadingSpinner'
 import { api } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import { MapPin, Search, Phone, MessageCircle, Zap, Share2, Info, Home, ChevronLeft, ChevronRight } from 'lucide-react'
-import { SPANISH_CITIES as ALL_CITIES } from '@/data/spanishCities'
 
 const GENDER_LABELS: Record<string, { label: string; color: string }> = {
   chica: { label: 'Chica', color: 'bg-pink-600' },
@@ -26,7 +25,6 @@ const GENDER_FILTERS = [
   { id: 'casa', label: 'Casas/Pisos' },
 ]
 
-const SPANISH_CITIES = ['Todas las ciudades', ...ALL_CITIES.map(c => c.name)]
 
 export default function IndexPage() {
   const navigate = useNavigate()
@@ -35,20 +33,22 @@ export default function IndexPage() {
   const [roamProfiles, setRoamProfiles] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedGender, setSelectedGender] = useState('all')
-  const [selectedCity, setSelectedCity] = useState('Todas las ciudades')
+  const [citySearch, setCitySearch] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [minAge, setMinAge] = useState('')
+  const [maxAge, setMaxAge] = useState('')
+  const [showAgeFilter, setShowAgeFilter] = useState(false)
   const roamRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     loadProfiles()
-  }, [selectedGender, selectedCity])
+  }, [selectedGender])
 
   const loadProfiles = async () => {
     setIsLoading(true)
     try {
       const params: any = { filter: 'all' }
       if (selectedGender !== 'all') params.gender = selectedGender
-      if (selectedCity !== 'Todas las ciudades') params.city = selectedCity
 
       const response = await api.get('/profile/public-search', { params })
       const all = response.data.profiles.filter(
@@ -64,8 +64,11 @@ export default function IndexPage() {
   }
 
   const filteredProfiles = profiles.filter((p) => {
-    if (!searchQuery) return true
-    return p.title?.toLowerCase().includes(searchQuery.toLowerCase())
+    if (searchQuery && !p.title?.toLowerCase().includes(searchQuery.toLowerCase())) return false
+    if (citySearch && !p.city?.toLowerCase().includes(citySearch.toLowerCase())) return false
+    if (minAge && p.age < parseInt(minAge)) return false
+    if (maxAge && p.age > parseInt(maxAge)) return false
+    return true
   })
 
   const handleProfileClick = (profileId: string, index: number) => {
@@ -78,6 +81,12 @@ export default function IndexPage() {
     if (isAuthenticated && hasProfile) navigate('/app')
     else if (isAuthenticated) navigate('/create-profile')
     else navigate('/register')
+  }
+
+  const handleShare = () => {
+    const shareData = { title: 'Caperucitas.com', text: '¡Encuentra los mejores perfiles en Caperucitas.com!', url: window.location.origin }
+    if (navigator.share) navigator.share(shareData).catch(() => {})
+    else { navigator.clipboard.writeText(window.location.origin); alert('¡Enlace copiado!') }
   }
 
   const scrollRoam = (dir: 'left' | 'right') => {
@@ -100,7 +109,79 @@ export default function IndexPage() {
           </button>
         </div>
 
-        {/* Filtros */}
+        {/* Barra ciudad + edad + compartir */}
+        <div className="border-t border-gray-800 px-3 py-2">
+          <div className="max-w-7xl mx-auto flex items-center gap-2 flex-wrap">
+            {/* Ciudad texto libre */}
+            <div className="flex items-center gap-1 bg-gray-800 rounded-full px-3 py-1.5 flex-1 min-w-[130px] max-w-[200px]">
+              <MapPin className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+              <input
+                type="text"
+                placeholder="Ciudad, calle..."
+                value={citySearch}
+                onChange={(e) => setCitySearch(e.target.value)}
+                className="bg-transparent text-white text-sm focus:outline-none w-full"
+              />
+              {citySearch && (
+                <button onClick={() => setCitySearch('')} className="text-gray-400 hover:text-white text-xs">✕</button>
+              )}
+            </div>
+            {/* Edad */}
+            <button
+              onClick={() => setShowAgeFilter(v => !v)}
+              className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${showAgeFilter || minAge || maxAge ? 'bg-yellow-500 text-gray-900' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+            >
+              EDAD {minAge || maxAge ? `${minAge||'0'}-${maxAge||'99'}` : ''}
+            </button>
+            {/* Compartir */}
+            <button
+              onClick={handleShare}
+              className="flex-shrink-0 p-2 rounded-full bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors"
+              title="Compartir"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+            {/* Búsqueda texto */}
+            <div className="flex items-center bg-gray-800 rounded-full px-3 py-1.5 flex-1 min-w-[100px]">
+              <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+              <input
+                type="text"
+                placeholder="Nombre..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-transparent text-white text-sm pl-2 focus:outline-none w-full"
+              />
+            </div>
+          </div>
+          {/* Filtro edad expandible */}
+          {showAgeFilter && (
+            <div className="max-w-7xl mx-auto flex items-center gap-3 pt-2">
+              <span className="text-gray-400 text-xs">Edad entre:</span>
+              <input
+                type="number"
+                placeholder="Min"
+                min={18} max={99}
+                value={minAge}
+                onChange={(e) => setMinAge(e.target.value)}
+                className="w-16 bg-gray-800 text-white text-sm rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-red-500"
+              />
+              <span className="text-gray-400 text-xs">y</span>
+              <input
+                type="number"
+                placeholder="Max"
+                min={18} max={99}
+                value={maxAge}
+                onChange={(e) => setMaxAge(e.target.value)}
+                className="w-16 bg-gray-800 text-white text-sm rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-red-500"
+              />
+              {(minAge || maxAge) && (
+                <button onClick={() => { setMinAge(''); setMaxAge('') }} className="text-gray-400 hover:text-white text-xs">Limpiar</button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Filtros de género */}
         <div className="border-t border-gray-800 px-3 py-2">
           <div className="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto no-scrollbar">
             {GENDER_FILTERS.map((f) => (
@@ -114,40 +195,17 @@ export default function IndexPage() {
                 {f.label}
               </button>
             ))}
-            <div className="flex-shrink-0 flex items-center gap-2 ml-auto">
-              <div className="relative flex items-center gap-1 bg-gray-800 rounded-full px-3 py-1.5">
-                <MapPin className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-                <select
-                  value={selectedCity}
-                  onChange={(e) => setSelectedCity(e.target.value)}
-                  className="bg-transparent text-white text-sm font-medium focus:outline-none cursor-pointer appearance-none pr-1 max-w-[120px]"
-                >
-                  {SPANISH_CITIES.map((city) => (
-                    <option key={city} value={city} className="bg-gray-900">{city}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="relative flex items-center bg-gray-800 rounded-full px-3 py-1.5">
-                <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                <input
-                  type="text"
-                  placeholder="Buscar..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-transparent text-white text-sm pl-2 focus:outline-none w-20"
-                />
-              </div>
-            </div>
           </div>
         </div>
       </header>
 
-      {/* Banner principal */}
+      {/* Banner principal — logo completo sin recortes */}
       <div className="w-full bg-gray-900 border-b border-gray-800">
         <img
           src="/logo-caperucitas.jpeg"
           alt="Caperucitas.com"
-          className="w-full object-contain"
+          className="w-full h-auto block"
+          style={{ maxHeight: 'none' }}
         />
       </div>
 
@@ -231,67 +289,48 @@ export default function IndexPage() {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="bg-gray-900 border-t border-gray-800 py-8 px-4 mt-8">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <button
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              className="flex flex-col items-center gap-2 bg-gray-800 hover:bg-gray-700 rounded-xl p-4 transition-colors"
-            >
-              <Home className="w-6 h-6 text-red-400" />
-              <span className="text-white text-sm font-semibold">Navegar</span>
-            </button>
-            <button
-              onClick={() => navigate('/roam')}
-              className="flex flex-col items-center gap-2 bg-gray-800 hover:bg-gray-700 rounded-xl p-4 transition-colors"
-            >
-              <Zap className="w-6 h-6 text-yellow-400" fill="currentColor" strokeWidth={0} />
-              <span className="text-white text-sm font-semibold">ROAM</span>
-            </button>
-            <button
-              onClick={() => {
-                const shareData = { title: 'Caperucitas.com', text: 'Directorio de escorts en España', url: window.location.origin }
-                if (navigator.share) navigator.share(shareData).catch(() => {})
-                else { navigator.clipboard.writeText(window.location.origin); alert('¡Enlace copiado!') }
-              }}
-              className="flex flex-col items-center gap-2 bg-gray-800 hover:bg-gray-700 rounded-xl p-4 transition-colors"
-            >
-              <Share2 className="w-6 h-6 text-blue-400" />
-              <span className="text-white text-sm font-semibold">Compartir</span>
-            </button>
-            <button
-              onClick={() => navigate('/info')}
-              className="flex flex-col items-center gap-2 bg-gray-800 hover:bg-gray-700 rounded-xl p-4 transition-colors"
-            >
-              <Info className="w-6 h-6 text-gray-400" />
-              <span className="text-white text-sm font-semibold">Info</span>
-            </button>
-          </div>
-
-          <div className="flex justify-center gap-4">
-            <a href="https://twitter.com/caperucitascom" target="_blank" rel="noopener noreferrer"
-              className="text-gray-500 hover:text-white transition-colors text-sm">Twitter / X</a>
-            <a href="https://instagram.com/caperucitascom" target="_blank" rel="noopener noreferrer"
-              className="text-gray-500 hover:text-white transition-colors text-sm">Instagram</a>
-            <a href="https://t.me/caperucitascom" target="_blank" rel="noopener noreferrer"
-              className="text-gray-500 hover:text-white transition-colors text-sm">Telegram</a>
-          </div>
-
-          <div className="text-center space-y-2">
-            <p className="text-gray-500 text-xs">Directorio para adultos. Solo mayores de 18 años.</p>
-            <div className="flex justify-center flex-wrap gap-3 text-xs text-gray-600">
-              <button onClick={() => navigate('/register')} className="hover:text-gray-400">Publicar perfil</button>
-              <button onClick={() => navigate('/login')} className="hover:text-gray-400">Acceso Mi Perfil</button>
-              <button onClick={() => navigate('/privacidad')} className="hover:text-gray-400">Privacidad</button>
-              <button onClick={() => navigate('/terminos')} className="hover:text-gray-400">Términos</button>
-              <button onClick={() => navigate('/cookies')} className="hover:text-gray-400">Cookies</button>
-              <button onClick={() => navigate('/normas')} className="hover:text-gray-400">Normas</button>
-            </div>
-            <p className="text-xs text-gray-700">© {new Date().getFullYear()} Caperucitas.com — Todos los derechos reservados</p>
-          </div>
+      {/* Texto legal - pequeño, antes del nav */}
+      <div className="text-center py-4 px-4 pb-24">
+        <div className="flex justify-center flex-wrap gap-3 text-xs text-gray-700">
+          <button onClick={() => navigate('/privacidad')} className="hover:text-gray-400">Privacidad</button>
+          <button onClick={() => navigate('/terminos')} className="hover:text-gray-400">Términos</button>
+          <button onClick={() => navigate('/cookies')} className="hover:text-gray-400">Cookies</button>
+          <button onClick={() => navigate('/normas')} className="hover:text-gray-400">Normas</button>
         </div>
-      </footer>
+        <p className="text-xs text-gray-800 mt-1">© {new Date().getFullYear()} Caperucitas.com</p>
+      </div>
+
+      {/* Barra de navegación fija inferior — estilo app */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900 border-t border-gray-800 flex items-center justify-around h-16 safe-area-bottom shadow-2xl">
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="flex flex-col items-center gap-0.5 text-gray-400 hover:text-white transition-colors px-4"
+        >
+          <Home className="w-6 h-6" />
+          <span className="text-[10px]">Navegar</span>
+        </button>
+        <button
+          onClick={() => navigate('/roam')}
+          className="flex flex-col items-center gap-0.5 text-yellow-400 hover:text-yellow-300 transition-colors px-4"
+        >
+          <Zap className="w-6 h-6" fill="currentColor" strokeWidth={0} />
+          <span className="text-[10px]">ROAM</span>
+        </button>
+        <button
+          onClick={handleShare}
+          className="flex flex-col items-center gap-0.5 text-gray-400 hover:text-white transition-colors px-4"
+        >
+          <Share2 className="w-6 h-6" />
+          <span className="text-[10px]">Compartir</span>
+        </button>
+        <button
+          onClick={() => navigate('/info')}
+          className="flex flex-col items-center gap-0.5 text-gray-400 hover:text-white transition-colors px-4"
+        >
+          <Info className="w-6 h-6" />
+          <span className="text-[10px]">Info</span>
+        </button>
+      </nav>
     </div>
   )
 }

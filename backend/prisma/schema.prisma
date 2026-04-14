@@ -314,18 +314,20 @@ model PrivatePhotoAccess {
 // Denuncias de perfiles
 model Report {
   id                String   @id @default(uuid())
-  reporterProfileId String   // Quien denuncia
-  reportedProfileId String   // Quien es denunciado
+  reporterProfileId String?  // Null para denuncias anónimas
+  reportedProfileId String
+  reporterIp        String?  // IP para denuncias anónimas
   
-  reporterProfile   Profile  @relation("ReporterProfile", fields: [reporterProfileId], references: [id], onDelete: Cascade)
+  reporterProfile   Profile? @relation("ReporterProfile", fields: [reporterProfileId], references: [id], onDelete: Cascade)
   reportedProfile   Profile  @relation("ReportedProfile", fields: [reportedProfileId], references: [id], onDelete: Cascade)
   
-  reason            String   // 'scam', 'inappropriate_photos', 'money_request', 'fake_photos', 'underage'
+  reason            String   // 'scam', 'fake_photos', 'underage'
   
   createdAt         DateTime @default(now())
   
-  @@unique([reporterProfileId, reportedProfileId]) // Un usuario solo puede denunciar a otro una vez
+  @@unique([reporterProfileId, reportedProfileId])
   @@index([reportedProfileId])
+  @@index([reporterIp, reportedProfileId])
   @@map("reports")
 }
 

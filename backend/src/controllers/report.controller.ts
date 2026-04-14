@@ -19,6 +19,44 @@ const transporter = nodemailer.createTransport({
 const EMAIL_THRESHOLDS = [15, 30, 45, 60];
 
 /**
+ * Crear una denuncia pública (sin autenticación, identificada por IP)
+ */
+export const createPublicReport = async (req: AuthRequest, res: Response) => {
+  try {
+    const { reportedProfileId, reason } = req.body;
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+
+    const validReasons = ['scam', 'fake_photos', 'underage'];
+    if (!validReasons.includes(reason)) {
+      return res.status(400).json({ error: 'Motivo inválido' });
+    }
+
+    const reportedProfile = await prisma.profile.findUnique({ where: { id: reportedProfileId } });
+    if (!reportedProfile) return res.status(404).json({ error: 'Perfil no encontrado' });
+
+    // Verificar si ya denunció desde esta IP
+    const existing = await prisma.report.findFirst({
+      where: { reporterIp: ip, reportedProfileId },
+    });
+    if (existing) return res.status(400).json({ error: 'Ya has denunciado este perfil' });
+
+    await prisma.report.create({
+      data: { reportedProfileId, reason, reporterIp: ip },
+    });
+
+    const totalReports = await prisma.report.count({ where: { reportedProfileId } });
+    if (EMAIL_THRESHOLDS.includes(totalReports)) {
+      await sendReportEmail(reportedProfileId, totalReports);
+    }
+
+    res.status(201).json({ message: 'Denuncia enviada correctamente' });
+  } catch (error) {
+    console.error('Error al crear denuncia pública:', error);
+    res.status(500).json({ error: 'Error al crear denuncia' });
+  }
+};
+
+/**
  * Crear una denuncia
  */
 export const createReport = async (req: AuthRequest, res: Response) => {
@@ -31,7 +69,7 @@ export const createReport = async (req: AuthRequest, res: Response) => {
     }
 
     // Validar que el motivo sea válido
-    const validReasons = ['scam', 'inappropriate_photos', 'money_request', 'fake_photos', 'underage', 'hate_speech'];
+    const validReasons = ['scam', 'fake_photos', 'underage'];
     if (!validReasons.includes(reason)) {
       return res.status(400).json({ error: 'Motivo de denuncia inválido' });
     }

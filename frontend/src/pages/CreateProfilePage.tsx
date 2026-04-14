@@ -386,64 +386,6 @@ export default function CreateProfilePage() {
             </p>
           </div>
 
-          {/* Información física (opcional) */}
-          <div className="bg-gray-800 rounded-xl p-4">
-            <h3 className="text-white font-semibold mb-3">👤 Información adicional (opcional)</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Altura (cm)"
-                type="number"
-                value={formData.height}
-                onChange={(e) => setFormData({ ...formData, height: e.target.value })}
-                placeholder="Ej: 168"
-              />
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Tipo de cuerpo</label>
-                <select
-                  value={formData.bodyType}
-                  onChange={(e) => setFormData({ ...formData, bodyType: e.target.value })}
-                  className="input-field"
-                >
-                  <option value="">Seleccionar...</option>
-                  <option value="delgado">Delgado/a</option>
-                  <option value="atletico">Atlético/a</option>
-                  <option value="promedio">Normal</option>
-                  <option value="musculoso">Musculoso/a</option>
-                  <option value="corpulento">Curvilíneo/a</option>
-                </select>
-              </div>
-            </div>
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-300 mb-2">Servicios / Especialidad</label>
-              <input
-                type="text"
-                value={formData.occupation}
-                onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
-                placeholder="Ej: Masajes, Compañía, GFE..."
-                className="input-field"
-              />
-            </div>
-          </div>
-
-          {/* Hobbies */}
-          <div className="bg-gray-800 rounded-xl p-4">
-            <h3 className="text-white font-semibold mb-3">Etiquetas / Servicios</h3>
-            <div className="flex flex-wrap gap-2">
-              {['Masajes', 'GFE', 'Compañía', 'Cenas', 'Viajes', 'Gym', 'Yoga', 'Baile',
-                'Películas', 'Conversación', 'Discreción', 'Domicilio', 'Hotel', 'Local propio'].map(hobby => (
-                <button
-                  key={hobby}
-                  type="button"
-                  onClick={() => toggleHobby(hobby)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                    hobbies.includes(hobby) ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                >
-                  {hobby}
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* Idiomas */}
           <div className="bg-gray-800 rounded-xl p-4">

@@ -116,6 +116,7 @@ export default function ProfileDetailPage() {
 
   const phoneClean = profile.phone?.replace(/\D/g, '')
   const whatsappClean = profile.whatsapp?.replace(/\D/g, '') || phoneClean
+  const waMessage = encodeURIComponent(`Hola, he visto tu perfil en Caperucitas.com y quiero quedar contigo, ¿estás disponible?`)
 
   return (
     <div
@@ -255,7 +256,7 @@ export default function ProfileDetailPage() {
             )}
             {whatsappClean && (
               <a
-                href={`https://wa.me/${whatsappClean}`}
+                href={`https://wa.me/${whatsappClean}?text=${waMessage}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl transition-colors text-lg"
@@ -378,32 +379,24 @@ export default function ProfileDetailPage() {
 
           <button
             onClick={() => setShowReportModal(true)}
-            disabled={hasReported || !isAuthenticated}
+            disabled={hasReported}
             className={`w-full py-3 px-4 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors text-sm ${
               hasReported
                 ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                : !isAuthenticated
-                ? 'bg-gray-800 text-gray-400 cursor-not-allowed'
                 : 'bg-red-900/50 hover:bg-red-900/70 text-red-400 border border-red-800'
             }`}
           >
             <AlertTriangle size={16} />
-            {hasReported
-              ? 'Ya has denunciado este perfil'
-              : !isAuthenticated
-              ? 'Inicia sesión para denunciar'
-              : 'Denunciar perfil'}
+            {hasReported ? 'Ya has denunciado este perfil' : 'Denunciar perfil'}
           </button>
 
           {/* Volver a búsqueda */}
-          <div className="text-center mt-4">
-            <button
-              onClick={() => navigate(-1)}
-              className="text-gray-500 hover:text-gray-300 transition-colors text-sm"
-            >
-              ← Volver a la búsqueda
-            </button>
-          </div>
+          <button
+            onClick={() => navigate(-1)}
+            className="w-full py-4 rounded-xl border-2 border-white text-white font-bold text-lg hover:bg-white hover:text-gray-950 transition-all mt-2"
+          >
+            ← Volver a la búsqueda
+          </button>
         </div>
       </div>
 
@@ -421,7 +414,7 @@ export default function ProfileDetailPage() {
           )}
           {whatsappClean && (
             <a
-              href={`https://wa.me/${whatsappClean}`}
+              href={`https://wa.me/${whatsappClean}?text=${waMessage}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-5 transition-colors text-lg"
@@ -433,16 +426,17 @@ export default function ProfileDetailPage() {
         </div>
       )}
 
-      {/* Modal de denuncia */}
-      {showReportModal && isAuthenticated && (
+      {/* Modal de denuncia — accesible sin login */}
+      {showReportModal && (
         <ReportModal
           profileId={id!}
           profileTitle={profile?.title || 'Usuario'}
           onClose={() => setShowReportModal(false)}
           onReportSent={() => {
             showToast('Denuncia enviada correctamente', 'success')
-            loadReportData()
+            if (isAuthenticated) loadReportData()
           }}
+          isAuthenticated={isAuthenticated}
         />
       )}
     </div>

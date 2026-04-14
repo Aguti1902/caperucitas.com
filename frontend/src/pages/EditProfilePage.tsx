@@ -231,7 +231,7 @@ export default function EditProfilePage() {
       <h1 className="text-2xl font-bold text-white mb-6">Editar mi perfil</h1>
 
       {/* Estado del perfil */}
-      <div className={`rounded-xl p-4 mb-6 border flex items-center justify-between ${
+      <div className={`rounded-xl p-4 mb-4 border flex items-center justify-between ${
         profilePaused
           ? 'bg-orange-900/20 border-orange-700'
           : 'bg-green-900/20 border-green-700'
@@ -255,6 +255,29 @@ export default function EditProfilePage() {
           }`}
         >
           {profilePaused ? <><Play className="w-4 h-4" /> Activar</> : <><Pause className="w-4 h-4" /> Pausar</>}
+        </button>
+      </div>
+
+      {/* Toggle privacidad distancia */}
+      <div className="rounded-xl p-4 mb-6 border border-gray-700 bg-gray-900 flex items-center justify-between">
+        <div>
+          <p className="font-semibold text-white text-sm">🔒 PRIVACIDAD</p>
+          <p className="text-gray-400 text-xs mt-0.5">
+            {formData.showExactLocation
+              ? 'Los visitantes ven la distancia exacta a tu ubicación'
+              : 'No saldrá la distancia exacta a tu ubicación'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setFormData(prev => ({ ...prev, showExactLocation: !prev.showExactLocation }))}
+          className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${
+            formData.showExactLocation
+              ? 'bg-orange-600 hover:bg-orange-700 text-white'
+              : 'bg-green-600 hover:bg-green-700 text-white'
+          }`}
+        >
+          {formData.showExactLocation ? 'ACTIVAR privacidad' : 'DESACTIVAR privacidad'}
         </button>
       </div>
 

@@ -108,9 +108,14 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        {/* Video 1 — siempre visible arriba */}
+        {/* Video 1 — siempre visible */}
         <div className="relative w-full rounded-xl overflow-hidden shadow-xl" style={{ paddingTop: '56.25%' }}>
           <iframe className="absolute inset-0 w-full h-full" src="https://www.youtube.com/embed/1uSOwbfVdtA" title="Cómo registrarte" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+        </div>
+
+        {/* Video 2 — siempre visible debajo */}
+        <div className="relative w-full rounded-xl overflow-hidden shadow-xl" style={{ paddingTop: '56.25%' }}>
+          <iframe className="absolute inset-0 w-full h-full" src="https://www.youtube.com/embed/n0k2VE4UNaI" title="Cómo completar tu perfil" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
         </div>
 
         {/* Paso 1: Seleccionar categoría */}
@@ -284,10 +289,6 @@ export default function RegisterPage() {
               </p>
             </div>
 
-            {/* Video 2 — al final del formulario */}
-            <div className="relative w-full rounded-xl overflow-hidden shadow-xl" style={{ paddingTop: '56.25%' }}>
-              <iframe className="absolute inset-0 w-full h-full" src="https://www.youtube.com/embed/vUVizeSgAkg" title="Funciones Caperucitas" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-            </div>
           </div>
         )}
       </div>

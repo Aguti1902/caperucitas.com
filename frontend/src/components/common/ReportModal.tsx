@@ -7,18 +7,16 @@ interface ReportModalProps {
   profileTitle: string;
   onClose: () => void;
   onReportSent: () => void;
+  isAuthenticated?: boolean;
 }
 
 const REPORT_REASONS = [
   { value: 'scam', label: '🎭 Engaño o estafa', description: 'El perfil es engañoso o intenta estafar' },
-  { value: 'inappropriate_photos', label: '📸 Fotos públicas inapropiadas', description: 'Las fotos públicas son ofensivas o inapropiadas' },
-  { value: 'money_request', label: '💸 Pide dinero a cambio de sexo', description: 'Solicita dinero o pagos por encuentros' },
   { value: 'fake_photos', label: '🖼️ Fotos falsas', description: 'Las fotos no corresponden a la persona real' },
   { value: 'underage', label: '🔞 Es menor de edad', description: 'La persona parece ser menor de 18 años' },
-  { value: 'hate_speech', label: '🚫 Mensajes ofensivos o discriminatorios', description: 'El usuario envía mensajes con insultos, xenofobia, racismo o cualquier tipo de discriminación' },
 ];
 
-export default function ReportModal({ profileId, profileTitle, onClose, onReportSent }: ReportModalProps) {
+export default function ReportModal({ profileId, profileTitle, onClose, onReportSent, isAuthenticated }: ReportModalProps) {
   const [selectedReason, setSelectedReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -33,7 +31,8 @@ export default function ReportModal({ profileId, profileTitle, onClose, onReport
     setError('');
 
     try {
-      await api.post('/reports', {
+      const endpoint = isAuthenticated ? '/reports' : '/reports/public';
+      await api.post(endpoint, {
         reportedProfileId: profileId,
         reason: selectedReason,
       });
