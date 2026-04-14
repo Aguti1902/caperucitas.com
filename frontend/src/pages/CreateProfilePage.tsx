@@ -41,7 +41,7 @@ export default function CreateProfilePage() {
     showExactLocation: true,
   })
 
-  const [hobbies, setHobbies] = useState<string[]>([])
+
   const [languages, setLanguages] = useState<string[]>(['Español'])
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -144,9 +144,6 @@ export default function CreateProfilePage() {
     setPhotoPreview(prev => prev.filter((_, i) => i !== index))
   }
 
-  const toggleHobby = (hobby: string) => {
-    setHobbies(prev => prev.includes(hobby) ? prev.filter(h => h !== hobby) : [...prev, hobby])
-  }
 
   const toggleLanguage = (lang: string) => {
     setLanguages(prev => prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang])
@@ -170,7 +167,7 @@ export default function CreateProfilePage() {
         ...formData,
         age,
         height: formData.height ? parseInt(formData.height) : null,
-        hobbies,
+        hobbies: [],
         languages,
         orientation: formData.gender, // compatibilidad con backend
       })
