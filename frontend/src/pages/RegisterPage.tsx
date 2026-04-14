@@ -143,7 +143,7 @@ export default function RegisterPage() {
               <p className="text-gray-300 text-sm font-medium">¿Ya tienes cuenta?</p>
               <Link
                 to="/login"
-                className="block w-full bg-gray-800 hover:bg-gray-700 border border-gray-600 hover:border-red-500 text-white font-semibold py-2.5 rounded-lg transition-all text-sm"
+                className="block w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-lg transition-all text-sm"
               >
                 Iniciar sesión →
               </Link>
