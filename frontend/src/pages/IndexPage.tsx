@@ -200,12 +200,11 @@ export default function IndexPage() {
       </header>
 
       {/* Banner principal — logo completo sin recortes */}
-      <div className="w-full bg-gray-900 border-b border-gray-800">
+      <div className="w-full bg-gray-900 border-b border-gray-800 mt-2 mb-2">
         <img
           src="/logo-caperucitas.jpeg"
           alt="Caperucitas.com"
           className="w-full h-auto block"
-          style={{ maxHeight: 'none' }}
         />
       </div>
 

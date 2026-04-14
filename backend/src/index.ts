@@ -90,17 +90,8 @@ const app = express();
 const httpServer = createServer(app);
 
 // ============================================================
-// SEGURIDAD: Helmet (HTTP security headers)
+// SEGURIDAD: Rate limiting (definir antes de usarlo)
 // ============================================================
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: 'cross-origin' }, // Necesario para Cloudinary/imágenes
-  contentSecurityPolicy: false, // CSP gestionado en el frontend (Vercel)
-}));
-
-// ============================================================
-// SEGURIDAD: Rate limiting
-// ============================================================
-// Límite global: 200 req / 15 min por IP
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
@@ -109,17 +100,14 @@ const globalLimiter = rateLimit({
   message: { error: 'Demasiadas peticiones. Inténtalo de nuevo en unos minutos.' },
 });
 
-// Límite estricto para autenticación: 20 req / 15 min por IP
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Demasiados intentos de autenticación. Espera 15 minutos.' },
-  skip: (req) => process.env.NODE_ENV === 'development', // Desactivar en desarrollo
+  skip: () => process.env.NODE_ENV === 'development',
 });
-
-app.use(globalLimiter);
 
 // Configurar Socket.IO
 // Obtener URLs del frontend desde variables de entorno o usar defaults
@@ -186,7 +174,8 @@ app.use(cors({
     } else {
       // En producción, permitir temporalmente cualquier origen de Vercel o 9citas.com
       if (process.env.NODE_ENV === 'production' && (
-        origin.includes('vercel.app') || 
+        origin.includes('vercel.app') ||
+        origin.includes('caperucitas.com') ||
         origin.includes('9citas.com')
       )) {
         console.log(`⚠️  Permitiendo origen de producción temporalmente: ${origin}`);
@@ -217,6 +206,15 @@ app.options('*', (req, res) => {
   console.log(`✅ OPTIONS request respondida para: ${origin || 'sin origin'}`);
   res.sendStatus(204);
 });
+
+// ============================================================
+// SEGURIDAD: Helmet y rate limiting — DESPUÉS de CORS
+// ============================================================
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: false,
+}));
+app.use(globalLimiter);
 
 // IMPORTANTE: El webhook de Stripe necesita el body raw, así que lo configuramos antes
 // Configurar express.raw para el webhook de Stripe
