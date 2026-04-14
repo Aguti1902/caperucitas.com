@@ -8,7 +8,7 @@ import Button from '@/components/common/Button'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 import Modal from '@/components/common/Modal'
 import CitySelector from '@/components/common/CitySelector'
-import { SPANISH_CITIES } from '@/data/spanishCities'
+import { detectLocation } from '@/utils/geolocation'
 import { Eye, Pause, Play, MapPin } from 'lucide-react'
 
 export default function EditProfilePage() {
@@ -118,47 +118,17 @@ export default function EditProfilePage() {
   }
 
   const handleUpdateLocation = async () => {
-    if (!navigator.geolocation) {
-      alert('Tu navegador no soporta geolocalización')
-      return
-    }
     setIsUpdatingLocation(true)
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1&accept-language=es`,
-            { headers: { 'User-Agent': 'caperucitas.com/1.0' } }
-          )
-          let cityName = ''
-          if (response.ok) {
-            const data = await response.json()
-            const address = data.address
-            cityName = address.city || address.town || address.municipality || address.village || ''
-            if (cityName) {
-              cityName = cityName.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
-            }
-          }
-          if (!cityName || !SPANISH_CITIES.find(c => c.name.toLowerCase() === cityName.toLowerCase())) {
-            const closest = SPANISH_CITIES.reduce((prev, city) => {
-              const d = Math.sqrt(Math.pow(city.lat - latitude, 2) + Math.pow(city.lng - longitude, 2))
-              const pd = Math.sqrt(Math.pow(prev.lat - latitude, 2) + Math.pow(prev.lng - longitude, 2))
-              return d < pd ? city : prev
-            })
-            cityName = closest.name
-          }
-          await api.put('/profile/location', { city: cityName, latitude, longitude })
-          setFormData(prev => ({ ...prev, city: cityName }))
-          alert(`✓ Ubicación actualizada a ${cityName}`)
-        } catch {
-          alert('Error al actualizar ubicación')
-        }
-        setIsUpdatingLocation(false)
-      },
-      () => { alert('No se pudo obtener tu ubicación'); setIsUpdatingLocation(false) },
-      { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
-    )
+    try {
+      const result = await detectLocation()
+      await api.put('/profile/location', { city: result.city, latitude: result.latitude, longitude: result.longitude })
+      setFormData(prev => ({ ...prev, city: result.city }))
+      alert(`✓ Ubicación actualizada a ${result.city}`)
+    } catch {
+      alert('No se pudo obtener tu ubicación')
+    } finally {
+      setIsUpdatingLocation(false)
+    }
   }
 
   const handleTogglePause = async () => {

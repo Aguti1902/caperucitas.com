@@ -7,7 +7,7 @@ import Input from '@/components/common/Input'
 import Textarea from '@/components/common/Textarea'
 import Button from '@/components/common/Button'
 import CitySelector from '@/components/common/CitySelector'
-import { SPANISH_CITIES } from '@/data/spanishCities'
+import { detectLocation } from '@/utils/geolocation'
 
 const GENDER_OPTIONS = [
   { id: 'chica', label: '👩 Chica', color: 'bg-pink-500' },
@@ -59,61 +59,18 @@ export default function CreateProfilePage() {
     handleDetectLocation()
   }, [])
 
-  const handleDetectLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationError('Tu navegador no soporta geolocalización.')
-      setIsDetectingLocation(false)
-      return
-    }
+  const handleDetectLocation = async () => {
     setIsDetectingLocation(true)
     setLocationError('')
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1&accept-language=es`,
-            { headers: { 'User-Agent': 'caperucitas.com/1.0' } }
-          )
-          if (response.ok) {
-            const data = await response.json()
-            const address = data.address
-            let cityName = address.city || address.town || address.municipality || address.village || address.county
-
-            if (cityName) {
-              cityName = cityName.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
-            }
-
-            if (!cityName || !SPANISH_CITIES.find(c => c.name.toLowerCase() === cityName.toLowerCase())) {
-              let closest = SPANISH_CITIES[0]
-              let minDist = Infinity
-              SPANISH_CITIES.forEach(city => {
-                const d = Math.sqrt(Math.pow(city.lat - latitude, 2) + Math.pow(city.lng - longitude, 2))
-                if (d < minDist) { minDist = d; closest = city }
-              })
-              cityName = closest.name
-            }
-
-            setFormData(prev => ({ ...prev, city: cityName, latitude, longitude }))
-          }
-        } catch {
-          const closest = SPANISH_CITIES.reduce((prev, city) => {
-            const d = Math.sqrt(Math.pow(city.lat - latitude, 2) + Math.pow(city.lng - longitude, 2))
-            const pd = Math.sqrt(Math.pow(prev.lat - latitude, 2) + Math.pow(prev.lng - longitude, 2))
-            return d < pd ? city : prev
-          })
-          setFormData(prev => ({ ...prev, city: closest.name, latitude, longitude }))
-        }
-        setIsDetectingLocation(false)
-      },
-      () => {
-        setLocationError('No se pudo obtener tu ubicación. Selecciona tu ciudad manualmente.')
-        setIsDetectingLocation(false)
-        setFormData(prev => ({ ...prev, city: 'Madrid', latitude: 40.4168, longitude: -3.7038 }))
-      },
-      { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
-    )
+    try {
+      const result = await detectLocation()
+      setFormData(prev => ({ ...prev, city: result.city, latitude: result.latitude, longitude: result.longitude }))
+    } catch {
+      setLocationError('No se pudo obtener tu ubicación. Selecciona tu ciudad manualmente.')
+      setFormData(prev => ({ ...prev, city: 'Madrid', latitude: 40.4168, longitude: -3.7038 }))
+    } finally {
+      setIsDetectingLocation(false)
+    }
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
