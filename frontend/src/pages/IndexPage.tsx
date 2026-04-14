@@ -199,12 +199,13 @@ export default function IndexPage() {
         </div>
       </header>
 
-      {/* Banner principal — logo completo sin recortes */}
-      <div className="w-full bg-gray-900 border-b border-gray-800 mt-2 mb-2">
+      {/* Banner principal — justo debajo del header, sin márgenes */}
+      <div className="w-full overflow-hidden">
         <img
           src="/logo-caperucitas.jpeg"
           alt="Caperucitas.com"
-          className="w-full h-auto block"
+          className="w-full block"
+          style={{ height: 'auto', maxHeight: 'none', display: 'block' }}
         />
       </div>
 
