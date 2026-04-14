@@ -49,15 +49,17 @@ export default function ProfileDetailPage() {
     if (!id) { navigate('/'); return }
     setIsLoading(true)
     try {
-      // Usar endpoint público para que funcione sin autenticación
-      const endpoint = isAuthenticated ? `/profile/${id}` : `/profile/public/${id}`
-      const response = await api.get(endpoint)
+      // Siempre usar endpoint público — el privado requiere tener perfil creado
+      const response = await api.get(`/profile/public/${id}`)
       setProfile(response.data)
     } catch (error: any) {
-      if (error.response?.status === 404) {
+      const status = error.response?.status
+      if (status === 404) {
         showToast('Perfil no encontrado', 'error')
-        navigate('/')
+      } else {
+        showToast('Error al cargar el perfil. Inténtalo de nuevo.', 'error')
       }
+      navigate('/perfiles')
     } finally {
       setIsLoading(false)
     }
