@@ -23,6 +23,7 @@ export default function ProfileDetailPage() {
     fake_photos: 0, underage: 0, hate_speech: 0,
   })
   const [hasReported, setHasReported] = useState(false)
+  const [distanceKm, setDistanceKm] = useState<number | null>(null)
 
   // Navegación entre perfiles desde la lista
   const profileIds = useRef<string[]>(JSON.parse(sessionStorage.getItem('browseProfiles') || '[]'))
@@ -39,11 +40,34 @@ export default function ProfileDetailPage() {
 
   useEffect(() => {
     setCurrentPhotoIndex(0)
+    setDistanceKm(null)
     loadProfile()
     if (isAuthenticated) {
       loadReportData()
     }
   }, [id])
+
+  // Calcular distancia en el cliente cuando el perfil cargue
+  useEffect(() => {
+    if (!profile?.latitude || !profile?.longitude) return
+    if (profile.showExactLocation === false) return
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const R = 6371
+        const dLat = (profile.latitude - pos.coords.latitude) * Math.PI / 180
+        const dLon = (profile.longitude - pos.coords.longitude) * Math.PI / 180
+        const a = Math.sin(dLat / 2) ** 2 +
+          Math.cos(pos.coords.latitude * Math.PI / 180) *
+          Math.cos(profile.latitude * Math.PI / 180) *
+          Math.sin(dLon / 2) ** 2
+        const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        setDistanceKm(Math.round(dist * 10) / 10)
+      },
+      () => {},
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+    )
+  }, [profile])
 
   const loadProfile = async () => {
     if (!id) { navigate('/'); return }
@@ -239,8 +263,10 @@ export default function ProfileDetailPage() {
           {profile.city && (
             <p className="text-gray-400 mt-1">📍 {profile.city}</p>
           )}
-          {profile.distance !== undefined && profile.distance !== null && (
-            <p className="text-gray-500 text-sm">A {profile.distance} km de ti</p>
+          {distanceKm !== null && (
+            <p className="text-gray-500 text-sm">
+              📏 A {distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m` : `${distanceKm} km`} de ti
+            </p>
           )}
         </div>
 

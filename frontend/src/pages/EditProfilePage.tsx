@@ -7,7 +7,6 @@ import Textarea from '@/components/common/Textarea'
 import Button from '@/components/common/Button'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 import Modal from '@/components/common/Modal'
-import CitySelector from '@/components/common/CitySelector'
 import { detectLocation } from '@/utils/geolocation'
 import { Eye, Pause, Play, MapPin } from 'lucide-react'
 
@@ -186,7 +185,7 @@ export default function EditProfilePage() {
       }
 
       await refreshUserData()
-      navigate('/app')
+      navigate('/perfiles')
     } catch (err: any) {
       setError(err.response?.data?.error || 'Error al actualizar perfil')
     } finally {
@@ -317,7 +316,7 @@ export default function EditProfilePage() {
         {/* Ciudad */}
         <div className="bg-gray-800 rounded-xl p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-white font-semibold">📍 Ciudad</h3>
+            <h3 className="text-white font-semibold">📍 Ubicación</h3>
             <button
               type="button"
               onClick={handleUpdateLocation}
@@ -325,15 +324,18 @@ export default function EditProfilePage() {
               className="flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
             >
               <MapPin className="w-3.5 h-3.5" />
-              {isUpdatingLocation ? 'Actualizando...' : 'Actualizar ubicación'}
+              {isUpdatingLocation ? 'Detectando...' : '📍 Detectar GPS'}
             </button>
           </div>
-          <CitySelector
+          <input
+            type="text"
+            placeholder="Ej: Barcelona, Eixample, Calle Mayor 5..."
             value={formData.city}
-            onChange={(city, lat, lng) => setFormData(prev => ({ ...prev, city, latitude: lat, longitude: lng }))}
+            onChange={e => setFormData(prev => ({ ...prev, city: e.target.value }))}
+            className="input-field w-full"
           />
           <p className="text-gray-500 text-xs mt-2">
-            La ubicación solo se actualiza cuando pulsas "Actualizar ubicación"
+            Puedes escribir ciudad, barrio, calle... · El botón detecta tu GPS automáticamente
           </p>
         </div>
 
@@ -457,7 +459,7 @@ export default function EditProfilePage() {
         </div>
 
         <div className="flex gap-3 pt-2">
-          <Button type="button" variant="outline" onClick={() => navigate('/app')} className="flex-1">
+          <Button type="button" variant="outline" onClick={() => navigate('/perfiles')} className="flex-1">
             Cancelar
           </Button>
           <Button type="submit" variant="primary" isLoading={isSaving} className="flex-1 bg-red-600 hover:bg-red-700 border-0">

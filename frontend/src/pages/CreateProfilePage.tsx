@@ -6,7 +6,6 @@ import Logo from '@/components/common/Logo'
 import Input from '@/components/common/Input'
 import Textarea from '@/components/common/Textarea'
 import Button from '@/components/common/Button'
-import CitySelector from '@/components/common/CitySelector'
 import { detectLocation } from '@/utils/geolocation'
 
 const GENDER_OPTIONS = [
@@ -142,8 +141,7 @@ export default function CreateProfilePage() {
       }
 
       await refreshUserData()
-      sessionStorage.setItem('justRegistered', 'true')
-      navigate('/app')
+      navigate('/perfiles')
     } catch (err: any) {
       setError(err.response?.data?.error || 'Error al crear perfil')
     } finally {
@@ -273,21 +271,31 @@ export default function CreateProfilePage() {
           {/* Ubicación */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              📍 Ciudad
+              📍 Ubicación (ciudad, barrio, calle...)
             </label>
-            {isDetectingLocation ? (
-              <div className="bg-gray-800 rounded-lg px-4 py-3 flex items-center gap-3">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-500"></div>
-                <span className="text-gray-300">Detectando tu ubicación...</span>
-              </div>
-            ) : (
-              <CitySelector
+            {locationError && <p className="text-yellow-400 text-xs mb-2">{locationError}</p>}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Ej: Barcelona, Eixample, Calle Mayor 5..."
                 value={formData.city}
-                onChange={(city, lat, lng) => setFormData(prev => ({ ...prev, city, latitude: lat, longitude: lng }))}
-                onDetect={handleDetectLocation}
-                isDetecting={isDetectingLocation}
-                locationError={locationError}
+                onChange={e => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                className="input-field flex-1"
               />
+              <button
+                type="button"
+                onClick={handleDetectLocation}
+                disabled={isDetectingLocation}
+                className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-3 rounded-lg text-sm transition-colors flex-shrink-0"
+                title="Detectar ubicación automáticamente"
+              >
+                {isDetectingLocation
+                  ? <span className="animate-spin inline-block">⟳</span>
+                  : '📍'}
+              </button>
+            </div>
+            {formData.city && (
+              <p className="text-green-400 text-xs mt-1">✓ Ubicación: <strong>{formData.city}</strong></p>
             )}
           </div>
 

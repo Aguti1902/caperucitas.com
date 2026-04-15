@@ -111,7 +111,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
 
     const { title, aboutMe, lookingFor, age, orientation, gender, role, city, latitude, longitude,
           height, bodyType, relationshipStatus, relationshipGoal, occupation, education, smoking, drinking,
-          children, pets, zodiacSign, hobbies, languages, showExactLocation } = req.body;
+          children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp } = req.body;
 
     const updatedProfile = await prisma.profile.update({
       where: { userId: req.userId },
@@ -121,16 +121,16 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
         lookingFor,
         age,
         orientation,
-        gender, // Permitir cambiar género
-        role: role !== undefined ? role : undefined, // Actualizar ROL si se proporciona
+        gender,
+        role: role !== undefined ? role : undefined,
         city,
         latitude: latitude || null,
         longitude: longitude || null,
-        showExactLocation: showExactLocation !== undefined ? showExactLocation : undefined, // Actualizar si se proporciona
+        showExactLocation: showExactLocation !== undefined ? showExactLocation : undefined,
         height: height || null,
         bodyType: bodyType || null,
         relationshipStatus: relationshipStatus || null,
-        relationshipGoal: relationshipGoal || null, // Nuevo campo
+        relationshipGoal: relationshipGoal || null,
         occupation: occupation || null,
         education: education || null,
         smoking: smoking || null,
@@ -140,6 +140,8 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
         zodiacSign: zodiacSign || null,
         hobbies: hobbies || [],
         languages: languages || [],
+        phone: phone !== undefined ? phone : undefined,
+        whatsapp: whatsapp !== undefined ? whatsapp : undefined,
         lastSeenAt: new Date(),
       },
     });
