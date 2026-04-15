@@ -380,6 +380,13 @@ export default function CreateProfilePage() {
             </ul>
           </div>
 
+          {/* Aviso legal */}
+          <div className="border-2 border-yellow-400 bg-yellow-400/10 rounded-xl p-4">
+            <p className="text-yellow-300 text-sm font-semibold leading-snug">
+              ⚠️ Si publicas un perfil falso con fotos y/o el teléfono de otra persona sin su consentimiento, puedes enfrentarte a delitos como suplantación, difamación o acoso, con multas e incluso consecuencias penales.
+            </p>
+          </div>
+
           <Button
             type="submit"
             fullWidth

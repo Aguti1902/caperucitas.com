@@ -98,9 +98,8 @@ export default function IndexPage() {
   }
 
   const handleShare = () => {
-    const shareData = { title: 'Caperucitas.com', text: '¡Encuentra los mejores perfiles en Caperucitas.com!', url: window.location.origin }
-    if (navigator.share) navigator.share(shareData).catch(() => {})
-    else { navigator.clipboard.writeText(window.location.origin); alert('¡Enlace copiado!') }
+    const msg = encodeURIComponent('Hola, mira que fantástica web he encontrado para encontrar caperucitas cerca de ti, caperucitas.com la web solo para adultos.')
+    window.open(`https://wa.me/?text=${msg}`, '_blank')
   }
 
   const scrollRoam = (dir: 'left' | 'right') => {
