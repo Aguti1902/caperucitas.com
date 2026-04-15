@@ -46,6 +46,14 @@ export default function IndexPage() {
     loadProfiles()
   }, [selectedGender])
 
+  // Búsqueda por ciudad con debounce de 400ms para no saturar el backend
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadProfiles()
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [citySearch])
+
   // Mide el alto real del header y lo actualiza cuando cambia (filtro edad abierto/cerrado)
   useEffect(() => {
     const el = headerRef.current
@@ -61,8 +69,9 @@ export default function IndexPage() {
   const loadProfiles = async () => {
     setIsLoading(true)
     try {
-      const params: any = { filter: 'all' }
+      const params: any = { filter: 'all', limit: 100 }
       if (selectedGender !== 'all') params.gender = selectedGender
+      if (citySearch.trim()) params.city = citySearch.trim()
 
       const response = await api.get('/profile/public-search', { params })
       const all = response.data.profiles.filter(
@@ -79,7 +88,6 @@ export default function IndexPage() {
 
   const filteredProfiles = profiles.filter((p) => {
     if (searchQuery && !p.title?.toLowerCase().includes(searchQuery.toLowerCase())) return false
-    if (citySearch && !p.city?.toLowerCase().includes(citySearch.toLowerCase())) return false
     if (minAge && p.age < parseInt(minAge)) return false
     if (maxAge && p.age > parseInt(maxAge)) return false
     return true

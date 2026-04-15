@@ -547,7 +547,7 @@ const PUBLIC_PROFILE_INCLUDE = {
 // Búsqueda pública de perfiles (para visitantes sin cuenta)
 export const publicSearchProfiles = async (req: Request, res: Response) => {
   try {
-    const { gender, city, page = 1, limit = 40, q } = req.query;
+    const { gender, city, page = 1, limit = 100, q } = req.query;
 
     const where: any = {};
 
