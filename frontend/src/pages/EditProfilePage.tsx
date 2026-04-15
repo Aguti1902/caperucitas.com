@@ -8,7 +8,8 @@ import Button from '@/components/common/Button'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 import Modal from '@/components/common/Modal'
 import { detectLocation } from '@/utils/geolocation'
-import { Eye, Pause, Play, MapPin } from 'lucide-react'
+import CitySelector from '@/components/common/CitySelector'
+import { Eye, Pause, Play } from 'lucide-react'
 
 export default function EditProfilePage() {
   const navigate = useNavigate()
@@ -28,6 +29,8 @@ export default function EditProfilePage() {
     age: '',
     gender: '',
     city: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
     phone: '',
     whatsapp: '',
     height: '',
@@ -60,6 +63,8 @@ export default function EditProfilePage() {
         age: profile.age?.toString() || '',
         gender: profile.gender || profile.orientation || '',
         city: profile.city || '',
+        latitude: profile.latitude ?? null,
+        longitude: profile.longitude ?? null,
         phone: profile.phone || '',
         whatsapp: profile.whatsapp || '',
         height: profile.height?.toString() || '',
@@ -117,7 +122,7 @@ export default function EditProfilePage() {
     try {
       const result = await detectLocation()
       await api.put('/profile/location', { city: result.city, latitude: result.latitude, longitude: result.longitude })
-      setFormData(prev => ({ ...prev, city: result.city }))
+      setFormData(prev => ({ ...prev, city: result.city, latitude: result.latitude, longitude: result.longitude }))
       alert(`✓ Ubicación actualizada a ${result.city}`)
     } catch {
       alert('No se pudo obtener tu ubicación')
@@ -311,28 +316,15 @@ export default function EditProfilePage() {
 
         {/* Ciudad */}
         <div className="bg-gray-800 rounded-xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-white font-semibold">📍 Ubicación</h3>
-            <button
-              type="button"
-              onClick={handleUpdateLocation}
-              disabled={isUpdatingLocation}
-              className="flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-            >
-              <MapPin className="w-3.5 h-3.5" />
-              {isUpdatingLocation ? 'Detectando...' : '📍 Detectar GPS'}
-            </button>
-          </div>
-          <input
-            type="text"
-            placeholder="Ej: Barcelona, Eixample, Calle Mayor 5..."
+          <h3 className="text-white font-semibold mb-3">📍 Ciudad</h3>
+          <CitySelector
             value={formData.city}
-            onChange={e => setFormData(prev => ({ ...prev, city: e.target.value }))}
-            className="input-field w-full"
+            onChange={(city, lat, lng) =>
+              setFormData(prev => ({ ...prev, city, latitude: lat, longitude: lng }))
+            }
+            onDetect={handleUpdateLocation}
+            isDetecting={isUpdatingLocation}
           />
-          <p className="text-gray-500 text-xs mt-2">
-            Puedes escribir ciudad, barrio, calle... · El botón detecta tu GPS automáticamente
-          </p>
         </div>
 
         {/* FOTOS */}

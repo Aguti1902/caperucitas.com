@@ -7,6 +7,7 @@ import Input from '@/components/common/Input'
 import Textarea from '@/components/common/Textarea'
 import Button from '@/components/common/Button'
 import { detectLocation } from '@/utils/geolocation'
+import CitySelector from '@/components/common/CitySelector'
 
 const GENDER_OPTIONS = [
   { id: 'chica', label: '👩 Chica', color: 'bg-pink-500' },
@@ -271,32 +272,17 @@ export default function CreateProfilePage() {
           {/* Ubicación */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              📍 Ubicación (ciudad, barrio, calle...)
+              📍 Ciudad
             </label>
-            {locationError && <p className="text-yellow-400 text-xs mb-2">{locationError}</p>}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Ej: Barcelona, Eixample, Calle Mayor 5..."
-                value={formData.city}
-                onChange={e => setFormData(prev => ({ ...prev, city: e.target.value }))}
-                className="input-field flex-1"
-              />
-              <button
-                type="button"
-                onClick={handleDetectLocation}
-                disabled={isDetectingLocation}
-                className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-3 rounded-lg text-sm transition-colors flex-shrink-0"
-                title="Detectar ubicación automáticamente"
-              >
-                {isDetectingLocation
-                  ? <span className="animate-spin inline-block">⟳</span>
-                  : '📍'}
-              </button>
-            </div>
-            {formData.city && (
-              <p className="text-green-400 text-xs mt-1">✓ Ubicación: <strong>{formData.city}</strong></p>
-            )}
+            <CitySelector
+              value={formData.city}
+              onChange={(city, lat, lng) =>
+                setFormData(prev => ({ ...prev, city, latitude: lat, longitude: lng }))
+              }
+              onDetect={handleDetectLocation}
+              isDetecting={isDetectingLocation}
+              locationError={locationError}
+            />
           </div>
 
           {/* FOTOS PÚBLICAS */}
