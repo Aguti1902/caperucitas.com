@@ -5,8 +5,11 @@ import {
   Trash2,
   CheckCircle,
   XCircle,
-  MessageSquare,
-  Heart,
+  AlertTriangle,
+  Phone,
+  MapPin,
+  Calendar,
+  ExternalLink,
 } from 'lucide-react';
 import { getAllProfiles, deleteUser } from '../services/admin.api';
 import AdminHeader from '../components/admin/AdminHeader';
@@ -19,6 +22,8 @@ interface Profile {
   gender: string;
   age: number;
   city: string;
+  phone?: string;
+  whatsapp?: string;
   isFake: boolean;
   isVerified: boolean;
   isOnline: boolean;
@@ -31,247 +36,253 @@ interface Profile {
     createdAt: string;
   } | null;
   _count: {
-    sentMessages: number;
-    receivedMessages: number;
-    sentLikes: number;
-    receivedLikes: number;
     reportsReceived: number;
   };
 }
 
+type FilterType = 'all' | 'real' | 'fake' | 'reported';
+
 export default function AdminUsersPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [filteredProfiles, setFilteredProfiles] = useState<Profile[]>([]);
+  const [filtered, setFiltered] = useState<Profile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'real' | 'fake'>('all');
+  const [filterType, setFilterType] = useState<FilterType>('all');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadProfiles();
-  }, []);
+  useEffect(() => { loadProfiles(); }, []);
 
   useEffect(() => {
-    filterProfiles();
+    let result = [...profiles];
+    if (filterType === 'real') result = result.filter(p => !p.isFake);
+    else if (filterType === 'fake') result = result.filter(p => p.isFake);
+    else if (filterType === 'reported') result = result.filter(p => p._count.reportsReceived > 0);
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(p =>
+        p.title.toLowerCase().includes(term) ||
+        p.user?.email.toLowerCase().includes(term) ||
+        p.city?.toLowerCase().includes(term) ||
+        p.phone?.includes(term) ||
+        p.whatsapp?.includes(term)
+      );
+    }
+    setFiltered(result);
   }, [searchTerm, filterType, profiles]);
 
   const loadProfiles = async () => {
     try {
       const data = await getAllProfiles();
       setProfiles(data.profiles);
-    } catch (error) {
-      console.error('Error loading profiles:', error);
+    } catch (err) {
+      console.error(err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const filterProfiles = () => {
-    let filtered = [...profiles];
-
-    // Filter by type
-    if (filterType === 'real') {
-      filtered = filtered.filter((p) => !p.isFake);
-    } else if (filterType === 'fake') {
-      filtered = filtered.filter((p) => p.isFake);
-    }
-
-    // Filter by search term
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (p) =>
-          p.title.toLowerCase().includes(term) ||
-          p.user?.email.toLowerCase().includes(term) ||
-          p.city.toLowerCase().includes(term)
-      );
-    }
-
-    setFilteredProfiles(filtered);
-  };
-
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm('¿ELIMINAR este usuario y todos sus datos? Esta acción es irreversible.')) return;
-
+  const handleDelete = async (userId: string) => {
+    if (!confirm('¿Eliminar este usuario y todos sus datos? Esta acción es irreversible.')) return;
     setActionLoading(userId);
     try {
       await deleteUser(userId);
-      setProfiles(profiles.filter((p) => p.user?.id !== userId));
-      alert('Usuario eliminado exitosamente');
-    } catch (error) {
-      console.error('Error deleting user:', error);
+      setProfiles(prev => prev.filter(p => p.user?.id !== userId));
+    } catch {
       alert('Error al eliminar el usuario');
     } finally {
       setActionLoading(null);
     }
   };
 
+  const counts = {
+    all: profiles.length,
+    real: profiles.filter(p => !p.isFake).length,
+    fake: profiles.filter(p => p.isFake).length,
+    reported: profiles.filter(p => p._count.reportsReceived > 0).length,
+  };
+
+  const filters: { key: FilterType; label: string }[] = [
+    { key: 'all', label: `Todos (${counts.all})` },
+    { key: 'real', label: `Reales (${counts.real})` },
+    { key: 'fake', label: `Ficticios (${counts.fake})` },
+    { key: 'reported', label: `Denunciados (${counts.reported})` },
+  ];
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white text-xl">Cargando usuarios...</div>
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-red-600/30 border-t-red-600 rounded-full animate-spin" />
+          <p className="text-gray-400 text-sm">Cargando perfiles...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-gray-950">
       <AdminHeader />
       <AdminNav />
 
-      {/* Content */}
-      <main className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 pt-32 pb-20">
-        {/* Filters */}
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50 mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar por nombre, email o ciudad..."
-                className="w-full pl-10 pr-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fc4d5c]"
-              />
-            </div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-20">
+        <div className="mb-6">
+          <h1 className="text-2xl font-black text-white">Gestión de usuarios</h1>
+          <p className="text-gray-400 text-sm mt-1">Controla todos los perfiles publicados en Caperucitas.com</p>
+        </div>
 
-            {/* Filter buttons */}
-            <div className="flex gap-2">
+        {/* Filtros */}
+        <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 mb-6 flex flex-col md:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Buscar por nombre, email, ciudad, teléfono..."
+              className="w-full pl-9 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {filters.map(f => (
               <button
-                onClick={() => setFilterType('all')}
-                className={`px-4 py-2 rounded-lg font-bold transition shadow-lg ${
-                  filterType === 'all'
-                    ? 'bg-gradient-to-r from-[#fc4d5c] to-[#fc4d5c]/80 text-white shadow-[#fc4d5c]/30'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                key={f.key}
+                onClick={() => setFilterType(f.key)}
+                className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${
+                  filterType === f.key
+                    ? 'bg-red-600 text-white'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
                 }`}
               >
-                Todos ({profiles.length})
+                {f.label}
               </button>
-              <button
-                onClick={() => setFilterType('real')}
-                className={`px-4 py-2 rounded-lg font-bold transition shadow-lg ${
-                  filterType === 'real'
-                    ? 'bg-gradient-to-r from-[#fc4d5c] to-[#fc4d5c]/80 text-white shadow-[#fc4d5c]/30'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-              >
-                Reales ({profiles.filter((p) => !p.isFake).length})
-              </button>
-              <button
-                onClick={() => setFilterType('fake')}
-                className={`px-4 py-2 rounded-lg font-bold transition shadow-lg ${
-                  filterType === 'fake'
-                    ? 'bg-gradient-to-r from-[#fc4d5c] to-[#fc4d5c]/80 text-white shadow-[#fc4d5c]/30'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-              >
-                Falsos ({profiles.filter((p) => p.isFake).length})
-              </button>
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* Users List */}
-        <div className="space-y-4">
-          {filteredProfiles.map((profile) => (
-            <div
-              key={profile.id}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50"
-            >
-              <div className="flex items-start gap-4">
-                {/* Profile Photo */}
-                {profile.photos.find((p) => p.type === 'cover') && (
-                  <img
-                    src={profile.photos.find((p) => p.type === 'cover')!.url}
-                    alt={profile.title}
-                    className="w-20 h-20 rounded-full object-cover"
-                  />
-                )}
+        {/* Lista */}
+        {filtered.length === 0 ? (
+          <div className="bg-gray-900 rounded-xl p-16 border border-gray-800 text-center">
+            <Users className="w-14 h-14 text-gray-700 mx-auto mb-3" />
+            <p className="text-gray-400">No se encontraron perfiles</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filtered.map(profile => {
+              const coverPhoto = profile.photos.find(p => p.type === 'cover');
+              const hasReports = profile._count.reportsReceived > 0;
+              return (
+                <div
+                  key={profile.id}
+                  className={`bg-gray-900 rounded-xl border transition ${
+                    hasReports ? 'border-orange-600/40' : 'border-gray-800'
+                  }`}
+                >
+                  <div className="flex items-start gap-4 p-5">
+                    {/* Foto */}
+                    <div className="shrink-0">
+                      {coverPhoto ? (
+                        <img
+                          src={coverPhoto.url}
+                          alt={profile.title}
+                          className="w-16 h-16 rounded-xl object-cover"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded-xl bg-gray-800 flex items-center justify-center">
+                          <Users className="w-7 h-7 text-gray-600" />
+                        </div>
+                      )}
+                    </div>
 
-                {/* Profile Info */}
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-white font-bold text-lg">{profile.title}</h3>
-                    {profile.isFake && (
-                      <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-xs">
-                        Falso
-                      </span>
-                    )}
-                    {profile.isVerified && (
-                      <CheckCircle className="w-5 h-5 text-blue-500" />
-                    )}
-                    {profile.isOnline && (
-                      <span className="w-3 h-3 bg-green-500 rounded-full"></span>
-                    )}
-                  </div>
-
-                  {profile.user && (
-                    <div className="space-y-1 mb-3">
-                      <p className="text-gray-400 text-sm">{profile.user.email}</p>
-                      <p className="text-gray-500 text-xs">
-                        Registrado: {new Date(profile.user.createdAt).toLocaleDateString('es-ES')}
-                        {profile.user.emailVerified ? (
-                          <span className="text-green-500 ml-2">✓ Verificado</span>
-                        ) : (
-                          <span className="text-red-500 ml-2">✗ Sin verificar</span>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h3 className="text-white font-bold text-base truncate">{profile.title}</h3>
+                        {profile.isFake && (
+                          <span className="px-2 py-0.5 bg-gray-700 text-gray-400 rounded text-xs">Ficticio</span>
                         )}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-4 text-sm">
-                    <span className="text-gray-400">
-                      {profile.age} años • {profile.city}
-                    </span>
-                    <span className="text-gray-400">
-                      {profile.orientation === 'hetero' ? '👫' : '🏳️‍🌈'} {profile.orientation}
-                    </span>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="flex items-center gap-4 mt-3 text-sm">
-                    <div className="flex items-center gap-1 text-gray-400">
-                      <MessageSquare className="w-4 h-4" />
-                      <span>{profile._count.sentMessages + profile._count.receivedMessages} mensajes</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-gray-400">
-                      <Heart className="w-4 h-4" />
-                      <span>{profile._count.sentLikes + profile._count.receivedLikes} likes</span>
-                    </div>
-                    {profile._count.reportsReceived > 0 && (
-                      <div className="flex items-center gap-1 text-red-400">
-                        <XCircle className="w-4 h-4" />
-                        <span>{profile._count.reportsReceived} denuncias</span>
+                        {profile.isOnline && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 bg-green-900/40 text-green-400 rounded text-xs">
+                            <span className="w-1.5 h-1.5 bg-green-400 rounded-full" />
+                            Online
+                          </span>
+                        )}
+                        {hasReports && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 bg-orange-900/40 text-orange-400 rounded text-xs font-bold">
+                            <AlertTriangle className="w-3 h-3" />
+                            {profile._count.reportsReceived} denuncia{profile._count.reportsReceived > 1 ? 's' : ''}
+                          </span>
+                        )}
                       </div>
-                    )}
+
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-400 mb-2">
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5" />
+                          {profile.age} años · {profile.city || '—'}
+                        </span>
+                        {profile.phone && (
+                          <span className="flex items-center gap-1">
+                            <Phone className="w-3.5 h-3.5" />
+                            {profile.phone}
+                          </span>
+                        )}
+                        {profile.whatsapp && profile.whatsapp !== profile.phone && (
+                          <span className="flex items-center gap-1 text-green-400">
+                            WA: {profile.whatsapp}
+                          </span>
+                        )}
+                      </div>
+
+                      {profile.user && (
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                          <span>{profile.user.email}</span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            Registrado: {new Date(profile.user.createdAt).toLocaleDateString('es-ES')}
+                          </span>
+                          {profile.user.emailVerified ? (
+                            <span className="flex items-center gap-1 text-green-400">
+                              <CheckCircle className="w-3 h-3" />
+                              Email verificado
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-red-400">
+                              <XCircle className="w-3 h-3" />
+                              Sin verificar
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Acciones */}
+                    <div className="shrink-0 flex flex-col gap-2">
+                      <a
+                        href={`/profile/${profile.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        Ver
+                      </a>
+                      {profile.user && (
+                        <button
+                          onClick={() => handleDelete(profile.user!.id)}
+                          disabled={actionLoading === profile.user.id}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-red-700 hover:bg-red-600 text-white rounded-lg text-sm transition disabled:opacity-50"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Eliminar
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-
-                {/* Actions */}
-                {profile.user && (
-                  <button
-                    onClick={() => handleDeleteUser(profile.user!.id)}
-                    disabled={actionLoading === profile.user.id}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Eliminar
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {filteredProfiles.length === 0 && (
-            <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-12 border border-gray-700/50 text-center">
-              <Users className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400 text-lg">No se encontraron usuarios</p>
-            </div>
-          )}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </main>
     </div>
   );
 }
-

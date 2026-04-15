@@ -73,7 +73,11 @@ export const getAllProfiles = async (req: Request, res: Response) => {
 export const getAllReports = async (req: Request, res: Response) => {
   try {
     const reports = await prisma.report.findMany({
-      include: {
+      select: {
+        id: true,
+        reason: true,
+        createdAt: true,
+        reporterIp: true,
         reporterProfile: {
           include: {
             photos: {
@@ -81,9 +85,7 @@ export const getAllReports = async (req: Request, res: Response) => {
               take: 1,
             },
             user: {
-              select: {
-                email: true,
-              },
+              select: { email: true },
             },
           },
         },
@@ -94,14 +96,10 @@ export const getAllReports = async (req: Request, res: Response) => {
               take: 1,
             },
             user: {
-              select: {
-                email: true,
-              },
+              select: { id: true, email: true },
             },
             _count: {
-              select: {
-                reportsReceived: true,
-              },
+              select: { reportsReceived: true },
             },
           },
         },
