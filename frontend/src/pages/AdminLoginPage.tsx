@@ -27,23 +27,23 @@ export default function AdminLoginPage() {
   return (
     <div className="min-h-screen bg-black flex items-center justify-center px-4">
       <div className="max-w-md w-full">
-        {/* Logo 9CITAS */}
+        {/* Logo Caperucitas */}
         <div className="text-center mb-10">
-          <div className="flex justify-center mb-6">
-            <img 
-              src="/logo4.png" 
-              alt="caperucitas.com" 
-              className="h-24 w-auto object-contain"
+          <div className="flex justify-center mb-4">
+            <img
+              src="/logo-caperucitas.jpeg"
+              alt="Caperucitas.com"
+              className="h-20 w-auto object-contain rounded-xl"
             />
           </div>
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-[#fc4d5c] to-[#fc4d5c]/80 rounded-full mb-6 shadow-lg shadow-[#fc4d5c]/30">
-            <Lock className="w-10 h-10 text-white" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-red-600 rounded-full mb-4 shadow-lg">
+            <Lock className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-black text-white mb-3">
-            Panel de Administración
+          <h1 className="text-2xl font-black text-white mb-2">
+            Panel Admin · Caperucitas.com
           </h1>
-          <p className="text-gray-400 text-lg">
-            Ingresa la contraseña de administrador
+          <p className="text-gray-400 text-sm">
+            Acceso restringido a administradores
           </p>
         </div>
 

@@ -15,12 +15,12 @@ export default function AdminHeader() {
       <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 py-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-6">
-            {/* Logo 9CITAS - Imagen */}
+            {/* Logo Caperucitas */}
             <div className="flex items-center">
-              <img 
-                src="/logo4.png" 
-                alt="caperucitas.com" 
-                className="h-14 w-auto object-contain"
+              <img
+                src="/logo-caperucitas.jpeg"
+                alt="Caperucitas.com"
+                className="h-12 w-auto object-contain rounded-lg"
               />
             </div>
             

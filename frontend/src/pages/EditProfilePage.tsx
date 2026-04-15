@@ -39,7 +39,7 @@ export default function EditProfilePage() {
   })
 
   const [hobbies, setHobbies] = useState<string[]>([])
-  const [languages, setLanguages] = useState<string[]>([])
+  const [languages, setLanguages] = useState<string[]>(['Español'])
   const [existingPhotos, setExistingPhotos] = useState<any[]>([])
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [photoPreview, setPhotoPreview] = useState<string[]>([])
@@ -70,7 +70,7 @@ export default function EditProfilePage() {
         showExactLocation: profile.showExactLocation !== undefined ? profile.showExactLocation : true,
       })
       setHobbies(profile.hobbies || [])
-      setLanguages(profile.languages || [])
+      setLanguages(profile.languages?.length ? profile.languages : ['Español'])
       setExistingPhotos(profile.photos || [])
     } catch {
       console.error('Error al cargar perfil')
@@ -106,10 +106,6 @@ export default function EditProfilePage() {
     } catch {
       alert('Error al eliminar foto')
     }
-  }
-
-  const toggleHobby = (hobby: string) => {
-    setHobbies(prev => prev.includes(hobby) ? prev.filter(h => h !== hobby) : [...prev, hobby])
   }
 
   const toggleLanguage = (lang: string) => {
@@ -386,58 +382,6 @@ export default function EditProfilePage() {
           )}
         </div>
 
-        {/* Info física */}
-        <div className="grid grid-cols-2 gap-4">
-          <Input
-            label="Altura (cm)"
-            type="number"
-            value={formData.height}
-            onChange={(e) => setFormData({ ...formData, height: e.target.value })}
-            placeholder="Ej: 168"
-          />
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Tipo de cuerpo</label>
-            <select value={formData.bodyType} onChange={(e) => setFormData({ ...formData, bodyType: e.target.value })} className="input-field">
-              <option value="">Seleccionar...</option>
-              <option value="delgado">Delgado/a</option>
-              <option value="atletico">Atlético/a</option>
-              <option value="promedio">Normal</option>
-              <option value="musculoso">Musculoso/a</option>
-              <option value="corpulento">Curvilíneo/a</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Servicios / Especialidad</label>
-          <input
-            type="text"
-            value={formData.occupation}
-            onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
-            placeholder="Ej: Masajes, GFE, Compañía..."
-            className="input-field"
-          />
-        </div>
-
-        {/* Hobbies / etiquetas */}
-        <div className="bg-gray-800 rounded-xl p-4">
-          <h3 className="text-white font-semibold mb-3">Etiquetas / Servicios</h3>
-          <div className="flex flex-wrap gap-2">
-            {['Masajes', 'GFE', 'Compañía', 'Cenas', 'Viajes', 'Gym', 'Yoga', 'Baile',
-              'Películas', 'Conversación', 'Discreción', 'Domicilio', 'Hotel', 'Local propio'].map(hobby => (
-              <button
-                key={hobby}
-                type="button"
-                onClick={() => toggleHobby(hobby)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                  hobbies.includes(hobby) ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-              >
-                {hobby}
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* Idiomas */}
         <div className="bg-gray-800 rounded-xl p-4">
@@ -449,7 +393,7 @@ export default function EditProfilePage() {
                 type="button"
                 onClick={() => toggleLanguage(lang)}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                  languages.includes(lang) ? 'bg-gray-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  languages.includes(lang) ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                 }`}
               >
                 {lang}
