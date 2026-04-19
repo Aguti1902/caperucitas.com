@@ -100,13 +100,13 @@ export default function IndexPage() {
   }
 
   const handleEscortAccess = () => {
-    if (isAuthenticated && hasProfile) navigate('/app')
+    if (isAuthenticated && hasProfile) navigate('/app/edit-profile')
     else if (isAuthenticated) navigate('/create-profile')
     else navigate('/register')
   }
 
   const handleShare = () => {
-    const msg = encodeURIComponent('Hola, mira que fantástica web he encontrado para encontrar caperucitas cerca de ti, caperucitas.com la web solo para adultos.')
+    const msg = encodeURIComponent('Hola, mira esta web brutal para adultos donde encontrarás compañía cerca de ti: caperucitas.com, discreta, directa y sin rodeos.')
     window.open(`https://wa.me/?text=${msg}`, '_blank')
   }
 
@@ -157,8 +157,8 @@ export default function IndexPage() {
             {/* Compartir */}
             <button
               onClick={handleShare}
-              className="flex-shrink-0 p-2 rounded-full bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors"
-              title="Compartir"
+              className="flex-shrink-0 p-2 rounded-full bg-[#25D366] text-white hover:bg-[#1ebe5d] transition-colors"
+              title="Compartir en WhatsApp"
             >
               <Share2 className="w-4 h-4" />
             </button>
@@ -342,7 +342,7 @@ export default function IndexPage() {
         </button>
         <button
           onClick={handleShare}
-          className="flex flex-col items-center gap-0.5 text-gray-400 hover:text-white transition-colors px-4"
+          className="flex flex-col items-center gap-0.5 text-[#25D366] hover:text-[#1ebe5d] transition-colors px-4"
         >
           <Share2 className="w-6 h-6" />
           <span className="text-[10px]">Compartir</span>

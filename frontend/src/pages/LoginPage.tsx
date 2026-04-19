@@ -26,7 +26,7 @@ export default function LoginPage() {
 
     try {
       await login(email, password)
-      navigate('/app')
+      navigate('/perfiles')
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión')
       if (err.response?.data?.requiresEmailVerification) {

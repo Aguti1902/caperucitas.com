@@ -10,8 +10,10 @@ import {
   MapPin,
   Calendar,
   ExternalLink,
+  ShieldCheck,
+  Download,
 } from 'lucide-react';
-import { getAllProfiles, deleteUser } from '../services/admin.api';
+import { getAllProfiles, deleteUser, exportEmails, verifyUserEmail } from '../services/admin.api';
 import AdminHeader from '../components/admin/AdminHeader';
 import AdminNav from '../components/admin/AdminNav';
 
@@ -49,6 +51,7 @@ export default function AdminUsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [emailExport, setEmailExport] = useState<string | null>(null);
 
   useEffect(() => { loadProfiles(); }, []);
 
@@ -94,6 +97,31 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleVerify = async (userId: string) => {
+    setActionLoading(userId + '_verify');
+    try {
+      await verifyUserEmail(userId);
+      setProfiles(prev => prev.map(p =>
+        p.user?.id === userId
+          ? { ...p, user: { ...p.user, emailVerified: true } }
+          : p
+      ));
+    } catch {
+      alert('Error al verificar el usuario');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleExportEmails = async () => {
+    try {
+      const emails = await exportEmails();
+      setEmailExport(emails);
+    } catch {
+      alert('Error al exportar emails');
+    }
+  };
+
   const counts = {
     all: profiles.length,
     real: profiles.filter(p => !p.isFake).length,
@@ -126,8 +154,36 @@ export default function AdminUsersPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-20">
         <div className="mb-6">
-          <h1 className="text-2xl font-black text-white">Gestión de usuarios</h1>
-          <p className="text-gray-400 text-sm mt-1">Controla todos los perfiles publicados en Caperucitas.com</p>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h1 className="text-2xl font-black text-white">Gestión de usuarios</h1>
+              <p className="text-gray-400 text-sm mt-1">Controla todos los perfiles publicados en Caperucitas.com</p>
+            </div>
+            <button
+              onClick={handleExportEmails}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-700 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold transition"
+            >
+              <Download className="w-4 h-4" />
+              Exportar emails
+            </button>
+          </div>
+
+          {/* Modal exportar emails */}
+          {emailExport !== null && (
+            <div className="mt-4 bg-gray-900 rounded-xl border border-blue-600/40 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-white font-semibold text-sm">Emails registrados</span>
+                <button onClick={() => setEmailExport(null)} className="text-gray-400 hover:text-white text-xs">✕ Cerrar</button>
+              </div>
+              <textarea
+                readOnly
+                value={emailExport}
+                className="w-full h-40 bg-gray-800 text-gray-300 text-xs rounded-lg p-3 font-mono focus:outline-none resize-none"
+                onClick={e => (e.target as HTMLTextAreaElement).select()}
+              />
+              <p className="text-gray-500 text-xs mt-1">Haz clic en el área de texto para seleccionar todos los emails</p>
+            </div>
+          )}
         </div>
 
         {/* Filtros */}
@@ -263,8 +319,18 @@ export default function AdminUsersPage() {
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
-                        Ver
+                        Ver perfil
                       </a>
+                      {profile.user && !profile.user.emailVerified && (
+                        <button
+                          onClick={() => handleVerify(profile.user!.id)}
+                          disabled={actionLoading === profile.user.id + '_verify'}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 hover:bg-green-600 text-white rounded-lg text-sm transition disabled:opacity-50"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          Verificar
+                        </button>
+                      )}
                       {profile.user && (
                         <button
                           onClick={() => handleDelete(profile.user!.id)}

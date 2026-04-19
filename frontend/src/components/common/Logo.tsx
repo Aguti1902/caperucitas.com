@@ -3,11 +3,12 @@ import { useState } from 'react'
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg'
   className?: string
+  linkable?: boolean
 }
 
-export default function Logo({ size = 'md', className = '' }: LogoProps) {
+export default function Logo({ size = 'md', className = '', linkable = true }: LogoProps) {
   const [imageError, setImageError] = useState(false)
-  
+
   const imageSizes = {
     sm: 'h-10',
     md: 'h-16',
@@ -20,23 +21,29 @@ export default function Logo({ size = 'md', className = '' }: LogoProps) {
     lg: 'text-5xl',
   }
 
-  if (imageError) {
-    return (
-      <div className={`${textSizes[size]} font-black tracking-tight ${className}`}>
-        <span className="text-white">Caperuci</span>
-        <span className="text-red-500">tas</span>
-        <span className="text-white">.com</span>
-      </div>
-    )
-  }
-
-  return (
-    <img 
-      src="/logo-caperucitas.jpeg" 
-      alt="Caperucitas.com" 
+  const content = imageError ? (
+    <div className={`${textSizes[size]} font-black tracking-tight ${className}`}>
+      <span className="text-white">Caperuci</span>
+      <span className="text-red-500">tas</span>
+      <span className="text-white">.com</span>
+    </div>
+  ) : (
+    <img
+      src="/logo-caperucitas.jpeg"
+      alt="Caperucitas.com"
       className={className || `${imageSizes[size]} w-auto object-contain`}
       style={{ maxWidth: '100%', maxHeight: '100%' }}
       onError={() => setImageError(true)}
     />
   )
+
+  if (linkable) {
+    return (
+      <a href="https://caperucitas.com" target="_self" rel="noopener noreferrer">
+        {content}
+      </a>
+    )
+  }
+
+  return <>{content}</>
 }

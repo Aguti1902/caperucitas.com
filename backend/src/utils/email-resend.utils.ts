@@ -184,7 +184,7 @@ export const sendPasswordResetEmail = async (email: string, token: string): Prom
           </div>
           <div class="content">
             <p>Hola,</p>
-            <p>Recibimos una solicitud para restablecer tu contraseña en <strong>9citas</strong>.</p>
+            <p>Recibimos una solicitud para restablecer tu contraseña en <strong>Caperucitas.com</strong>.</p>
             <p>Para crear una nueva contraseña, haz click en el siguiente botón:</p>
             <div style="text-align: center;">
               <a href="${resetUrl}" class="button">Restablecer mi contraseña</a>
@@ -197,7 +197,7 @@ export const sendPasswordResetEmail = async (email: string, token: string): Prom
             <p>Si no solicitaste este cambio, puedes ignorar este email de forma segura. Tu contraseña permanecerá sin cambios.</p>
           </div>
           <div class="footer">
-            <p>© 2024 9citas.com - Conoce chicas y chicos cerca de ti</p>
+            <p>© 2025 Caperucitas.com - Solo para adultos</p>
           </div>
         </div>
       </body>
@@ -206,5 +206,56 @@ export const sendPasswordResetEmail = async (email: string, token: string): Prom
   });
 
   console.log(`✅ Email de recuperación enviado exitosamente a: ${email} (ID: ${result.data?.id})\n`);
+};
+
+/** Enviar email recordatorio de suscripción a punto de expirar */
+export const sendSubscriptionReminderEmail = async (email: string, expiresAt: Date): Promise<void> => {
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'Caperucitas <noreply@caperucitas.com>';
+  const frontendUrl = (process.env.FRONTEND_URL || 'https://caperucitas.com').split(',')[0].trim();
+  const resend = getResendClient();
+
+  const diasRestantes = Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+
+  await resend.emails.send({
+    from: fromEmail,
+    to: email,
+    subject: `⏰ Tu suscripción en Caperucitas.com expira en ${diasRestantes} días`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+          .button { display: inline-block; background: #dc2626; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+          .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>⏰ Tu suscripción expira pronto</h1>
+            <p>Caperucitas.com</p>
+          </div>
+          <div class="content">
+            <p>Hola,</p>
+            <p>Te avisamos que tu suscripción en <strong>Caperucitas.com</strong> expirará en <strong>${diasRestantes} días</strong> (el ${expiresAt.toLocaleDateString('es-ES')}).</p>
+            <p>Para mantener tu perfil activo y visible, renueva tu suscripción antes de que expire:</p>
+            <div style="text-align: center;">
+              <a href="${frontendUrl}/app/plus" class="button">Renovar mi suscripción</a>
+            </div>
+            <p>Si no renuevas, tu perfil dejará de mostrarse en el listado.</p>
+          </div>
+          <div class="footer">
+            <p>© 2025 Caperucitas.com - Solo para adultos</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  });
 };
 

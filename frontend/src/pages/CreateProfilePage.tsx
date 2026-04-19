@@ -141,8 +141,9 @@ export default function CreateProfilePage() {
         }
       }
 
-      await refreshUserData()
+      // Navegar ANTES de refreshUserData para evitar que App.tsx redirija a /app
       navigate('/perfiles')
+      await refreshUserData()
     } catch (err: any) {
       setError(err.response?.data?.error || 'Error al crear perfil')
     } finally {

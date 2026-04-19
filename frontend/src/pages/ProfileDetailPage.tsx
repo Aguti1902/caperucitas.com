@@ -8,6 +8,21 @@ import ReportModal from '@/components/common/ReportModal'
 import { AlertTriangle, Phone, MessageCircle, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 import { formatRelationshipGoal } from '@/utils/profileUtils'
 import ProtectedImage from '@/components/common/ProtectedImage'
+import { SPANISH_CITIES } from '@/data/spanishCities'
+
+/** Devuelve solo el nombre de ciudad limpio (sin calle, número, etc.) */
+function extractCityName(city: string): string {
+  if (!city) return ''
+  // Si coincide exactamente con una ciudad conocida, devolverla
+  const exact = SPANISH_CITIES.find(c => c.name.toLowerCase() === city.trim().toLowerCase())
+  if (exact) return exact.name
+  // Buscar si contiene el nombre de alguna ciudad conocida
+  const match = SPANISH_CITIES.find(c => city.toLowerCase().includes(c.name.toLowerCase()))
+  if (match) return match.name
+  // Si hay comas, tomar el primer fragmento no vacío que parezca una ciudad
+  const parts = city.split(',').map(s => s.trim()).filter(Boolean)
+  return parts[0] || city
+}
 
 export default function ProfileDetailPage() {
   const { id } = useParams()
@@ -261,7 +276,7 @@ export default function ProfileDetailPage() {
             )}
           </h1>
           {profile.city && (
-            <p className="text-gray-400 mt-1">📍 {profile.city}</p>
+            <p className="text-gray-400 mt-1">📍 {extractCityName(profile.city)}</p>
           )}
           {distanceKm !== null && (
             <p className="text-gray-500 text-sm">

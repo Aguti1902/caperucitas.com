@@ -16,6 +16,7 @@ router.delete('/users/:userId', authenticateAdminToken, adminController.deleteUs
 router.delete('/reports/:reportId', authenticateAdminToken, adminController.deleteReport);
 router.post('/regenerate-fakes', authenticateAdminToken, adminController.regenerateFakeProfiles);
 router.post('/delete-fakes', authenticateAdminToken, adminController.deleteFakeProfiles);
-
+router.get('/export-emails', authenticateAdminToken, adminController.exportEmails);
+router.post('/verify-user/:userId', authenticateAdminToken, adminController.verifyUserEmail);
 
 export default router;

@@ -435,3 +435,45 @@ export const getStats = async (req: Request, res: Response) => {
   }
 };
 
+// Exportar todos los emails de usuarios registrados
+export const exportEmails = async (req: Request, res: Response) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: { email: true, emailVerified: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    const emails = users.map(u => u.email).join('\n');
+    const list = users.map(u => ({
+      email: u.email,
+      verified: u.emailVerified,
+      createdAt: u.createdAt.toISOString().split('T')[0],
+    }));
+    res.json({ emails, list, total: users.length });
+  } catch (error) {
+    console.error('Error al exportar emails:', error);
+    res.status(500).json({ error: 'Error al exportar emails' });
+  }
+};
+
+// Verificar manualmente el email de un usuario (sin que el usuario tenga que clicar el link)
+export const verifyUserEmail = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { emailVerified: true },
+    });
+
+    // Eliminar tokens de verificación pendientes
+    await prisma.emailVerificationToken.deleteMany({ where: { userId } });
+
+    res.json({ success: true, message: `Email de ${user.email} verificado manualmente` });
+  } catch (error) {
+    console.error('Error al verificar usuario:', error);
+    res.status(500).json({ error: 'Error al verificar usuario' });
+  }
+};
+

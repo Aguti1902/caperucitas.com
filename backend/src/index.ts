@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import cron from 'node-cron';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -259,6 +260,34 @@ app.get('/api/health', (req, res) => {
 
 // Socket.IO handlers
 setupSocketHandlers(io);
+
+// Cron: recordatorio suscripción que expira en 3 días (se ejecuta cada día a las 9:00 AM)
+cron.schedule('0 9 * * *', async () => {
+  console.log('⏰ Cron: comprobando suscripciones próximas a expirar...');
+  try {
+    const { sendSubscriptionReminderEmail } = await import('./utils/email-resend.utils');
+    const prisma = (await import('./lib/prisma')).default;
+    const now = new Date();
+    const in3days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const in4days = new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000);
+    const expiringSubs = await prisma.subscription.findMany({
+      where: {
+        isActive: true,
+        currentPeriodEnd: { gte: in3days, lt: in4days },
+      },
+      include: { user: { select: { email: true } } },
+    });
+    for (const sub of expiringSubs) {
+      if (sub.user?.email && sub.currentPeriodEnd) {
+        await sendSubscriptionReminderEmail(sub.user.email, sub.currentPeriodEnd);
+        console.log(`📧 Recordatorio enviado a ${sub.user.email}`);
+      }
+    }
+    console.log(`✅ Cron terminado: ${expiringSubs.length} recordatorios enviados`);
+  } catch (err) {
+    console.error('❌ Error en cron de suscripciones:', err);
+  }
+});
 
 // Manejo de errores global
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

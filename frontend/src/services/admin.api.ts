@@ -91,5 +91,17 @@ export const deleteFakeProfiles = async () => {
   return response.data;
 };
 
+// Exportar emails de todos los usuarios
+export const exportEmails = async (): Promise<string> => {
+  const response = await adminApi.get('/export-emails');
+  return response.data.emails;
+};
+
+// Verificar manualmente el email de un usuario
+export const verifyUserEmail = async (userId: string) => {
+  const response = await adminApi.post(`/verify-user/${userId}`);
+  return response.data;
+};
+
 export default adminApi;
 
