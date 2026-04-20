@@ -3,7 +3,8 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { api } from '@/services/api'
 import Logo from '@/components/common/Logo'
 import Button from '@/components/common/Button'
-import { Eye, EyeOff, CheckCircle, ArrowLeft } from 'lucide-react'
+import { Eye, EyeOff, CheckCircle } from 'lucide-react'
+import BackNavBar from '@/components/common/BackNavBar'
 
 export default function ResetPasswordPage() {
   const { token } = useParams<{ token: string }>()
@@ -48,7 +49,9 @@ export default function ResetPasswordPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-dark flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-950 flex flex-col">
+        <BackNavBar backTo="/login" />
+        <div className="flex-1 flex flex-col items-center justify-center p-4">
         <div className="max-w-md w-full space-y-6 text-center animate-fade-in">
           <Logo size="lg" />
 
@@ -72,12 +75,15 @@ export default function ResetPasswordPage() {
             </Button>
           </div>
         </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-dark flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-950 flex flex-col">
+      <BackNavBar backTo="/login" />
+      <div className="flex-1 flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full space-y-4 animate-fade-in">
         {/* Logo */}
         <div className="text-center">
@@ -167,16 +173,7 @@ export default function ResetPasswordPage() {
           </Button>
         </form>
 
-        {/* Volver */}
-        <div className="text-center">
-          <Link
-            to="/"
-            className="text-gray-400 hover:text-white transition-colors inline-flex items-center gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Volver al inicio
-          </Link>
-        </div>
+      </div>
       </div>
     </div>
   )
