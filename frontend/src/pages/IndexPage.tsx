@@ -59,8 +59,13 @@ export default function IndexPage() {
 
   const closeGeoPopup = (loc: { lat: number; lng: number } | null) => {
     sessionStorage.setItem('geoAsked', '1')
-    if (loc) setUserLocation(loc)
     setShowGeoPopup(false)
+    setGeoDetecting(false)
+    if (loc) {
+      setUserLocation(loc)
+      // Recargar perfiles con la ubicación ya disponible (evita race condition con state)
+      loadProfiles(loc)
+    }
   }
 
   const handleGeoAllow = () => {
@@ -68,7 +73,6 @@ export default function IndexPage() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         closeGeoPopup({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-        setGeoDetecting(false)
       },
       async () => {
         // Fallback por IP si niega o falla GPS
@@ -78,7 +82,6 @@ export default function IndexPage() {
           if (d.latitude && d.longitude) closeGeoPopup({ lat: d.latitude, lng: d.longitude })
           else closeGeoPopup(null)
         } catch { closeGeoPopup(null) }
-        setGeoDetecting(false)
       },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 }
     )
@@ -149,8 +152,9 @@ export default function IndexPage() {
   const sortByDistance = (list: any[], loc: { lat: number; lng: number } | null) => {
     if (!loc) return list
     return [...list].sort((a, b) => {
-      const hasA = a.latitude != null && a.longitude != null && !a.showExactLocation === false
-      const hasB = b.latitude != null && b.longitude != null && !b.showExactLocation === false
+      // Solo excluir del sorting si privacidad activa explícitamente (showExactLocation === false)
+      const hasA = a.latitude != null && a.longitude != null && a.showExactLocation !== false
+      const hasB = b.latitude != null && b.longitude != null && b.showExactLocation !== false
       if (!hasA && !hasB) return 0
       if (!hasA) return 1
       if (!hasB) return -1
