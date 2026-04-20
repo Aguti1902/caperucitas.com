@@ -46,10 +46,14 @@ export default function IndexPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [selectedGender, setSelectedGender] = useState('all')
   const [citySearch, setCitySearch] = useState('')
-  const [cityDropdownOpen, setCityDropdownOpen] = useState(false)
-  const cityRef = useRef<HTMLDivElement>(null)
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null)
+  const [showCityModal, setShowCityModal] = useState(false)
+  const [modalSearch, setModalSearch] = useState('')
+  const [isDetectingModal, setIsDetectingModal] = useState(false)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+
+  const modalSuggestions = modalSearch.length >= 2
+    ? SPANISH_CITIES.filter(c => c.name.toLowerCase().includes(modalSearch.toLowerCase())).slice(0, 10)
+    : []
 
   // Detectar ubicación del usuario silenciosamente al cargar
   useEffect(() => {
@@ -57,7 +61,6 @@ export default function IndexPage() {
       navigator.geolocation.getCurrentPosition(
         (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
         async () => {
-          // Fallback por IP
           try {
             const r = await fetch('https://ipapi.co/json/')
             const d = await r.json()
@@ -69,29 +72,41 @@ export default function IndexPage() {
     }
   }, [])
 
-  // Cerrar dropdown al hacer click fuera
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (cityRef.current && !cityRef.current.contains(e.target as Node)) {
-        setCityDropdownOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
-
-  const citySuggestions = cityDropdownOpen
-    ? (citySearch.length > 0
-        ? SPANISH_CITIES.filter(c => c.name.toLowerCase().includes(citySearch.toLowerCase())).slice(0, 8)
-        : SPANISH_CITIES.slice(0, 8))
-    : []
-
-  const openCityDropdown = () => {
-    if (cityRef.current) {
-      const rect = cityRef.current.getBoundingClientRect()
-      setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width })
-    }
-    setCityDropdownOpen(true)
+  const handleUseMyLocation = () => {
+    setIsDetectingModal(true)
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords
+        setUserLocation({ lat: latitude, lng: longitude })
+        // Buscar ciudad más cercana
+        const closest = SPANISH_CITIES.reduce((prev, city) => {
+          const d = Math.hypot(city.lat - latitude, city.lng - longitude)
+          const pd = Math.hypot(prev.lat - latitude, prev.lng - longitude)
+          return d < pd ? city : prev
+        })
+        setCitySearch(closest.name)
+        setIsDetectingModal(false)
+        setShowCityModal(false)
+      },
+      async () => {
+        try {
+          const r = await fetch('https://ipapi.co/json/')
+          const d = await r.json()
+          if (d.latitude && d.longitude) {
+            setUserLocation({ lat: d.latitude, lng: d.longitude })
+            const closest = SPANISH_CITIES.reduce((prev, city) => {
+              const dist = Math.hypot(city.lat - d.latitude, city.lng - d.longitude)
+              const pdist = Math.hypot(prev.lat - d.latitude, prev.lng - d.longitude)
+              return dist < pdist ? city : prev
+            })
+            setCitySearch(closest.name)
+          }
+        } catch { /* sin ciudad */ }
+        setIsDetectingModal(false)
+        setShowCityModal(false)
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    )
   }
   const [searchQuery, setSearchQuery] = useState('')
   const [minAge, setMinAge] = useState('')
@@ -215,29 +230,25 @@ export default function IndexPage() {
         {/* Barra ciudad + edad + compartir */}
         <div className="border-t border-gray-800 px-3 py-2">
           <div className="max-w-7xl mx-auto flex items-center gap-2 flex-wrap">
-            {/* Ciudad con autocompletado */}
-            <div ref={cityRef} className="flex-1 min-w-[130px] max-w-[220px]">
-              <div className="flex items-center gap-1 bg-gray-800 rounded-full px-3 py-1.5">
-                <MapPin className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-                <input
-                  type="text"
-                  placeholder="Ciudad..."
-                  value={citySearch}
-                  onChange={(e) => { setCitySearch(e.target.value); openCityDropdown() }}
-                  onFocus={openCityDropdown}
-                  className="bg-transparent text-white text-sm focus:outline-none w-full"
-                  autoComplete="off"
-                />
-                {citySearch && (
-                  <button
-                    onClick={() => { setCitySearch(''); setCityDropdownOpen(false) }}
-                    className="text-gray-400 hover:text-white flex-shrink-0"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            </div>
+            {/* Botón ciudad — abre modal */}
+            <button
+              onClick={() => { setModalSearch(''); setShowCityModal(true) }}
+              className="flex-1 min-w-[130px] max-w-[220px] flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 rounded-full px-3 py-1.5 transition-colors"
+            >
+              <MapPin className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+              <span className={`text-sm truncate ${citySearch ? 'text-white font-medium' : 'text-gray-400'}`}>
+                {citySearch || 'Ciudad...'}
+              </span>
+              {citySearch && (
+                <span
+                  role="button"
+                  onClick={(e) => { e.stopPropagation(); setCitySearch('') }}
+                  className="ml-auto text-gray-400 hover:text-white flex-shrink-0"
+                >
+                  <X className="w-3 h-3" />
+                </span>
+              )}
+            </button>
             {/* Edad */}
             <button
               onClick={() => setShowAgeFilter(v => !v)}
@@ -311,32 +322,98 @@ export default function IndexPage() {
         </div>
       </header>
 
-      {/* Dropdown ciudad — fuera del header para evitar clipping por backdrop-blur */}
-      {cityDropdownOpen && citySuggestions.length > 0 && dropdownPos && (
-        <div
-          style={{
-            position: 'fixed',
-            top: dropdownPos.top,
-            left: dropdownPos.left,
-            width: dropdownPos.width,
-            zIndex: 9999,
-          }}
-          className="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl max-h-60 overflow-y-auto"
-        >
-          {citySuggestions.map(city => (
-            <button
-              key={city.name}
-              type="button"
-              onMouseDown={() => {
-                setCitySearch(city.name)
-                setCityDropdownOpen(false)
-              }}
-              className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-gray-700 border-b border-gray-700 last:border-0 flex items-center gap-2"
-            >
-              <MapPin className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-              {city.name}
-            </button>
-          ))}
+      {/* Modal de búsqueda de ciudad */}
+      {showCityModal && (
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center">
+          {/* Fondo oscuro */}
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowCityModal(false)} />
+
+          {/* Panel */}
+          <div className="relative w-full max-w-md mx-auto bg-gray-900 rounded-t-2xl sm:rounded-2xl shadow-2xl border border-gray-700 overflow-hidden">
+            {/* Cabecera */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+              <h2 className="text-white font-bold text-lg">Cambiar ubicación</h2>
+              <button onClick={() => setShowCityModal(false)} className="text-gray-400 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4">
+              {/* Botón usar mi ubicación */}
+              <button
+                onClick={handleUseMyLocation}
+                disabled={isDetectingModal}
+                className="w-full flex items-center justify-center gap-3 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-bold text-base py-4 rounded-xl transition-all active:scale-95"
+              >
+                {isDetectingModal ? (
+                  <>
+                    <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Detectando...
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="w-5 h-5" />
+                    Usar mi ubicación actual
+                  </>
+                )}
+              </button>
+
+              {/* Separador */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-gray-700" />
+                <span className="text-gray-500 text-xs">o busca tu ciudad</span>
+                <div className="flex-1 h-px bg-gray-700" />
+              </div>
+
+              {/* Input búsqueda */}
+              <div className="flex items-center gap-2 bg-gray-800 rounded-xl px-4 py-3 border border-gray-700 focus-within:border-red-500 transition-colors">
+                <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Buscar ciudad en España..."
+                  value={modalSearch}
+                  onChange={(e) => setModalSearch(e.target.value)}
+                  autoFocus
+                  className="bg-transparent text-white text-sm focus:outline-none w-full placeholder-gray-500"
+                  autoComplete="off"
+                />
+                {modalSearch && (
+                  <button onClick={() => setModalSearch('')} className="text-gray-400 hover:text-white">
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Resultados */}
+              <div className="max-h-64 overflow-y-auto rounded-xl">
+                {modalSearch.length < 2 ? (
+                  <div className="flex flex-col items-center justify-center py-8 gap-2 text-gray-500">
+                    <Search className="w-10 h-10 opacity-30" />
+                    <p className="text-sm font-medium">Escribe al menos 2 letras para buscar</p>
+                    <p className="text-xs opacity-60">Ejemplo: Madrid, Barcelona, Valencia...</p>
+                  </div>
+                ) : modalSuggestions.length === 0 ? (
+                  <p className="text-center text-gray-500 text-sm py-6">Sin resultados para "{modalSearch}"</p>
+                ) : (
+                  <div className="space-y-0.5">
+                    {modalSuggestions.map(city => (
+                      <button
+                        key={city.name}
+                        onClick={() => {
+                          setCitySearch(city.name)
+                          setShowCityModal(false)
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left text-white hover:bg-gray-800 rounded-xl transition-colors"
+                      >
+                        <MapPin className="w-4 h-4 text-red-400 flex-shrink-0" />
+                        <span className="text-sm font-medium">{city.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
