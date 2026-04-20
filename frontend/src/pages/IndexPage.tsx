@@ -4,7 +4,8 @@ import Logo from '@/components/common/Logo'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 import { api } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
-import { MapPin, Search, Phone, MessageCircle, Zap, Share2, Info, Home, ChevronLeft, ChevronRight } from 'lucide-react'
+import { MapPin, Search, Phone, MessageCircle, Zap, Share2, Info, Home, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { SPANISH_CITIES } from '@/data/spanishCities'
 
 const GENDER_LABELS: Record<string, { label: string; color: string }> = {
   chica: { label: 'Chica', color: 'bg-pink-600' },
@@ -34,6 +35,23 @@ export default function IndexPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [selectedGender, setSelectedGender] = useState('all')
   const [citySearch, setCitySearch] = useState('')
+  const [cityDropdownOpen, setCityDropdownOpen] = useState(false)
+  const cityRef = useRef<HTMLDivElement>(null)
+
+  // Cerrar dropdown al hacer click fuera
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (cityRef.current && !cityRef.current.contains(e.target as Node)) {
+        setCityDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const citySuggestions = citySearch.length > 0
+    ? SPANISH_CITIES.filter(c => c.name.toLowerCase().includes(citySearch.toLowerCase())).slice(0, 8)
+    : []
   const [searchQuery, setSearchQuery] = useState('')
   const [minAge, setMinAge] = useState('')
   const [maxAge, setMaxAge] = useState('')
@@ -133,18 +151,46 @@ export default function IndexPage() {
         {/* Barra ciudad + edad + compartir */}
         <div className="border-t border-gray-800 px-3 py-2">
           <div className="max-w-7xl mx-auto flex items-center gap-2 flex-wrap">
-            {/* Ciudad texto libre */}
-            <div className="flex items-center gap-1 bg-gray-800 rounded-full px-3 py-1.5 flex-1 min-w-[130px] max-w-[200px]">
-              <MapPin className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-              <input
-                type="text"
-                placeholder="Ciudad, calle..."
-                value={citySearch}
-                onChange={(e) => setCitySearch(e.target.value)}
-                className="bg-transparent text-white text-sm focus:outline-none w-full"
-              />
-              {citySearch && (
-                <button onClick={() => setCitySearch('')} className="text-gray-400 hover:text-white text-xs">✕</button>
+            {/* Ciudad con autocompletado */}
+            <div ref={cityRef} className="relative flex-1 min-w-[130px] max-w-[220px]">
+              <div className="flex items-center gap-1 bg-gray-800 rounded-full px-3 py-1.5">
+                <MapPin className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Ciudad..."
+                  value={citySearch}
+                  onChange={(e) => { setCitySearch(e.target.value); setCityDropdownOpen(true) }}
+                  onFocus={() => setCityDropdownOpen(true)}
+                  className="bg-transparent text-white text-sm focus:outline-none w-full"
+                  autoComplete="off"
+                />
+                {citySearch && (
+                  <button
+                    onClick={() => { setCitySearch(''); setCityDropdownOpen(false) }}
+                    className="text-gray-400 hover:text-white flex-shrink-0"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+              {/* Dropdown sugerencias */}
+              {cityDropdownOpen && citySuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 max-h-56 overflow-y-auto">
+                  {citySuggestions.map(city => (
+                    <button
+                      key={city.name}
+                      type="button"
+                      onMouseDown={() => {
+                        setCitySearch(city.name)
+                        setCityDropdownOpen(false)
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-gray-700 border-b border-gray-700 last:border-0 flex items-center gap-2"
+                    >
+                      <MapPin className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+                      {city.name}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
             {/* Edad */}
