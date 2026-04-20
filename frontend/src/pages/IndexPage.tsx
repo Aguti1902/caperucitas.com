@@ -270,14 +270,14 @@ export default function IndexPage() {
       <div style={{ paddingTop: headerHeight }} />
 
       {/* Banner principal — justo debajo del header, sin márgenes */}
-      <div className="w-full overflow-hidden">
+      <a href="/" className="w-full block overflow-hidden">
         <img
           src="/logo-caperucitas.jpeg"
           alt="Caperucitas.com"
           className="w-full block"
           style={{ height: 'auto', maxHeight: 'none', display: 'block' }}
         />
-      </div>
+      </a>
 
       <main className="max-w-7xl mx-auto px-3 py-4 space-y-6">
 
