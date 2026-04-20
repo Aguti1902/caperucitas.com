@@ -10,6 +10,7 @@ import Modal from '@/components/common/Modal'
 import { detectLocation } from '@/utils/geolocation'
 import CitySelector from '@/components/common/CitySelector'
 import { Eye, Pause, Play } from 'lucide-react'
+import BackNavBar from '@/components/common/BackNavBar'
 
 export default function EditProfilePage() {
   const navigate = useNavigate()
@@ -197,8 +198,9 @@ export default function EditProfilePage() {
   if (isLoading) return <LoadingSpinner />
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 pb-24">
-      <h1 className="text-2xl font-bold text-white mb-6">Editar mi perfil</h1>
+    <div className="min-h-screen bg-gray-950">
+      <BackNavBar title="Editar mi perfil" backTo="/perfiles" />
+      <div className="max-w-2xl mx-auto px-4 py-4 pb-24">
 
       {/* Estado del perfil */}
       <div className={`rounded-xl p-4 mb-4 border flex items-center justify-between ${
@@ -454,6 +456,7 @@ export default function EditProfilePage() {
           </div>
         </div>
       </Modal>
+      </div>
     </div>
   )
 }

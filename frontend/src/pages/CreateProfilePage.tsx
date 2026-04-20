@@ -8,6 +8,7 @@ import Textarea from '@/components/common/Textarea'
 import Button from '@/components/common/Button'
 import { detectLocation } from '@/utils/geolocation'
 import CitySelector from '@/components/common/CitySelector'
+import BackNavBar from '@/components/common/BackNavBar'
 
 const GENDER_OPTIONS = [
   { id: 'chica', label: '👩 Chica', color: 'bg-pink-500' },
@@ -152,11 +153,9 @@ export default function CreateProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 py-8 px-4 pb-32">
-      <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
-        <div className="text-center">
-          <Logo size="md" className="mx-auto mb-4" />
-        </div>
+    <div className="min-h-screen bg-gray-950 pb-32">
+      <BackNavBar backTo="/perfiles" />
+      <div className="max-w-2xl mx-auto space-y-6 animate-fade-in px-4 py-4">
 
         {/* Video explicativo — antes del formulario */}
         <div className="relative w-full rounded-xl overflow-hidden shadow-xl" style={{ paddingTop: '56.25%' }}>

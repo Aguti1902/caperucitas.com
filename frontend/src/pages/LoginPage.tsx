@@ -5,6 +5,7 @@ import Logo from '@/components/common/Logo'
 import Input from '@/components/common/Input'
 import Button from '@/components/common/Button'
 import { Eye, EyeOff } from 'lucide-react'
+import BackNavBar from '@/components/common/BackNavBar'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -52,7 +53,9 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-950 flex flex-col">
+      <BackNavBar backTo="/" />
+      <div className="flex-1 flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full space-y-5 animate-fade-in">
         {/* Logo */}
         <div className="text-center">
@@ -149,14 +152,7 @@ export default function LoginPage() {
         </div>
 
         {/* Volver */}
-        <div className="text-center">
-          <button
-            onClick={() => navigate('/')}
-            className="text-gray-500 hover:text-gray-300 transition-colors text-sm"
-          >
-            ← Volver al inicio
-          </button>
-        </div>
+      </div>
       </div>
     </div>
   )

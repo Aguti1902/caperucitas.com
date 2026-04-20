@@ -1,17 +1,10 @@
-import { Link } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
-import Logo from '@/components/common/Logo'
+import BackNavBar from '@/components/common/BackNavBar'
 
 export default function NormasPage() {
   return (
-    <div className="min-h-screen bg-gray-950 py-8 px-4">
-      <div className="max-w-3xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <Link to="/" className="text-gray-400 hover:text-white transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <Logo size="sm" />
-        </div>
+    <div className="min-h-screen bg-gray-950">
+      <BackNavBar title="Normas de la Comunidad" backTo="/info" />
+      <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
 
         <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800 text-gray-300 space-y-8">
           <div>

@@ -161,12 +161,15 @@ export default function ProfileDetailPage() {
 
   return (
     <div
-      className="max-w-2xl mx-auto pb-32"
+      className="min-h-screen bg-gray-950 pb-32"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
+      <div className="max-w-2xl mx-auto">
       {/* Botón volver y navegación */}
-      <div className="sticky top-0 z-30 bg-gray-950/90 backdrop-blur-sm flex items-center justify-between px-3 py-2 border-b border-gray-800">
+      <div className="sticky top-0 z-30 bg-gray-950/90 backdrop-blur-sm flex items-center justify-between px-3 py-2 border-b border-gray-800"
+        style={{ paddingTop: 'max(8px, env(safe-area-inset-top))' }}
+      >
         <button
           onClick={() => navigate(-1)}
           className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors text-sm"
@@ -482,6 +485,7 @@ export default function ProfileDetailPage() {
           isAuthenticated={isAuthenticated}
         />
       )}
+      </div>
     </div>
   )
 }

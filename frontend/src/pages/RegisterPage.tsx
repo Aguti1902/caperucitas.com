@@ -6,6 +6,7 @@ import Input from '@/components/common/Input'
 import Button from '@/components/common/Button'
 import { Eye, EyeOff, CheckCircle } from 'lucide-react'
 import ReCAPTCHA from 'react-google-recaptcha'
+import BackNavBar from '@/components/common/BackNavBar'
 
 const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY
 const hasRealRecaptchaKey = recaptchaSiteKey && recaptchaSiteKey !== '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
@@ -97,7 +98,9 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-950 flex flex-col">
+      <BackNavBar backTo="/" />
+      <div className="flex-1 flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full space-y-5 animate-fade-in">
         {/* Logo */}
         <div className="text-center">
@@ -302,6 +305,7 @@ export default function RegisterPage() {
 
           </div>
         )}
+      </div>
       </div>
     </div>
   )
