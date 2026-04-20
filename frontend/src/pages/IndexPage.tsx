@@ -120,13 +120,7 @@ export default function IndexPage() {
     loadProfiles()
   }, [selectedGender])
 
-  // Búsqueda por ciudad con debounce de 400ms para no saturar el backend
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      loadProfiles()
-    }, 400)
-    return () => clearTimeout(timer)
-  }, [citySearch])
+  // citySearch es solo referencia visual — no filtra el backend
 
   // Mide el alto real del header y lo actualiza cuando cambia (filtro edad abierto/cerrado)
   useEffect(() => {
@@ -156,9 +150,9 @@ export default function IndexPage() {
   const loadProfiles = async (loc?: { lat: number; lng: number } | null) => {
     setIsLoading(true)
     try {
+      // No filtramos por ciudad en backend — siempre cargamos todos y ordenamos por distancia
       const params: any = { filter: 'all', limit: 100 }
       if (selectedGender !== 'all') params.gender = selectedGender
-      if (citySearch.trim()) params.city = citySearch.trim()
 
       const response = await api.get('/profile/public-search', { params })
       const all = response.data.profiles.filter(
@@ -401,6 +395,8 @@ export default function IndexPage() {
                         key={city.name}
                         onClick={() => {
                           setCitySearch(city.name)
+                          // Actualizar punto de referencia de distancia con las coords de la ciudad
+                          setUserLocation({ lat: city.lat, lng: city.lng })
                           setShowCityModal(false)
                         }}
                         className="w-full flex items-center gap-3 px-4 py-3 text-left text-white hover:bg-gray-800 rounded-xl transition-colors"
