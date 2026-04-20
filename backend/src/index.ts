@@ -273,14 +273,18 @@ cron.schedule('0 9 * * *', async () => {
     const expiringSubs = await prisma.subscription.findMany({
       where: {
         isActive: true,
-        currentPeriodEnd: { gte: in3days, lt: in4days },
+        endDate: { gte: in3days, lt: in4days },
       },
-      include: { user: { select: { email: true } } },
+      select: {
+        endDate: true,
+        userId: true,
+      },
     });
     for (const sub of expiringSubs) {
-      if (sub.user?.email && sub.currentPeriodEnd) {
-        await sendSubscriptionReminderEmail(sub.user.email, sub.currentPeriodEnd);
-        console.log(`📧 Recordatorio enviado a ${sub.user.email}`);
+      const user = await prisma.user.findUnique({ where: { id: sub.userId }, select: { email: true } });
+      if (user?.email && sub.endDate) {
+        await sendSubscriptionReminderEmail(user.email, sub.endDate);
+        console.log(`📧 Recordatorio enviado a ${user.email}`);
       }
     }
     console.log(`✅ Cron terminado: ${expiringSubs.length} recordatorios enviados`);
