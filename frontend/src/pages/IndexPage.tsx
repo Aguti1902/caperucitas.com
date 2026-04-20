@@ -127,6 +127,10 @@ export default function IndexPage() {
   const [minAge, setMinAge] = useState('')
   const [maxAge, setMaxAge] = useState('')
   const [showAgeFilter, setShowAgeFilter] = useState(false)
+  const [maxDistance, setMaxDistance] = useState<number | null>(null)
+  const [showDistFilter, setShowDistFilter] = useState(false)
+
+  const DIST_OPTIONS = [5, 10, 25, 50, 100]
   const roamRef = useRef<HTMLDivElement>(null)
   const headerRef = useRef<HTMLElement>(null)
   const [headerHeight, setHeaderHeight] = useState(0)
@@ -197,6 +201,10 @@ export default function IndexPage() {
     if (searchQuery && !p.title?.toLowerCase().includes(searchQuery.toLowerCase())) return false
     if (minAge && p.age < parseInt(minAge)) return false
     if (maxAge && p.age > parseInt(maxAge)) return false
+    if (maxDistance && userLocation && p.latitude != null && p.longitude != null) {
+      const dist = haversineKm(userLocation.lat, userLocation.lng, p.latitude, p.longitude)
+      if (dist > maxDistance) return false
+    }
     return true
   })
 
@@ -312,10 +320,18 @@ export default function IndexPage() {
             </button>
             {/* Edad */}
             <button
-              onClick={() => setShowAgeFilter(v => !v)}
+              onClick={() => { setShowAgeFilter(v => !v); setShowDistFilter(false) }}
               className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${showAgeFilter || minAge || maxAge ? 'bg-yellow-500 text-gray-900' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
             >
               EDAD {minAge || maxAge ? `${minAge||'0'}-${maxAge||'99'}` : ''}
+            </button>
+            {/* Distancia */}
+            <button
+              onClick={() => { setShowDistFilter(v => !v); setShowAgeFilter(false) }}
+              className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${maxDistance ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+              title={userLocation ? 'Filtrar por distancia' : 'Activa la ubicación para usar este filtro'}
+            >
+              {maxDistance ? `≤${maxDistance}km` : 'KM'}
             </button>
             {/* Compartir */}
             <button
@@ -360,6 +376,35 @@ export default function IndexPage() {
               />
               {(minAge || maxAge) && (
                 <button onClick={() => { setMinAge(''); setMaxAge('') }} className="text-gray-400 hover:text-white text-xs">Limpiar</button>
+              )}
+            </div>
+          )}
+
+          {/* Filtro distancia expandible */}
+          {showDistFilter && (
+            <div className="max-w-7xl mx-auto pt-2">
+              {!userLocation ? (
+                <p className="text-yellow-400 text-xs">⚠️ Activa tu ubicación para filtrar por distancia</p>
+              ) : (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-gray-400 text-xs flex-shrink-0">Máx. distancia:</span>
+                  {DIST_OPTIONS.map(km => (
+                    <button
+                      key={km}
+                      onClick={() => setMaxDistance(maxDistance === km ? null : km)}
+                      className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
+                        maxDistance === km ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                      }`}
+                    >
+                      {km} km
+                    </button>
+                  ))}
+                  {maxDistance && (
+                    <button onClick={() => setMaxDistance(null)} className="text-gray-400 hover:text-white text-xs">
+                      Limpiar
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}
