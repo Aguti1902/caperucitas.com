@@ -83,10 +83,20 @@ export default function CitySelector({ value, onChange, onDetect, isDetecting, l
             type="button"
             onClick={onDetect}
             disabled={isDetecting}
-            className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-3 rounded-lg text-sm transition-colors"
+            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap shadow-lg shadow-red-900/30"
             title="Detectar ubicación automáticamente"
           >
-            {isDetecting ? <span className="animate-spin inline-block">⟳</span> : '📍'}
+            {isDetecting ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
+                <span>Detectando...</span>
+              </>
+            ) : (
+              <>
+                <span>📍</span>
+                <span>Detectar</span>
+              </>
+            )}
           </button>
         )}
       </div>

@@ -118,7 +118,7 @@ export default function IndexPage() {
   }
 
   const handleEscortAccess = () => {
-    if (isAuthenticated && hasProfile) navigate('/app/edit-profile')
+    if (isAuthenticated && hasProfile) navigate('/edit-profile')
     else if (isAuthenticated) navigate('/create-profile')
     else navigate('/register')
   }

@@ -96,7 +96,21 @@ function App() {
             isAuthenticated && !hasProfile ? (
               <CreateProfilePage />
             ) : isAuthenticated ? (
-              <Navigate to="/app" />
+              <Navigate to="/perfiles" />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        {/* Ruta standalone de editar perfil (evita doble clic por DashboardLayout) */}
+        <Route
+          path="/edit-profile"
+          element={
+            isAuthenticated && hasProfile ? (
+              <EditProfilePage />
+            ) : isAuthenticated ? (
+              <Navigate to="/create-profile" />
             ) : (
               <Navigate to="/login" />
             )
