@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import BackNavBar from '@/components/common/BackNavBar'
 
 export default function NormasPage() {

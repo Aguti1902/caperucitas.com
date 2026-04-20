@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '@/services/api'
 import Logo from '@/components/common/Logo'
 import Button from '@/components/common/Button'

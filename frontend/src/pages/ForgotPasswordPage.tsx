@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { api } from '@/services/api'
 import Logo from '@/components/common/Logo'
 import Input from '@/components/common/Input'
