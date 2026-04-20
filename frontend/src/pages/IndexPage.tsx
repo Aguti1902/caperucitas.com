@@ -50,27 +50,39 @@ export default function IndexPage() {
   const [modalSearch, setModalSearch] = useState('')
   const [isDetectingModal, setIsDetectingModal] = useState(false)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [showGeoPopup, setShowGeoPopup] = useState(() => !sessionStorage.getItem('geoAsked'))
+  const [geoDetecting, setGeoDetecting] = useState(false)
 
   const modalSuggestions = modalSearch.length >= 2
     ? SPANISH_CITIES.filter(c => c.name.toLowerCase().includes(modalSearch.toLowerCase())).slice(0, 10)
     : []
 
-  // Detectar ubicación del usuario silenciosamente al cargar
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        async () => {
-          try {
-            const r = await fetch('https://ipapi.co/json/')
-            const d = await r.json()
-            if (d.latitude && d.longitude) setUserLocation({ lat: d.latitude, lng: d.longitude })
-          } catch { /* sin ubicación */ }
-        },
-        { enableHighAccuracy: false, timeout: 6000, maximumAge: 5 * 60 * 1000 }
-      )
-    }
-  }, [])
+  const closeGeoPopup = (loc: { lat: number; lng: number } | null) => {
+    sessionStorage.setItem('geoAsked', '1')
+    if (loc) setUserLocation(loc)
+    setShowGeoPopup(false)
+  }
+
+  const handleGeoAllow = () => {
+    setGeoDetecting(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        closeGeoPopup({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        setGeoDetecting(false)
+      },
+      async () => {
+        // Fallback por IP si niega o falla GPS
+        try {
+          const r = await fetch('https://ipapi.co/json/')
+          const d = await r.json()
+          if (d.latitude && d.longitude) closeGeoPopup({ lat: d.latitude, lng: d.longitude })
+          else closeGeoPopup(null)
+        } catch { closeGeoPopup(null) }
+        setGeoDetecting(false)
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 }
+    )
+  }
 
   const handleUseMyLocation = () => {
     setIsDetectingModal(true)
@@ -209,6 +221,57 @@ export default function IndexPage() {
 
   return (
     <div className="min-h-screen bg-gray-950">
+
+      {/* ── Popup geolocalización obligatorio ── */}
+      {showGeoPopup && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center px-4"
+          style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)' }}
+        >
+          <div className="w-full max-w-sm bg-gray-900 rounded-2xl border border-gray-700 shadow-2xl overflow-hidden animate-fade-in">
+            {/* Cabecera visual */}
+            <div className="bg-gradient-to-br from-red-700 to-red-900 px-6 pt-8 pb-6 text-center">
+              <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                <MapPin className="w-8 h-8 text-white" />
+              </div>
+              <h2 className="text-white text-xl font-black">¿Dónde estás?</h2>
+              <p className="text-red-200 text-sm mt-1">Para ver las Caperucitas más cercanas a ti</p>
+            </div>
+
+            {/* Cuerpo */}
+            <div className="px-6 py-5 space-y-3">
+              <button
+                onClick={handleGeoAllow}
+                disabled={geoDetecting}
+                className="w-full flex items-center justify-center gap-3 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-black text-base py-4 rounded-xl transition-all active:scale-95"
+              >
+                {geoDetecting ? (
+                  <>
+                    <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Detectando ubicación...
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="w-5 h-5" />
+                    Permitir mi ubicación
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => { setShowCityModal(true); setShowGeoPopup(false); sessionStorage.setItem('geoAsked','1') }}
+                className="w-full py-3 rounded-xl border border-gray-700 text-gray-300 hover:text-white hover:border-gray-500 text-sm font-semibold transition-colors"
+              >
+                Elegir ciudad manualmente
+              </button>
+
+              <p className="text-center text-gray-600 text-xs pt-1">
+                Solo se usa para ordenar perfiles por cercanía.<br/>No guardamos tu ubicación.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header — fixed para que nunca tape el contenido */}
       <header ref={headerRef} className="fixed top-0 left-0 right-0 z-50 bg-gray-900/95 backdrop-blur border-b border-gray-800 shadow-lg">
         <div className="max-w-7xl mx-auto px-3 flex items-center justify-between h-14">
