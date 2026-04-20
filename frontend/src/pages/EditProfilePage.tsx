@@ -9,7 +9,7 @@ import LoadingSpinner from '@/components/common/LoadingSpinner'
 import Modal from '@/components/common/Modal'
 import { detectLocation } from '@/utils/geolocation'
 import CitySelector from '@/components/common/CitySelector'
-import { Eye, Pause, Play } from 'lucide-react'
+import { Eye, Pause, Play, LogOut } from 'lucide-react'
 import BackNavBar from '@/components/common/BackNavBar'
 
 export default function EditProfilePage() {
@@ -416,6 +416,16 @@ export default function EditProfilePage() {
           <Eye className="w-5 h-5" />
           Ver mi perfil completo
         </Button>
+
+        {/* Cerrar sesión */}
+        <button
+          type="button"
+          onClick={async () => { await useAuthStore.getState().logout(); navigate('/') }}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-gray-700 text-gray-400 hover:text-red-400 hover:border-red-500 transition-colors text-sm font-medium"
+        >
+          <LogOut className="w-4 h-4" />
+          Cerrar sesión
+        </button>
       </form>
 
       {/* Modal pausar/activar */}
