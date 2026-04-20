@@ -48,6 +48,7 @@ export default function IndexPage() {
   const [citySearch, setCitySearch] = useState('')
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false)
   const cityRef = useRef<HTMLDivElement>(null)
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
 
   // Detectar ubicación del usuario silenciosamente al cargar
@@ -79,9 +80,19 @@ export default function IndexPage() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  const citySuggestions = citySearch.length > 0
-    ? SPANISH_CITIES.filter(c => c.name.toLowerCase().includes(citySearch.toLowerCase())).slice(0, 8)
+  const citySuggestions = cityDropdownOpen
+    ? (citySearch.length > 0
+        ? SPANISH_CITIES.filter(c => c.name.toLowerCase().includes(citySearch.toLowerCase())).slice(0, 8)
+        : SPANISH_CITIES.slice(0, 8))
     : []
+
+  const openCityDropdown = () => {
+    if (cityRef.current) {
+      const rect = cityRef.current.getBoundingClientRect()
+      setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+    }
+    setCityDropdownOpen(true)
+  }
   const [searchQuery, setSearchQuery] = useState('')
   const [minAge, setMinAge] = useState('')
   const [maxAge, setMaxAge] = useState('')
@@ -205,15 +216,15 @@ export default function IndexPage() {
         <div className="border-t border-gray-800 px-3 py-2">
           <div className="max-w-7xl mx-auto flex items-center gap-2 flex-wrap">
             {/* Ciudad con autocompletado */}
-            <div ref={cityRef} className="relative flex-1 min-w-[130px] max-w-[220px]">
+            <div ref={cityRef} className="flex-1 min-w-[130px] max-w-[220px]">
               <div className="flex items-center gap-1 bg-gray-800 rounded-full px-3 py-1.5">
                 <MapPin className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
                 <input
                   type="text"
                   placeholder="Ciudad..."
                   value={citySearch}
-                  onChange={(e) => { setCitySearch(e.target.value); setCityDropdownOpen(true) }}
-                  onFocus={() => setCityDropdownOpen(true)}
+                  onChange={(e) => { setCitySearch(e.target.value); openCityDropdown() }}
+                  onFocus={openCityDropdown}
                   className="bg-transparent text-white text-sm focus:outline-none w-full"
                   autoComplete="off"
                 />
@@ -226,25 +237,6 @@ export default function IndexPage() {
                   </button>
                 )}
               </div>
-              {/* Dropdown sugerencias */}
-              {cityDropdownOpen && citySuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 max-h-56 overflow-y-auto">
-                  {citySuggestions.map(city => (
-                    <button
-                      key={city.name}
-                      type="button"
-                      onMouseDown={() => {
-                        setCitySearch(city.name)
-                        setCityDropdownOpen(false)
-                      }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-gray-700 border-b border-gray-700 last:border-0 flex items-center gap-2"
-                    >
-                      <MapPin className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-                      {city.name}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
             {/* Edad */}
             <button
@@ -318,6 +310,35 @@ export default function IndexPage() {
           </div>
         </div>
       </header>
+
+      {/* Dropdown ciudad — fuera del header para evitar clipping por backdrop-blur */}
+      {cityDropdownOpen && citySuggestions.length > 0 && dropdownPos && (
+        <div
+          style={{
+            position: 'fixed',
+            top: dropdownPos.top,
+            left: dropdownPos.left,
+            width: dropdownPos.width,
+            zIndex: 9999,
+          }}
+          className="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl max-h-60 overflow-y-auto"
+        >
+          {citySuggestions.map(city => (
+            <button
+              key={city.name}
+              type="button"
+              onMouseDown={() => {
+                setCitySearch(city.name)
+                setCityDropdownOpen(false)
+              }}
+              className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-gray-700 border-b border-gray-700 last:border-0 flex items-center gap-2"
+            >
+              <MapPin className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+              {city.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Espaciador dinámico — empuja el contenido justo debajo del header fixed */}
       <div style={{ paddingTop: headerHeight }} />
