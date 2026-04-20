@@ -27,6 +27,17 @@ const GENDER_FILTERS = [
 ]
 
 
+/** Haversine: distancia en km entre dos puntos lat/lng */
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLng = ((lng2 - lng1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
 export default function IndexPage() {
   const navigate = useNavigate()
   const { isAuthenticated, hasProfile } = useAuthStore()
@@ -37,6 +48,25 @@ export default function IndexPage() {
   const [citySearch, setCitySearch] = useState('')
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false)
   const cityRef = useRef<HTMLDivElement>(null)
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+
+  // Detectar ubicación del usuario silenciosamente al cargar
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        async () => {
+          // Fallback por IP
+          try {
+            const r = await fetch('https://ipapi.co/json/')
+            const d = await r.json()
+            if (d.latitude && d.longitude) setUserLocation({ lat: d.latitude, lng: d.longitude })
+          } catch { /* sin ubicación */ }
+        },
+        { enableHighAccuracy: false, timeout: 6000, maximumAge: 5 * 60 * 1000 }
+      )
+    }
+  }, [])
 
   // Cerrar dropdown al hacer click fuera
   useEffect(() => {
@@ -84,7 +114,20 @@ export default function IndexPage() {
     return () => observer.disconnect()
   }, [])
 
-  const loadProfiles = async () => {
+  const sortByDistance = (list: any[], loc: { lat: number; lng: number } | null) => {
+    if (!loc) return list
+    return [...list].sort((a, b) => {
+      const hasA = a.latitude != null && a.longitude != null && !a.showExactLocation === false
+      const hasB = b.latitude != null && b.longitude != null && !b.showExactLocation === false
+      if (!hasA && !hasB) return 0
+      if (!hasA) return 1
+      if (!hasB) return -1
+      return haversineKm(loc.lat, loc.lng, a.latitude, a.longitude) -
+             haversineKm(loc.lat, loc.lng, b.latitude, b.longitude)
+    })
+  }
+
+  const loadProfiles = async (loc?: { lat: number; lng: number } | null) => {
     setIsLoading(true)
     try {
       const params: any = { filter: 'all', limit: 100 }
@@ -95,14 +138,24 @@ export default function IndexPage() {
       const all = response.data.profiles.filter(
         (p: any, i: number, self: any[]) => i === self.findIndex((x) => x.id === p.id)
       )
-      setProfiles(all)
-      setRoamProfiles(all.filter((p: any) => p.isRoaming))
+      const currentLoc = loc !== undefined ? loc : userLocation
+      const sorted = sortByDistance(all, currentLoc)
+      setProfiles(sorted)
+      setRoamProfiles(sorted.filter((p: any) => p.isRoaming))
     } catch {
       setProfiles([])
     } finally {
       setIsLoading(false)
     }
   }
+
+  // Reordenar perfiles existentes cuando se obtiene la ubicación del usuario
+  useEffect(() => {
+    if (userLocation && profiles.length > 0) {
+      setProfiles(prev => sortByDistance(prev, userLocation))
+      setRoamProfiles(prev => sortByDistance(prev, userLocation))
+    }
+  }, [userLocation])
 
   const filteredProfiles = profiles.filter((p) => {
     if (searchQuery && !p.title?.toLowerCase().includes(searchQuery.toLowerCase())) return false
