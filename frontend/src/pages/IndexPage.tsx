@@ -52,10 +52,30 @@ export default function IndexPage() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [showGeoPopup, setShowGeoPopup] = useState(() => !sessionStorage.getItem('geoAsked'))
   const [geoDetecting, setGeoDetecting] = useState(false)
+  const [nominatimResults, setNominatimResults] = useState<{ name: string; displayName: string; lat: number; lng: number }[]>([])
+  const [isSearchingCity, setIsSearchingCity] = useState(false)
 
-  const modalSuggestions = modalSearch.length >= 2
-    ? SPANISH_CITIES.filter(c => c.name.toLowerCase().includes(modalSearch.toLowerCase())).slice(0, 10)
-    : []
+  // Búsqueda de ubicaciones reales via Nominatim (OpenStreetMap) — cualquier municipio de España
+  useEffect(() => {
+    if (modalSearch.length < 2) { setNominatimResults([]); return }
+    const timer = setTimeout(async () => {
+      setIsSearchingCity(true)
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(modalSearch)}&format=json&addressdetails=1&countrycodes=es&limit=8&accept-language=es`
+        const res = await fetch(url, { headers: { 'User-Agent': 'Caperucitas/1.0' } })
+        const data = await res.json()
+        const results = data.map((r: any) => ({
+          name: r.address?.city || r.address?.town || r.address?.village || r.address?.municipality || r.name,
+          displayName: r.display_name,
+          lat: parseFloat(r.lat),
+          lng: parseFloat(r.lon),
+        })).filter((r: any) => r.name)
+        setNominatimResults(results)
+      } catch { setNominatimResults([]) }
+      finally { setIsSearchingCity(false) }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [modalSearch])
 
   const closeGeoPopup = (loc: { lat: number; lng: number } | null) => {
     sessionStorage.setItem('geoAsked', '1')
@@ -496,25 +516,33 @@ export default function IndexPage() {
                   <div className="flex flex-col items-center justify-center py-8 gap-2 text-gray-500">
                     <Search className="w-10 h-10 opacity-30" />
                     <p className="text-sm font-medium">Escribe al menos 2 letras para buscar</p>
-                    <p className="text-xs opacity-60">Ejemplo: Madrid, Barcelona, Valencia...</p>
+                    <p className="text-xs opacity-60">Ejemplo: Vilafant, Figueres, Gerona...</p>
                   </div>
-                ) : modalSuggestions.length === 0 ? (
+                ) : isSearchingCity ? (
+                  <div className="flex items-center justify-center py-8 gap-2 text-gray-500">
+                    <span className="w-5 h-5 border-2 border-gray-500 border-t-white rounded-full animate-spin" />
+                    <span className="text-sm">Buscando...</span>
+                  </div>
+                ) : nominatimResults.length === 0 ? (
                   <p className="text-center text-gray-500 text-sm py-6">Sin resultados para "{modalSearch}"</p>
                 ) : (
                   <div className="space-y-0.5">
-                    {modalSuggestions.map(city => (
+                    {nominatimResults.map((place, i) => (
                       <button
-                        key={city.name}
+                        key={i}
                         onClick={() => {
-                          setCitySearch(city.name)
-                          // Actualizar punto de referencia de distancia con las coords de la ciudad
-                          setUserLocation({ lat: city.lat, lng: city.lng })
+                          setCitySearch(place.name)
+                          setUserLocation({ lat: place.lat, lng: place.lng })
                           setShowCityModal(false)
+                          setNominatimResults([])
                         }}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left text-white hover:bg-gray-800 rounded-xl transition-colors"
+                        className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-800 rounded-xl transition-colors"
                       >
-                        <MapPin className="w-4 h-4 text-red-400 flex-shrink-0" />
-                        <span className="text-sm font-medium">{city.name}</span>
+                        <MapPin className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-white text-sm font-medium">{place.name}</p>
+                          <p className="text-gray-500 text-xs truncate max-w-[280px]">{place.displayName}</p>
+                        </div>
                       </button>
                     ))}
                   </div>
