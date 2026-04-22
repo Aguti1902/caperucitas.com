@@ -134,7 +134,27 @@ export const login = async (req: Request, res: Response) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { email, password } = req.body;
+    const { email, password, captchaToken } = req.body;
+
+    // Verificar CAPTCHA si hay clave secreta configurada
+    if (captchaToken) {
+      const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY;
+      if (recaptchaSecret) {
+        try {
+          const verifyResponse = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `secret=${recaptchaSecret}&response=${captchaToken}`,
+          });
+          const verifyData = await verifyResponse.json() as { success: boolean };
+          if (!verifyData.success) {
+            return res.status(400).json({ error: 'Verificación CAPTCHA fallida. Inténtalo de nuevo.', captchaError: true });
+          }
+        } catch {
+          console.warn('⚠️ Error verificando CAPTCHA en login — modo degradado');
+        }
+      }
+    }
 
     // Buscar usuario
     const user = await prisma.user.findUnique({

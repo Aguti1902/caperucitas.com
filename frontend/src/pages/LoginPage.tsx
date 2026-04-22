@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import Logo from '@/components/common/Logo'
@@ -6,14 +6,19 @@ import Input from '@/components/common/Input'
 import Button from '@/components/common/Button'
 import { Eye, EyeOff } from 'lucide-react'
 import BackNavBar from '@/components/common/BackNavBar'
+import ReCAPTCHA from 'react-google-recaptcha'
+
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const { login } = useAuthStore()
+  const recaptchaRef = useRef<ReCAPTCHA>(null)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [requiresVerification, setRequiresVerification] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -23,15 +28,24 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setRequiresVerification(false)
-    setIsLoading(true)
 
+    if (!captchaToken) {
+      setError('Por favor, completa la verificación reCAPTCHA')
+      return
+    }
+
+    setIsLoading(true)
     try {
-      await login(email, password)
+      await login(email, password, captchaToken)
       navigate('/perfiles')
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión')
       if (err.response?.data?.requiresEmailVerification) {
         setRequiresVerification(true)
+      }
+      if (err.response?.data?.captchaError) {
+        setCaptchaToken(null)
+        recaptchaRef.current?.reset()
       }
     } finally {
       setIsLoading(false)
@@ -116,12 +130,25 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {/* reCAPTCHA */}
+          <div className="flex justify-center">
+            <ReCAPTCHA
+              ref={recaptchaRef}
+              sitekey={RECAPTCHA_SITE_KEY}
+              onChange={(token) => { setCaptchaToken(token); setError('') }}
+              onExpired={() => setCaptchaToken(null)}
+              onErrored={() => { setCaptchaToken(null); setError('Error al cargar el CAPTCHA') }}
+              theme="dark"
+            />
+          </div>
+
           <Button
             type="submit"
             fullWidth
             variant="primary"
             isLoading={isLoading}
-            className="mt-2 bg-red-600 hover:bg-red-700 border-0"
+            disabled={!captchaToken}
+            className="mt-2 bg-red-600 hover:bg-red-700 border-0 disabled:opacity-50"
           >
             Entrar
           </Button>
@@ -150,8 +177,6 @@ export default function LoginPage() {
             Gratis hasta el 1 de enero de 2027
           </p>
         </div>
-
-        {/* Volver */}
       </div>
       </div>
     </div>

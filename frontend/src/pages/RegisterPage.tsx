@@ -8,8 +8,7 @@ import { Eye, EyeOff, CheckCircle } from 'lucide-react'
 import ReCAPTCHA from 'react-google-recaptcha'
 import BackNavBar from '@/components/common/BackNavBar'
 
-const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY
-const hasRealRecaptchaKey = recaptchaSiteKey && recaptchaSiteKey !== '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
 
 const GENDER_OPTIONS = [
   { id: 'chica', label: '👩 Chica', desc: 'Perfil femenino' },
@@ -66,8 +65,8 @@ export default function RegisterPage() {
       return
     }
 
-    if (hasRealRecaptchaKey && !captchaToken) {
-      setError('Por favor, completa el CAPTCHA')
+    if (!captchaToken) {
+      setError('Por favor, completa la verificación reCAPTCHA')
       return
     }
 
@@ -253,18 +252,16 @@ export default function RegisterPage() {
               </div>
 
               {/* CAPTCHA */}
-              {hasRealRecaptchaKey && recaptchaSiteKey && (
-                <div className="flex justify-center">
-                  <ReCAPTCHA
-                    ref={recaptchaRef}
-                    sitekey={recaptchaSiteKey}
-                    onChange={(token) => { setCaptchaToken(token); setError('') }}
-                    onExpired={() => setCaptchaToken(null)}
-                    onErrored={() => { setCaptchaToken(null); setError('Error al cargar CAPTCHA') }}
-                    theme="dark"
-                  />
-                </div>
-              )}
+              <div className="flex justify-center">
+                <ReCAPTCHA
+                  ref={recaptchaRef}
+                  sitekey={RECAPTCHA_SITE_KEY}
+                  onChange={(token) => { setCaptchaToken(token); setError('') }}
+                  onExpired={() => setCaptchaToken(null)}
+                  onErrored={() => { setCaptchaToken(null); setError('Error al cargar CAPTCHA') }}
+                  theme="dark"
+                />
+              </div>
 
               {/* Términos */}
               <label className="flex items-start gap-3 cursor-pointer">
