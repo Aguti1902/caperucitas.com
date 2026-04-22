@@ -450,12 +450,12 @@ export default function IndexPage() {
 
       {/* Modal de búsqueda de ciudad */}
       {showCityModal && (
-        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
           {/* Fondo oscuro */}
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowCityModal(false)} />
 
           {/* Panel */}
-          <div className="relative w-full max-w-md mx-auto bg-gray-900 rounded-t-2xl sm:rounded-2xl shadow-2xl border border-gray-700 overflow-hidden">
+          <div className="relative w-full max-w-md mx-auto bg-gray-900 rounded-2xl shadow-2xl border border-gray-700 overflow-hidden">
             {/* Cabecera */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
               <h2 className="text-white font-bold text-lg">Cambiar ubicación</h2>
