@@ -87,7 +87,7 @@ export default function RegisterPage() {
       }
     } catch (err: any) {
       setError(err.message || 'Error al registrar usuario')
-      if (hasRealRecaptchaKey && recaptchaRef.current) {
+      if (recaptchaRef.current) {
         recaptchaRef.current.reset()
         setCaptchaToken(null)
       }
