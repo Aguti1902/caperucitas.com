@@ -111,7 +111,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
 
     const { title, aboutMe, lookingFor, age, orientation, gender, role, city, latitude, longitude,
           height, bodyType, relationshipStatus, relationshipGoal, occupation, education, smoking, drinking,
-          children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp } = req.body;
+          children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp, isPaused } = req.body;
 
     const updatedProfile = await prisma.profile.update({
       where: { userId: req.userId },
@@ -142,6 +142,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
         languages: languages || [],
         phone: phone !== undefined ? phone : undefined,
         whatsapp: whatsapp !== undefined ? whatsapp : undefined,
+        isPaused: isPaused !== undefined ? isPaused : undefined,
         lastSeenAt: new Date(),
       },
     });
