@@ -106,17 +106,23 @@ export default function CreateProfilePage() {
     setLanguages(prev => prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang])
   }
 
+  const showError = (msg: string) => {
+    setError(msg)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
-    if (!formData.gender) { setError('Debes seleccionar tu categoría'); return }
-    if (formData.title.length > 20) { setError('El título debe tener máximo 20 caracteres'); return }
+    if (!formData.gender) { showError('⚠️ Debes seleccionar tu categoría'); return }
+    if (!formData.title.trim()) { showError('⚠️ El título es obligatorio'); return }
+    if (formData.title.length > 20) { showError('⚠️ El título debe tener máximo 20 caracteres'); return }
 
     const age = parseInt(formData.age)
-    if (isNaN(age) || age < 18 || age > 99) { setError('La edad debe estar entre 18 y 99 años'); return }
-    if (!formData.phone && !formData.whatsapp) { setError('Debes añadir al menos un teléfono o WhatsApp de contacto'); return }
-    if (selectedFiles.length === 0) { setError('Debes subir al menos 1 foto de portada'); return }
+    if (isNaN(age) || age < 18 || age > 99) { showError('⚠️ La edad debe estar entre 18 y 99 años'); return }
+    if (!formData.phone && !formData.whatsapp) { showError('⚠️ Debes añadir al menos un teléfono o WhatsApp de contacto'); return }
+    if (selectedFiles.length === 0) { showError('⚠️ Debes subir al menos 1 foto de portada'); return }
 
     setIsLoading(true)
     try {
@@ -371,6 +377,13 @@ export default function CreateProfilePage() {
               ⚠️ Si publicas un perfil falso con fotos y/o el teléfono de otra persona sin su consentimiento, puedes enfrentarte a delitos como suplantación, difamación o acoso, con multas e incluso consecuencias penales.
             </p>
           </div>
+
+          {/* Error también junto al botón para que se vea sin hacer scroll */}
+          {error && (
+            <div className="bg-red-500/15 border border-red-500 text-red-300 px-4 py-3 rounded-lg text-sm font-medium">
+              {error}
+            </div>
+          )}
 
           <Button
             type="submit"

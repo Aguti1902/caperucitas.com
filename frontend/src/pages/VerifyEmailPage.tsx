@@ -11,7 +11,7 @@ import { useEffect } from 'react'
 export default function VerifyEmailPage() {
   const { token } = useParams()
   const navigate = useNavigate()
-  const { setToken } = useAuthStore()
+  const { setToken, refreshUserData } = useAuthStore()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
 
@@ -23,18 +23,20 @@ export default function VerifyEmailPage() {
     try {
       const response = await api.get(`/auth/verify-email/${token}`)
       
-      // Guardar tokens
+      // Guardar tokens y actualizar estado de autenticación
       if (response.data.accessToken) {
         setToken(response.data.accessToken, response.data.refreshToken)
+        // Cargar datos del usuario para que isAuthenticated y hasProfile sean correctos
+        await refreshUserData()
       }
 
       setStatus('success')
       setMessage(response.data.message)
 
-      // Redirigir a crear perfil después de 3 segundos
+      // Redirigir a crear perfil después de 2 segundos
       setTimeout(() => {
         navigate('/create-profile')
-      }, 3000)
+      }, 2000)
     } catch (error: any) {
       setStatus('error')
       setMessage(error.response?.data?.error || 'Error al verificar email')

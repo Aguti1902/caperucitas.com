@@ -45,13 +45,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setToken: (accessToken, refreshToken) => {
     localStorage.setItem('accessToken', accessToken)
     localStorage.setItem('refreshToken', refreshToken)
-    set({ accessToken })
+    set({ accessToken, isAuthenticated: true })
   },
 
   setTokens: (accessToken, refreshToken) => {
     localStorage.setItem('accessToken', accessToken)
     localStorage.setItem('refreshToken', refreshToken)
-    set({ accessToken })
+    set({ accessToken, isAuthenticated: true })
   },
 
   login: async (email, password, captchaToken) => {
