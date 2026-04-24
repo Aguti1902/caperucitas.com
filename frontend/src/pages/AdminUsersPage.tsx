@@ -16,6 +16,7 @@ import {
 import { getAllProfiles, deleteUser, exportEmails, verifyUserEmail } from '../services/admin.api';
 import AdminHeader from '../components/admin/AdminHeader';
 import AdminNav from '../components/admin/AdminNav';
+import { showToast } from '@/store/toastStore';
 
 interface Profile {
   id: string;
@@ -91,7 +92,7 @@ export default function AdminUsersPage() {
       await deleteUser(userId);
       setProfiles(prev => prev.filter(p => p.user?.id !== userId));
     } catch {
-      alert('Error al eliminar el usuario');
+      showToast('Error al eliminar el usuario', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -107,7 +108,7 @@ export default function AdminUsersPage() {
           : p
       ));
     } catch {
-      alert('Error al verificar el usuario');
+      showToast('✓ Usuario verificado correctamente', 'success');
     } finally {
       setActionLoading(null);
     }
@@ -118,7 +119,7 @@ export default function AdminUsersPage() {
       const emails = await exportEmails();
       setEmailExport(emails);
     } catch {
-      alert('Error al exportar emails');
+      showToast('Error al exportar emails', 'error');
     }
   };
 

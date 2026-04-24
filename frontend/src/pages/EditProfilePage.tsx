@@ -11,6 +11,7 @@ import { detectLocation } from '@/utils/geolocation'
 import CitySelector from '@/components/common/CitySelector'
 import { Eye, Pause, Play, LogOut } from 'lucide-react'
 import BackNavBar from '@/components/common/BackNavBar'
+import { showToast } from '@/store/toastStore'
 
 export default function EditProfilePage() {
   const navigate = useNavigate()
@@ -89,7 +90,7 @@ export default function EditProfilePage() {
     const files = Array.from(e.target.files || [])
     const totalPhotos = existingPhotos.filter(p => p.type !== 'private').length
     if (selectedFiles.length + totalPhotos + files.length > 7) {
-      alert('Máximo 7 fotos (1 portada + 6 adicionales)')
+      showToast('Máximo 7 fotos (1 portada + 6 adicionales)', 'warning')
       return
     }
     setSelectedFiles(prev => [...prev, ...files])
@@ -110,7 +111,7 @@ export default function EditProfilePage() {
       await api.delete(`/photos/${photoId}`)
       setExistingPhotos(prev => prev.filter(p => p.id !== photoId))
     } catch {
-      alert('Error al eliminar foto')
+      showToast('Error al eliminar foto', 'error')
     }
   }
 
@@ -124,9 +125,9 @@ export default function EditProfilePage() {
       const result = await detectLocation()
       await api.put('/profile/location', { city: result.city, latitude: result.latitude, longitude: result.longitude })
       setFormData(prev => ({ ...prev, city: result.city, latitude: result.latitude, longitude: result.longitude }))
-      alert(`✓ Ubicación actualizada a ${result.city}`)
+      showToast(`✓ Ubicación actualizada a ${result.city}`, 'success')
     } catch {
-      alert('No se pudo obtener tu ubicación')
+      showToast('No se pudo obtener tu ubicación', 'error')
     } finally {
       setIsUpdatingLocation(false)
     }
@@ -142,16 +143,18 @@ export default function EditProfilePage() {
         isPaused: !profilePaused,
       }
       await api.put('/profile', payload)
+      const wasPaused = profilePaused
       setProfilePaused(!profilePaused)
       setShowPauseModal(false)
-      alert(
-        !profilePaused
-          ? '✓ Tu perfil está pausado. No aparecerás en los listados hasta que lo actives de nuevo.'
-          : '✓ Tu perfil está activo y visible en los listados'
+      showToast(
+        wasPaused
+          ? '✓ Tu perfil está activo y visible en los listados'
+          : '✓ Tu perfil está pausado. No aparecerás en los listados hasta que lo actives.',
+        wasPaused ? 'success' : 'warning'
       )
       await refreshUserData()
     } catch {
-      alert('Error al cambiar el estado del perfil')
+      showToast('Error al cambiar el estado del perfil', 'error')
     } finally {
       setIsPausing(false)
     }
@@ -187,6 +190,7 @@ export default function EditProfilePage() {
         }
       }
 
+      showToast('✓ Perfil guardado correctamente', 'success')
       await refreshUserData()
       navigate('/perfiles')
     } catch (err: any) {

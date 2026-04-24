@@ -12,6 +12,7 @@ import {
 import { getAllReports, deleteReport, deleteUser } from '../services/admin.api';
 import AdminHeader from '../components/admin/AdminHeader';
 import AdminNav from '../components/admin/AdminNav';
+import { showToast } from '@/store/toastStore';
 
 interface Report {
   id: string;
@@ -83,7 +84,7 @@ export default function AdminReportsPage() {
       await deleteReport(reportId);
       setReports(prev => prev.filter(r => r.id !== reportId));
     } catch {
-      alert('Error al descartar la denuncia');
+      showToast('Error al descartar la denuncia', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -96,7 +97,7 @@ export default function AdminReportsPage() {
       await deleteUser(userId);
       setReports(prev => prev.filter(r => r.reportedProfile.user.id !== userId));
     } catch {
-      alert('Error al eliminar el usuario');
+      showToast('Error al eliminar el usuario', 'error');
     } finally {
       setActionLoading(null);
     }

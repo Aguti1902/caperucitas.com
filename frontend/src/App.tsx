@@ -3,6 +3,7 @@ import { useAuthStore } from './store/authStore'
 import { useEffect } from 'react'
 import CookieBanner from './components/common/CookieBanner'
 import PWAInstallPrompt from './components/common/PWAInstallPrompt'
+import ToastContainer from './components/common/ToastContainer'
 
 // Páginas
 import LandingPage from './pages/LandingPage'
@@ -170,6 +171,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
       <PWAInstallPrompt />
+      <ToastContainer />
     </>
   )
 }
