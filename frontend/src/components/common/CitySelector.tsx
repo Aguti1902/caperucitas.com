@@ -1,20 +1,92 @@
 import { useState, useRef, useEffect } from 'react'
 
-interface NominatimResult {
-  place_id: number
-  display_name: string
-  name: string
-  lat: string
-  lon: string
-  address?: {
+/* ------------------------------------------------------------------ */
+/*  Tipos                                                               */
+/* ------------------------------------------------------------------ */
+
+interface PhotonFeature {
+  geometry: { coordinates: [number, number] }
+  properties: {
+    name?: string
+    street?: string
+    housenumber?: string
     city?: string
     town?: string
     village?: string
     municipality?: string
     county?: string
     state?: string
+    postcode?: string
+    country?: string
   }
 }
+
+interface PlaceResult {
+  id: string
+  label: string      // línea principal (calle + número, o nombre del lugar)
+  sublabel: string   // línea secundaria (ciudad, provincia)
+  city: string       // valor que se guarda en el perfil
+  lat: number
+  lng: number
+}
+
+/* ------------------------------------------------------------------ */
+/*  Utilidades                                                          */
+/* ------------------------------------------------------------------ */
+
+/** Bounding box de España peninsular + islas */
+const SPAIN_BBOX = '-18.2,27.6,4.4,43.8'
+
+function extractCity(p: PhotonFeature['properties']): string {
+  return (
+    p.city ||
+    p.town ||
+    p.village ||
+    p.municipality ||
+    p.county ||
+    p.state ||
+    ''
+  )
+}
+
+function buildLabel(p: PhotonFeature['properties']): string {
+  if (p.street) {
+    const parts = [p.street]
+    if (p.housenumber) parts.push(p.housenumber)
+    return parts.join(', ')
+  }
+  return p.name || ''
+}
+
+function buildSublabel(p: PhotonFeature['properties'], city: string): string {
+  const parts: string[] = []
+  if (city && city !== p.name) parts.push(city)
+  if (p.state && p.state !== city) parts.push(p.state)
+  if (p.postcode) parts.push(p.postcode)
+  return parts.join(' · ')
+}
+
+function photonToResults(features: PhotonFeature[]): PlaceResult[] {
+  return features
+    .filter(f => f.properties.country?.toLowerCase().includes('españa') || f.properties.country?.toLowerCase().includes('spain'))
+    .map((f, i) => {
+      const p = f.properties
+      const city = extractCity(p)
+      const label = buildLabel(p) || city
+      return {
+        id: `${i}-${f.geometry.coordinates.join(',')}`,
+        label,
+        sublabel: buildSublabel(p, city),
+        city,
+        lat: f.geometry.coordinates[1],
+        lng: f.geometry.coordinates[0],
+      }
+    })
+}
+
+/* ------------------------------------------------------------------ */
+/*  Componente                                                          */
+/* ------------------------------------------------------------------ */
 
 interface CitySelectorProps {
   value: string
@@ -31,16 +103,16 @@ export default function CitySelector({
   onDetect,
   isDetecting,
   locationError,
-  placeholder = 'Calle, número, ciudad...',
+  placeholder = 'Calle, número, ciudad, municipio...',
 }: CitySelectorProps) {
   const [search, setSearch] = useState('')
-  const [results, setResults] = useState<NominatimResult[]>([])
+  const [results, setResults] = useState<PlaceResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Cerrar dropdown al hacer click fuera
+  /* Cerrar dropdown al hacer clic fuera */
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -51,24 +123,77 @@ export default function CitySelector({
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  // Buscar con Nominatim cuando cambia el texto
+  /* Buscar con debounce */
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (search.length < 3) {
+
+    if (search.trim().length < 3) {
       setResults([])
       setOpen(false)
       return
     }
+
     debounceRef.current = setTimeout(async () => {
       setIsSearching(true)
       try {
-        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=es&format=json&limit=8&addressdetails=1`
-        const res = await fetch(url, {
+        /* Photon — rápido, cubre calles y portales de España */
+        const photonUrl =
+          `https://photon.komoot.io/api/?` +
+          `q=${encodeURIComponent(search)}` +
+          `&lang=es&limit=10` +
+          `&bbox=${SPAIN_BBOX}`
+
+        const res = await fetch(photonUrl, {
           headers: { 'Accept-Language': 'es' },
         })
-        const data: NominatimResult[] = await res.json()
-        setResults(data)
-        setOpen(data.length > 0)
+        const data = await res.json()
+        const places = photonToResults(data.features || [])
+
+        if (places.length > 0) {
+          setResults(places)
+          setOpen(true)
+        } else {
+          /* Fallback: Nominatim si Photon no devuelve resultados */
+          const nomUrl =
+            `https://nominatim.openstreetmap.org/search?` +
+            `q=${encodeURIComponent(search)}` +
+            `&countrycodes=es&format=json&limit=8&addressdetails=1`
+
+          const nomRes = await fetch(nomUrl, {
+            headers: { 'Accept-Language': 'es' },
+          })
+          const nomData = await nomRes.json()
+
+          interface NomResult {
+            place_id: number
+            display_name: string
+            lat: string
+            lon: string
+            address?: {
+              city?: string; town?: string; village?: string
+              municipality?: string; county?: string; state?: string
+              road?: string; house_number?: string; postcode?: string
+            }
+          }
+
+          const nomPlaces: PlaceResult[] = (nomData as NomResult[]).map((r) => {
+            const a = r.address || {}
+            const city = a.city || a.town || a.village || a.municipality || a.county || ''
+            const street = a.road
+              ? `${a.road}${a.house_number ? ' ' + a.house_number : ''}`
+              : r.display_name.split(',')[0]
+            return {
+              id: String(r.place_id),
+              label: street,
+              sublabel: [city, a.state, a.postcode].filter(Boolean).join(' · '),
+              city,
+              lat: parseFloat(r.lat),
+              lng: parseFloat(r.lon),
+            }
+          })
+          setResults(nomPlaces)
+          setOpen(nomPlaces.length > 0)
+        }
       } catch {
         setResults([])
       } finally {
@@ -77,22 +202,8 @@ export default function CitySelector({
     }, 400)
   }, [search])
 
-  const extractPlaceName = (result: NominatimResult): string => {
-    const a = result.address
-    return (
-      a?.city ||
-      a?.town ||
-      a?.village ||
-      a?.municipality ||
-      a?.county ||
-      result.name ||
-      result.display_name.split(',')[0]
-    )
-  }
-
-  const handleSelect = (result: NominatimResult) => {
-    const placeName = extractPlaceName(result)
-    onChange(placeName, parseFloat(result.lat), parseFloat(result.lon))
+  const handleSelect = (place: PlaceResult) => {
+    onChange(place.city || place.label, place.lat, place.lng)
     setSearch('')
     setResults([])
     setOpen(false)
@@ -116,42 +227,45 @@ export default function CitySelector({
             autoComplete="off"
           />
 
-          {/* Spinner de búsqueda */}
+          {/* Spinner */}
           {isSearching && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
               <span className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin inline-block" />
             </div>
           )}
 
-          {/* Dropdown de resultados */}
+          {/* Dropdown */}
           {open && results.length > 0 && (
-            <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-600 rounded-lg shadow-xl max-h-64 overflow-y-auto">
-              {results.map(result => (
+            <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-600 rounded-lg shadow-xl max-h-72 overflow-y-auto">
+              {results.map(place => (
                 <button
-                  key={result.place_id}
+                  key={place.id}
                   type="button"
-                  onMouseDown={() => handleSelect(result)}
-                  className="w-full text-left px-4 py-3 text-sm transition-colors border-b border-gray-700 last:border-0 hover:bg-gray-700"
+                  onMouseDown={() => handleSelect(place)}
+                  className="w-full text-left px-4 py-3 transition-colors border-b border-gray-700 last:border-0 hover:bg-gray-700"
                 >
-                  <p className="text-white font-semibold">
-                    📍 {extractPlaceName(result)}
+                  <p className="text-white text-sm font-semibold leading-tight">
+                    📍 {place.label}
                   </p>
-                  <p className="text-gray-400 text-xs mt-0.5 truncate">
-                    {result.display_name}
-                  </p>
+                  {place.sublabel ? (
+                    <p className="text-gray-400 text-xs mt-0.5">{place.sublabel}</p>
+                  ) : null}
                 </button>
               ))}
             </div>
           )}
 
           {/* Sin resultados */}
-          {open && !isSearching && results.length === 0 && search.length >= 3 && (
+          {open && !isSearching && results.length === 0 && search.trim().length >= 3 && (
             <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-600 rounded-lg shadow-xl">
-              <p className="text-gray-400 text-sm px-4 py-3">Sin resultados para "{search}"</p>
+              <p className="text-gray-400 text-sm px-4 py-3">
+                Sin resultados para "<span className="text-white">{search}</span>"
+              </p>
             </div>
           )}
         </div>
 
+        {/* Botón detectar automáticamente */}
         {onDetect && (
           <button
             type="button"
@@ -175,17 +289,17 @@ export default function CitySelector({
         )}
       </div>
 
-      {/* Ubicación actual seleccionada */}
+      {/* Ciudad seleccionada actualmente */}
       {value && (
-        <p className="text-green-400 text-xs mt-1">
-          ✓ Ubicación: <strong>{value}</strong>
+        <p className="text-green-400 text-xs mt-1.5">
+          ✓ Ubicación guardada: <strong>{value}</strong>
         </p>
       )}
 
       {/* Hint */}
       {!value && (
         <p className="text-gray-500 text-xs mt-1">
-          Escribe al menos 3 letras para buscar cualquier dirección en España
+          Escribe al menos 3 letras — calles, barrios, municipios, provincias...
         </p>
       )}
     </div>
