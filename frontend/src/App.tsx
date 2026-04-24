@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import { useEffect } from 'react'
 import CookieBanner from './components/common/CookieBanner'
+import PWAInstallPrompt from './components/common/PWAInstallPrompt'
 
 // Páginas
 import LandingPage from './pages/LandingPage'
@@ -168,6 +169,7 @@ function App() {
         {/* Redirección por defecto */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+      <PWAInstallPrompt />
     </>
   )
 }
