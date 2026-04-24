@@ -135,19 +135,20 @@ export default function EditProfilePage() {
   const handleTogglePause = async () => {
     setIsPausing(true)
     try {
-      if (profilePaused) {
-        // Activar perfil
-        await api.put('/profile', { ...formData, isPaused: false })
-        setProfilePaused(false)
-        setShowPauseModal(false)
-        alert('✓ Tu perfil está activo y visible en los listados')
-      } else {
-        // Pausar perfil
-        await api.put('/profile', { ...formData, isPaused: true })
-        setProfilePaused(true)
-        setShowPauseModal(false)
-        alert('✓ Tu perfil está pausado. No aparecerás en los listados hasta que lo actives de nuevo.')
+      const payload = {
+        ...formData,
+        age: parseInt(formData.age) || undefined,
+        height: formData.height ? parseInt(formData.height) : null,
+        isPaused: !profilePaused,
       }
+      await api.put('/profile', payload)
+      setProfilePaused(!profilePaused)
+      setShowPauseModal(false)
+      alert(
+        !profilePaused
+          ? '✓ Tu perfil está pausado. No aparecerás en los listados hasta que lo actives de nuevo.'
+          : '✓ Tu perfil está activo y visible en los listados'
+      )
       await refreshUserData()
     } catch {
       alert('Error al cambiar el estado del perfil')
