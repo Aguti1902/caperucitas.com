@@ -8,7 +8,7 @@ export default function LandingPage() {
   const handleNotAdult = () => { window.location.href = 'https://www.google.com' }
 
   const handleShare = () => {
-    const msg = encodeURIComponent('Hola, mira esta web brutal para adultos donde encontrarás compañía cerca de ti: caperucitas.com, discreta, directa y sin rodeos.')
+    const msg = encodeURIComponent('Hola, mira esta web brutal para adultos donde encontrarás compañía cerca de ti: https://www.caperucitas.com — discreta, directa y sin rodeos.')
     window.open(`https://wa.me/?text=${msg}`, '_blank')
   }
 
