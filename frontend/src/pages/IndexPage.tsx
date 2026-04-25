@@ -45,16 +45,33 @@ export default function IndexPage() {
   const [roamProfiles, setRoamProfiles] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedGender, setSelectedGender] = useState('all')
-  const [citySearch, setCitySearch] = useState('')
+  // Persistir ciudad y ubicación en localStorage para que sobrevivan la navegación
+  const [citySearch, setCitySearch] = useState<string>(() => localStorage.getItem('cap_citySearch') || '')
   const [showCityModal, setShowCityModal] = useState(false)
   const [modalSearch, setModalSearch] = useState('')
   const [isDetectingModal, setIsDetectingModal] = useState(false)
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
-  // El popup de geolocalización se muestra siempre al entrar a /perfiles
-  const [showGeoPopup, setShowGeoPopup] = useState(true)
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(() => {
+    try {
+      const saved = localStorage.getItem('cap_userLocation')
+      return saved ? JSON.parse(saved) : null
+    } catch { return null }
+  })
+  // Si ya hay ubicación guardada, no volver a preguntar. Si no, mostrar popup.
+  const [showGeoPopup, setShowGeoPopup] = useState(() => !localStorage.getItem('cap_userLocation'))
   const [geoDetecting, setGeoDetecting] = useState(false)
   const [nominatimResults, setNominatimResults] = useState<{ name: string; displayName: string; lat: number; lng: number }[]>([])
   const [isSearchingCity, setIsSearchingCity] = useState(false)
+
+  // Sincronizar ciudad y ubicación con localStorage al cambiar
+  useEffect(() => {
+    localStorage.setItem('cap_citySearch', citySearch)
+  }, [citySearch])
+
+  useEffect(() => {
+    if (userLocation) {
+      localStorage.setItem('cap_userLocation', JSON.stringify(userLocation))
+    }
+  }, [userLocation])
 
   // Búsqueda de ubicaciones reales via Nominatim (OpenStreetMap) — cualquier municipio de España
   useEffect(() => {
