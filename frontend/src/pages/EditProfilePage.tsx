@@ -136,13 +136,8 @@ export default function EditProfilePage() {
   const handleTogglePause = async () => {
     setIsPausing(true)
     try {
-      const payload = {
-        ...formData,
-        age: parseInt(formData.age) || undefined,
-        height: formData.height ? parseInt(formData.height) : null,
-        isPaused: !profilePaused,
-      }
-      await api.put('/profile', payload)
+      // Solo enviamos isPaused — Prisma ignora los campos undefined y no los toca
+      await api.put('/profile', { isPaused: !profilePaused })
       const wasPaused = profilePaused
       setProfilePaused(!profilePaused)
       setShowPauseModal(false)
