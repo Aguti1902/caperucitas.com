@@ -164,6 +164,7 @@ export default function EditProfilePage() {
     e.preventDefault()
     setError('')
 
+    if (!formData.title.trim()) { setError('El título es obligatorio'); return }
     if (formData.title.length > 20) { setError('El título debe tener máximo 20 caracteres'); return }
     const age = parseInt(formData.age)
     if (isNaN(age) || age < 18 || age > 99) { setError('La edad debe estar entre 18 y 99 años'); return }
@@ -194,7 +195,11 @@ export default function EditProfilePage() {
       await refreshUserData()
       navigate('/perfiles')
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al actualizar perfil')
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data?.errors?.[0]?.msg ||
+        'Error al actualizar perfil'
+      setError(msg)
     } finally {
       setIsSaving(false)
     }

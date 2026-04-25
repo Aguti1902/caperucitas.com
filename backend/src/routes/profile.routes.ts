@@ -40,12 +40,13 @@ router.put(
   '/',
   requireProfile,
   [
+    // checkFalsy:true trata "" como "no enviado" y omite la validación
     body('title')
-      .optional()
-      .isLength({ min: 1, max: 20 })
-      .withMessage('El título debe tener entre 1 y 20 caracteres'),
+      .optional({ checkFalsy: true })
+      .isLength({ max: 20 })
+      .withMessage('El título debe tener máximo 20 caracteres'),
     body('age')
-      .optional()
+      .optional({ checkFalsy: true })
       .isInt({ min: 18, max: 99 })
       .withMessage('La edad debe estar entre 18 y 99 años'),
   ],
