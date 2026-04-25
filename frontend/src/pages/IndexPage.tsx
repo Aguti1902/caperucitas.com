@@ -50,7 +50,8 @@ export default function IndexPage() {
   const [modalSearch, setModalSearch] = useState('')
   const [isDetectingModal, setIsDetectingModal] = useState(false)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
-  const [showGeoPopup, setShowGeoPopup] = useState(() => !sessionStorage.getItem('geoAsked'))
+  // El popup de geolocalización se muestra siempre al entrar a /perfiles
+  const [showGeoPopup, setShowGeoPopup] = useState(true)
   const [geoDetecting, setGeoDetecting] = useState(false)
   const [nominatimResults, setNominatimResults] = useState<{ name: string; displayName: string; lat: number; lng: number }[]>([])
   const [isSearchingCity, setIsSearchingCity] = useState(false)
@@ -78,7 +79,6 @@ export default function IndexPage() {
   }, [modalSearch])
 
   const closeGeoPopup = (loc: { lat: number; lng: number } | null) => {
-    sessionStorage.setItem('geoAsked', '1')
     setShowGeoPopup(false)
     setGeoDetecting(false)
     if (loc) {
@@ -290,7 +290,7 @@ export default function IndexPage() {
               </button>
 
               <button
-                onClick={() => { setShowCityModal(true); setShowGeoPopup(false); sessionStorage.setItem('geoAsked','1') }}
+                onClick={() => { setShowCityModal(true); setShowGeoPopup(false) }}
                 className="w-full py-3 rounded-xl border border-gray-700 text-gray-300 hover:text-white hover:border-gray-500 text-sm font-semibold transition-colors"
               >
                 Elegir ciudad manualmente
