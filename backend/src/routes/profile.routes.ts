@@ -42,8 +42,8 @@ router.put(
   [
     body('title')
       .optional()
-      .isLength({ min: 1, max: 15 })
-      .withMessage('El título debe tener entre 1 y 15 caracteres'),
+      .isLength({ min: 1, max: 20 })
+      .withMessage('El título debe tener entre 1 y 20 caracteres'),
     body('age')
       .optional()
       .isInt({ min: 18, max: 99 })

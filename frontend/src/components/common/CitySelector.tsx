@@ -241,8 +241,10 @@ export default function CitySelector({
                 <button
                   key={place.id}
                   type="button"
-                  onMouseDown={() => handleSelect(place)}
-                  className="w-full text-left px-4 py-3 transition-colors border-b border-gray-700 last:border-0 hover:bg-gray-700"
+                  // onMouseDown evita que el blur del input cierre el dropdown antes del click
+                  onMouseDown={e => { e.preventDefault(); handleSelect(place) }}
+                  onTouchEnd={e => { e.preventDefault(); handleSelect(place) }}
+                  className="w-full text-left px-4 py-3 transition-colors border-b border-gray-700 last:border-0 hover:bg-gray-700 active:bg-gray-600"
                 >
                   <p className="text-white text-sm font-semibold leading-tight">
                     📍 {place.label}

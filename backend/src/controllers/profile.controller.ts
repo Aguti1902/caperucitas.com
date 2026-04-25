@@ -550,7 +550,9 @@ export const publicSearchProfiles = async (req: Request, res: Response) => {
   try {
     const { gender, city, page = 1, limit = 100, q } = req.query;
 
-    const where: any = {};
+    const where: any = {
+      isPaused: false,  // excluir perfiles pausados
+    };
 
     if (gender && gender !== 'all') {
       where.gender = gender as string;
