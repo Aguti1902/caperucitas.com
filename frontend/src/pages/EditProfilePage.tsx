@@ -321,9 +321,14 @@ export default function EditProfilePage() {
           rows={4}
         />
 
-        {/* Ciudad */}
+        {/* Lugar de trabajo */}
         <div className="bg-gray-800 rounded-xl p-4">
-          <h3 className="text-white font-semibold mb-3">📍 Ciudad</h3>
+          <h3 className="text-white font-semibold mb-3">📍 Tu lugar de trabajo</h3>
+          <div className="bg-blue-900/30 border border-blue-700/50 rounded-lg px-3 py-2 mb-3">
+            <p className="text-blue-200 text-xs leading-relaxed">
+              💡 Para un uso perfecto, pon el nombre de la calle, número, ciudad y provincia, o detecta automáticamente cuando estés en tu lugar de trabajo. <strong>La dirección NO saldrá publicada</strong>, solo se usará para mostrarte cerca de los usuarios.
+            </p>
+          </div>
           <CitySelector
             value={formData.city}
             onChange={(city, lat, lng) =>

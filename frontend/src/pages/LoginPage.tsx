@@ -12,7 +12,7 @@ const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LeIxAcTA
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const { login } = useAuthStore()
+  const { login, hasProfile } = useAuthStore()
   const recaptchaRef = useRef<ReCAPTCHA>(null)
 
   const [email, setEmail] = useState('')
@@ -37,7 +37,9 @@ export default function LoginPage() {
     setIsLoading(true)
     try {
       await login(email, password, captchaToken)
-      navigate('/perfiles')
+      // Ir directamente al perfil del usuario tras login
+      const { hasProfile: hp } = useAuthStore.getState()
+      navigate(hp ? '/edit-profile' : '/create-profile')
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión')
       if (err.response?.data?.requiresEmailVerification) {

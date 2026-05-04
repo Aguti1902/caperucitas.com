@@ -325,12 +325,29 @@ export default function IndexPage() {
       <header ref={headerRef} className="fixed top-0 left-0 right-0 z-50 bg-gray-900/95 backdrop-blur border-b border-gray-800 shadow-lg">
         <div className="max-w-7xl mx-auto px-3 flex items-center justify-between h-14">
           <Logo size="sm" />
-          <button
-            onClick={handleEscortAccess}
-            className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
-          >
-            {isAuthenticated && hasProfile ? 'Mi Perfil' : 'Mi Perfil'}
-          </button>
+          {isAuthenticated ? (
+            <button
+              onClick={handleEscortAccess}
+              className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
+            >
+              Mi cuenta
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate('/login')}
+                className="bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold px-3 py-2 rounded-lg transition-colors"
+              >
+                Entrar
+              </button>
+              <button
+                onClick={() => navigate('/register')}
+                className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-3 py-2 rounded-lg transition-colors"
+              >
+                Crear cuenta
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Barra ciudad + edad + compartir */}
