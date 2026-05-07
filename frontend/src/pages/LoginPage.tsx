@@ -12,7 +12,7 @@ const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LeIxAcTA
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const { login, hasProfile } = useAuthStore()
+  const { login } = useAuthStore()
   const recaptchaRef = useRef<ReCAPTCHA>(null)
 
   const [email, setEmail] = useState('')
