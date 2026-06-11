@@ -548,7 +548,7 @@ const PUBLIC_PROFILE_INCLUDE = {
 // Búsqueda pública de perfiles (para visitantes sin cuenta)
 export const publicSearchProfiles = async (req: Request, res: Response) => {
   try {
-    const { gender, city, page = 1, limit = 100, q } = req.query;
+    const { gender, city, page, limit, q } = req.query;
 
     const where: any = {
       isPaused: false,  // excluir perfiles pausados
@@ -569,9 +569,7 @@ export const publicSearchProfiles = async (req: Request, res: Response) => {
       ];
     }
 
-    const skip = (Number(page) - 1) * Number(limit);
-
-    const profiles = await prisma.profile.findMany({
+    const queryOptions: any = {
       where,
       include: PUBLIC_PROFILE_INCLUDE,
       orderBy: [
@@ -579,9 +577,19 @@ export const publicSearchProfiles = async (req: Request, res: Response) => {
         { isOnline: 'desc' },
         { lastSeenAt: 'desc' },
       ],
-      skip,
-      take: Number(limit),
-    });
+    };
+
+    if (limit) {
+      const pageNum = Number(page) || 1;
+      const limitNum = Number(limit);
+      queryOptions.skip = (pageNum - 1) * limitNum;
+      queryOptions.take = limitNum;
+    }
+
+    const [profiles, total] = await Promise.all([
+      prisma.profile.findMany(queryOptions),
+      prisma.profile.count({ where }),
+    ]);
 
     const normalized = profiles.map(p => ({
       ...p,
@@ -589,7 +597,7 @@ export const publicSearchProfiles = async (req: Request, res: Response) => {
       publicPhotos: p.photos.filter(ph => ph.type === 'public').map(ph => ph.url),
     }));
 
-    res.json({ profiles: normalized, total: normalized.length });
+    res.json({ profiles: normalized, total });
   } catch (error) {
     console.error('Error en búsqueda pública:', error);
     res.status(500).json({ error: 'Error al buscar perfiles' });

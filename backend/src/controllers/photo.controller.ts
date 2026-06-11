@@ -33,8 +33,8 @@ export const uploadPhoto = async (req: AuthRequest, res: Response) => {
 
     console.log(`Fotos existentes de tipo "${type}":`, existingPhotos.length);
 
-    // Límites: 1 cover, 3 public, 4 private
-    const limits: any = { cover: 1, public: 3, private: 4 };
+    // Límites: 1 cover, 6 public, 4 private (7 fotos visibles + 4 privadas)
+    const limits: any = { cover: 1, public: 6, private: 4 };
     if (existingPhotos.length >= limits[type]) {
       // Eliminar de Cloudinary
       const publicId = (req.file as any).filename;

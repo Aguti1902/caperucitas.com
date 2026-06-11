@@ -193,9 +193,8 @@ export default function IndexPage() {
   const sortByDistance = (list: any[], loc: { lat: number; lng: number } | null) => {
     if (!loc) return list
     return [...list].sort((a, b) => {
-      // Solo excluir del sorting si privacidad activa explícitamente (showExactLocation === false)
-      const hasA = a.latitude != null && a.longitude != null && a.showExactLocation !== false
-      const hasB = b.latitude != null && b.longitude != null && b.showExactLocation !== false
+      const hasA = a.latitude != null && a.longitude != null
+      const hasB = b.latitude != null && b.longitude != null
       if (!hasA && !hasB) return 0
       if (!hasA) return 1
       if (!hasB) return -1
@@ -208,7 +207,7 @@ export default function IndexPage() {
     setIsLoading(true)
     try {
       // No filtramos por ciudad en backend — siempre cargamos todos y ordenamos por distancia
-      const params: any = { filter: 'all', limit: 100 }
+      const params: any = {}
       if (selectedGender !== 'all') params.gender = selectedGender
 
       const response = await api.get('/profile/public-search', { params })
