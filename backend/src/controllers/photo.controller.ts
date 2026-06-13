@@ -23,19 +23,30 @@ export const uploadPhoto = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Tipo de foto inválido' });
     }
 
-    // Verificar límites
-    const existingPhotos = await prisma.photo.findMany({
-      where: {
-        profileId: req.profileId!,
-        type,
-      },
-    });
+    const [existingOfType, visiblePhotos] = await Promise.all([
+      prisma.photo.findMany({
+        where: { profileId: req.profileId!, type },
+      }),
+      prisma.photo.findMany({
+        where: { profileId: req.profileId!, type: { in: ['cover', 'public'] } },
+      }),
+    ]);
 
-    console.log(`Fotos existentes de tipo "${type}":`, existingPhotos.length);
+    console.log(`Fotos existentes de tipo "${type}":`, existingOfType.length);
+    console.log(`Fotos visibles (cover+public):`, visiblePhotos.length);
 
-    // Límites: 1 cover, 6 public, 4 private (7 fotos visibles + 4 privadas)
-    const limits: any = { cover: 1, public: 6, private: 4 };
-    if (existingPhotos.length >= limits[type]) {
+    // Límites: 1 cover, 6 public, 4 private (7 visibles + 4 privadas)
+    const limits: Record<string, number> = { cover: 1, public: 6, private: 4 };
+
+    if (type !== 'private' && visiblePhotos.length >= 7) {
+      const publicId = (req.file as any).filename;
+      if (publicId) await cloudinary.uploader.destroy(publicId);
+      return res.status(400).json({
+        error: 'Has alcanzado el límite de 7 fotos (1 portada + 6 adicionales)',
+      });
+    }
+
+    if (existingOfType.length >= limits[type]) {
       // Eliminar de Cloudinary
       const publicId = (req.file as any).filename;
       if (publicId) {
@@ -47,8 +58,8 @@ export const uploadPhoto = async (req: AuthRequest, res: Response) => {
     }
 
     // Si es cover y ya existe una, eliminar la anterior de Cloudinary
-    if (type === 'cover' && existingPhotos.length > 0) {
-      const oldPhoto = existingPhotos[0];
+    if (type === 'cover' && existingOfType.length > 0) {
+      const oldPhoto = existingOfType[0];
       // Extraer public_id de la URL de Cloudinary
       const urlParts = oldPhoto.url.split('/');
       const publicIdWithExt = urlParts[urlParts.length - 1];

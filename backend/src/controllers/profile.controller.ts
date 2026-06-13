@@ -579,9 +579,9 @@ export const publicSearchProfiles = async (req: Request, res: Response) => {
       ],
     };
 
-    if (limit) {
+    const limitNum = limit !== undefined && limit !== '' ? Number(limit) : null;
+    if (limitNum && limitNum > 0 && Number.isFinite(limitNum)) {
       const pageNum = Number(page) || 1;
-      const limitNum = Number(limit);
       queryOptions.skip = (pageNum - 1) * limitNum;
       queryOptions.take = limitNum;
     }
@@ -591,7 +591,7 @@ export const publicSearchProfiles = async (req: Request, res: Response) => {
       prisma.profile.count({ where }),
     ]);
 
-    const normalized = profiles.map(p => ({
+    const normalized = (profiles as any[]).map(p => ({
       ...p,
       coverPhoto: p.photos.find(ph => ph.type === 'cover')?.url || p.photos[0]?.url || null,
       publicPhotos: p.photos.filter(ph => ph.type === 'public').map(ph => ph.url),

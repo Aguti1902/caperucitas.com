@@ -25,7 +25,7 @@ if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('sslmode')) {
 console.log('\n🔍 ========================================');
 console.log('🔍 VALIDANDO CONFIGURACIÓN DEL SERVIDOR');
 console.log('🔍 ========================================');
-console.log('📅 Última actualización: 2026-02-11 - Migración relationshipGoal aplicada');
+console.log('📅 Última actualización: 2026-06-11 - Sin límite 100 perfiles, 7 fotos visibles');
 
 // Validar variables de entorno críticas
 const requiredEnvVars = {
@@ -255,7 +255,11 @@ app.use('/api/payments', paymentRoutes);
 
 // Ruta de health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Caperucitas API is running' });
+  res.json({
+    status: 'ok',
+    message: 'Caperucitas API is running',
+    version: '2026-06-11-no-profile-limit-7-photos',
+  });
 });
 
 // Socket.IO handlers

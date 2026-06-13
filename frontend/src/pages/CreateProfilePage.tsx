@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '@/services/api'
+import { uploadProfilePhotos } from '@/utils/uploadProfilePhotos'
 import { useAuthStore } from '@/store/authStore'
 import Input from '@/components/common/Input'
 import Textarea from '@/components/common/Textarea'
@@ -135,15 +136,15 @@ export default function CreateProfilePage() {
         orientation: formData.gender, // compatibilidad con backend
       })
 
-      for (let i = 0; i < selectedFiles.length; i++) {
-        const photoData = selectedFiles[i]
-        const fd = new FormData()
-        fd.append('photo', photoData.file)
-        fd.append('type', photoData.type)
-        try {
-          await api.post('/photos/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-        } catch (err) {
-          console.error(`Error subiendo foto ${i + 1}:`, err)
+      const { uploaded, errors } = await uploadProfilePhotos(
+        selectedFiles.map((f) => f.file)
+      )
+
+      if (errors.length > 0) {
+        setError(errors.join('. '))
+        if (uploaded === 0) {
+          setIsLoading(false)
+          return
         }
       }
 

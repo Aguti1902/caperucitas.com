@@ -12,6 +12,7 @@ import CitySelector from '@/components/common/CitySelector'
 import { Eye, Pause, Play, LogOut } from 'lucide-react'
 import BackNavBar from '@/components/common/BackNavBar'
 import { showToast } from '@/store/toastStore'
+import { uploadProfilePhotos } from '@/utils/uploadProfilePhotos'
 
 export default function EditProfilePage() {
   const navigate = useNavigate()
@@ -174,21 +175,27 @@ export default function EditProfilePage() {
         languages,
       })
 
-      const coverExists = existingPhotos.some(p => p.type === 'cover')
-      for (let i = 0; i < selectedFiles.length; i++) {
-        const fd = new FormData()
-        fd.append('photo', selectedFiles[i])
-        fd.append('type', !coverExists && i === 0 ? 'cover' : 'public')
-        try {
-          await api.post('/photos/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-        } catch (err) {
-          console.error('Error subiendo foto:', err)
+      const { uploaded, errors } = await uploadProfilePhotos(selectedFiles, existingPhotos)
+
+      if (errors.length > 0) {
+        showToast(errors[0], 'error')
+        if (uploaded > 0) {
+          showToast(`${uploaded} foto(s) guardada(s), pero algunas fallaron`, 'warning')
         }
+      } else if (uploaded > 0) {
+        showToast(`✓ ${uploaded} foto(s) guardada(s)`, 'success')
+      } else {
+        showToast('✓ Perfil guardado correctamente', 'success')
       }
 
-      showToast('✓ Perfil guardado correctamente', 'success')
       await refreshUserData()
-      navigate('/perfiles')
+      if (errors.length === 0) {
+        navigate('/perfiles')
+      } else {
+        setSelectedFiles([])
+        setPhotoPreview([])
+        await loadProfile()
+      }
     } catch (err: any) {
       const msg =
         err.response?.data?.error ||

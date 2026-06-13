@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Logo from '@/components/common/Logo'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
-import { api } from '@/services/api'
+import { fetchAllPublicProfiles } from '@/services/profile.api'
 import { useAuthStore } from '@/store/authStore'
 import { MapPin, Search, Phone, MessageCircle, Zap, Share2, Info, Home, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { SPANISH_CITIES } from '@/data/spanishCities'
@@ -207,15 +207,15 @@ export default function IndexPage() {
     setIsLoading(true)
     try {
       // No filtramos por ciudad en backend — siempre cargamos todos y ordenamos por distancia
-      const params: any = {}
+      const params: Record<string, string> = {}
       if (selectedGender !== 'all') params.gender = selectedGender
 
-      const response = await api.get('/profile/public-search', { params })
-      const all = response.data.profiles.filter(
+      const all = await fetchAllPublicProfiles(params)
+      const unique = all.filter(
         (p: any, i: number, self: any[]) => i === self.findIndex((x) => x.id === p.id)
       )
       const currentLoc = loc !== undefined ? loc : userLocation
-      const sorted = sortByDistance(all, currentLoc)
+      const sorted = sortByDistance(unique, currentLoc)
       setProfiles(sorted)
       setRoamProfiles(sorted.filter((p: any) => p.isRoaming))
     } catch {
