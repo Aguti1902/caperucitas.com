@@ -61,6 +61,7 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
         phone: phone || null,
         whatsapp: whatsapp || null,
         isOnline: true,
+        isPaused: true, // invisible hasta subir al menos una foto
       },
     });
 
@@ -551,7 +552,10 @@ export const publicSearchProfiles = async (req: Request, res: Response) => {
     const { gender, city, page, limit, q } = req.query;
 
     const where: any = {
-      isPaused: false,  // excluir perfiles pausados
+      isPaused: false,
+      photos: {
+        some: { type: { in: ['cover', 'public'] } },
+      },
     };
 
     if (gender && gender !== 'all') {

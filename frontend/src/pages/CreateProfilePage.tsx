@@ -123,7 +123,7 @@ export default function CreateProfilePage() {
     const age = parseInt(formData.age)
     if (isNaN(age) || age < 18 || age > 99) { showError('⚠️ La edad debe estar entre 18 y 99 años'); return }
     if (!formData.phone && !formData.whatsapp) { showError('⚠️ Debes añadir al menos un teléfono o WhatsApp de contacto'); return }
-    if (selectedFiles.length === 0) { showError('⚠️ Debes subir al menos 1 foto de portada'); return }
+    if (selectedFiles.length === 0) { showError('⚠️ Debes subir al menos 1 foto para publicar tu perfil'); return }
 
     setIsLoading(true)
     try {
@@ -140,15 +140,20 @@ export default function CreateProfilePage() {
         selectedFiles.map((f) => f.file)
       )
 
-      if (errors.length > 0) {
-        setError(errors.join('. '))
-        if (uploaded === 0) {
-          setIsLoading(false)
-          return
-        }
+      if (uploaded === 0) {
+        showError(errors[0] || '⚠️ No se pudo subir ninguna foto. Añade al menos una para que tu perfil sea visible.')
+        await refreshUserData()
+        navigate('/edit-profile')
+        return
       }
 
-      // Navegar ANTES de refreshUserData para evitar que App.tsx redirija a /app
+      if (errors.length > 0) {
+        setError(`${uploaded} foto(s) guardada(s). ${errors.join('. ')}`)
+      }
+
+      // Activar perfil solo tras subir fotos correctamente
+      await api.put('/profile', { isPaused: false })
+
       navigate('/perfiles')
       await refreshUserData()
     } catch (err: any) {
@@ -299,7 +304,7 @@ export default function CreateProfilePage() {
           {/* FOTOS PÚBLICAS */}
           <div className="bg-gray-800 rounded-xl p-4">
             <label className="block text-sm font-medium text-white mb-3">
-              📸 Fotos (hasta 7 fotos)
+              📸 Fotos <span className="text-red-400">*</span> (obligatoria al menos 1, hasta 7)
             </label>
             <div className="mb-3">
               <input

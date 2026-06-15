@@ -110,7 +110,13 @@ export default function EditProfilePage() {
   const deleteExistingPhoto = async (photoId: string) => {
     try {
       await api.delete(`/photos/${photoId}`)
+      const remaining = existingPhotos.filter(p => p.id !== photoId && p.type !== 'private')
       setExistingPhotos(prev => prev.filter(p => p.id !== photoId))
+      if (remaining.length === 0) {
+        await api.put('/profile', { isPaused: true })
+        setProfilePaused(true)
+        showToast('Perfil pausado: debes tener al menos una foto para aparecer en el listado', 'warning')
+      }
     } catch {
       showToast('Error al eliminar foto', 'error')
     }
@@ -135,6 +141,13 @@ export default function EditProfilePage() {
   }
 
   const handleTogglePause = async () => {
+    const visiblePhotos = existingPhotos.filter((p) => p.type !== 'private').length
+    if (profilePaused && visiblePhotos === 0 && selectedFiles.length === 0) {
+      showToast('Debes subir al menos una foto antes de activar tu perfil', 'error')
+      setShowPauseModal(false)
+      return
+    }
+
     setIsPausing(true)
     try {
       // Solo enviamos isPaused — Prisma ignora los campos undefined y no los toca
@@ -165,6 +178,13 @@ export default function EditProfilePage() {
     const age = parseInt(formData.age)
     if (isNaN(age) || age < 18 || age > 99) { setError('La edad debe estar entre 18 y 99 años'); return }
 
+    const visiblePhotos = existingPhotos.filter((p) => p.type !== 'private').length
+    const totalPhotosAfterSave = visiblePhotos + selectedFiles.length
+    if (totalPhotosAfterSave === 0) {
+      setError('⚠️ Debes tener al menos 1 foto para que tu perfil sea visible')
+      return
+    }
+
     setIsSaving(true)
     try {
       await api.put('/profile', {
@@ -186,6 +206,14 @@ export default function EditProfilePage() {
         showToast(`✓ ${uploaded} foto(s) guardada(s)`, 'success')
       } else {
         showToast('✓ Perfil guardado correctamente', 'success')
+      }
+
+      // Activar solo si estaba pausado por no tener fotos y acaba de subir alguna
+      const photosAfterUpload = visiblePhotos + uploaded
+      const hadNoPhotos = visiblePhotos === 0
+      if (photosAfterUpload > 0 && profilePaused && hadNoPhotos) {
+        await api.put('/profile', { isPaused: false })
+        setProfilePaused(false)
       }
 
       await refreshUserData()
@@ -241,6 +269,15 @@ export default function EditProfilePage() {
           {profilePaused ? <><Play className="w-4 h-4" /> Activar</> : <><Pause className="w-4 h-4" /> Pausar</>}
         </button>
       </div>
+
+      {existingPhotos.filter(p => p.type !== 'private').length === 0 && (
+        <div className="rounded-xl p-4 mb-4 border border-red-700 bg-red-900/20">
+          <p className="text-red-400 font-semibold text-sm">📸 Foto obligatoria</p>
+          <p className="text-gray-400 text-xs mt-1">
+            Tu perfil no aparece en el listado hasta que subas al menos una foto.
+          </p>
+        </div>
+      )}
 
       {/* Toggle privacidad distancia */}
       <div className="rounded-xl p-4 mb-6 border border-gray-700 bg-gray-900 flex items-center justify-between">
@@ -349,7 +386,7 @@ export default function EditProfilePage() {
         {/* FOTOS */}
         <div className="bg-gray-800 rounded-xl p-4">
           <label className="block text-sm font-medium text-white mb-3">
-            📸 Fotos (máx. 7: 1 portada + 6 adicionales)
+            📸 Fotos <span className="text-red-400">*</span> (mín. 1 obligatoria, máx. 7: 1 portada + 6 adicionales)
           </label>
 
           {existingPhotos.filter(p => p.type !== 'private').length > 0 && (
