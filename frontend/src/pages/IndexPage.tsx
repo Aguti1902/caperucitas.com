@@ -6,6 +6,7 @@ import { fetchAllPublicProfiles } from '@/services/profile.api'
 import { useAuthStore } from '@/store/authStore'
 import { MapPin, Search, Phone, MessageCircle, Zap, Share2, Info, Home, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { SPANISH_CITIES } from '@/data/spanishCities'
+import { getProfileCoverPhoto } from '@/utils/profileUtils'
 
 const GENDER_LABELS: Record<string, { label: string; color: string }> = {
   chica: { label: 'Chica', color: 'bg-pink-600' },
@@ -726,7 +727,7 @@ export default function IndexPage() {
 }
 
 function ProfileCard({ profile, onClick, compact = false }: { profile: any; onClick: () => void; compact?: boolean }) {
-  const coverPhoto = profile.photos?.find((p: any) => p.type === 'cover')
+  const coverPhoto = getProfileCoverPhoto(profile)
 
   return (
     <div

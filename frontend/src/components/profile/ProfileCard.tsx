@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { api } from '@/services/api'
 import { Heart, MapPin, Clock, Zap } from 'lucide-react'
 import { formatLastSeen } from '@/utils/timeUtils'
-import { formatRelationshipGoal, formatGender, formatRole } from '@/utils/profileUtils'
+import { formatRelationshipGoal, formatGender, formatRole, getProfileCoverPhoto } from '@/utils/profileUtils'
 import ProtectedImage from '@/components/common/ProtectedImage'
 
 interface ProfileCardProps {
@@ -17,7 +17,7 @@ export default function ProfileCard({ profile, onLikeToggle, isPremium = false }
   const [isLiked, setIsLiked] = useState(profile.isLiked || false)
   const [isLiking, setIsLiking] = useState(false)
 
-  const coverPhoto = profile.photos?.find((p: any) => p.type === 'cover')
+  const coverPhoto = getProfileCoverPhoto(profile)
 
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation()

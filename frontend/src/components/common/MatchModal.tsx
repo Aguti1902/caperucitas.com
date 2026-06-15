@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Heart } from 'lucide-react'
 import ProtectedImage from './ProtectedImage'
+import { getProfileCoverPhoto } from '@/utils/profileUtils'
 
 interface MatchModalProps {
   isOpen: boolean
@@ -25,7 +26,7 @@ export default function MatchModal({ isOpen, onClose, matchedProfile }: MatchMod
 
   if (!isOpen || !matchedProfile) return null
 
-  const coverPhoto = matchedProfile.photos?.find((p: any) => p.type === 'cover')
+  const coverPhoto = getProfileCoverPhoto(matchedProfile)
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fade-in">
