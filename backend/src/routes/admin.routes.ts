@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticateAdminToken } from '../middleware/auth.middleware';
 import * as adminController from '../controllers/admin.controller';
+import * as whatsappController from '../controllers/whatsapp.controller';
 const router = Router();
 
 // Login de admin (sin autenticación)
@@ -10,6 +11,19 @@ router.post('/login', adminController.login);
 router.get('/profiles', authenticateAdminToken, adminController.getAllProfiles);
 router.get('/reports', authenticateAdminToken, adminController.getAllReports);
 router.get('/stats', authenticateAdminToken, adminController.getStats);
+
+// WhatsApp / Evolution API
+router.get('/whatsapp/stats', authenticateAdminToken, whatsappController.getWhatsAppStats);
+router.get('/whatsapp/instance', authenticateAdminToken, whatsappController.getInstanceConnection);
+router.get('/whatsapp/contacts', authenticateAdminToken, whatsappController.getContacts);
+router.post('/whatsapp/contacts/import', authenticateAdminToken, whatsappController.importContacts);
+router.post('/whatsapp/contacts/sync-profiles', authenticateAdminToken, whatsappController.syncProfileContacts);
+router.delete('/whatsapp/contacts/:id', authenticateAdminToken, whatsappController.deleteContact);
+router.get('/whatsapp/campaigns', authenticateAdminToken, whatsappController.getCampaigns);
+router.get('/whatsapp/campaigns/:id', authenticateAdminToken, whatsappController.getCampaignById);
+router.post('/whatsapp/campaigns', authenticateAdminToken, whatsappController.createCampaign);
+router.post('/whatsapp/campaigns/:id/cancel', authenticateAdminToken, whatsappController.cancelCampaign);
+router.post('/whatsapp/test', authenticateAdminToken, whatsappController.sendTestMessage);
 
 // Acciones de administración
 router.delete('/users/:userId', authenticateAdminToken, adminController.deleteUser);

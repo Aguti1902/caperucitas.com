@@ -25,6 +25,7 @@ import AdminLoginPage from './pages/AdminLoginPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import AdminReportsPage from './pages/AdminReportsPage'
 import AdminUsersPage from './pages/AdminUsersPage'
+import AdminWhatsAppPage from './pages/AdminWhatsAppPage'
 import AdminRoute from './components/admin/AdminRoute'
 import PublicRoamPage from './pages/PublicRoamPage'
 import PublicInfoPage from './pages/PublicInfoPage'
@@ -162,6 +163,14 @@ function App() {
           element={
             <AdminRoute>
               <AdminUsersPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/whatsapp"
+          element={
+            <AdminRoute>
+              <AdminWhatsAppPage />
             </AdminRoute>
           }
         />

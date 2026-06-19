@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BarChart3, AlertTriangle, Users } from 'lucide-react';
+import { BarChart3, AlertTriangle, Users, MessageCircle } from 'lucide-react';
 
 export default function AdminNav() {
   const navigate = useNavigate();
@@ -52,6 +52,21 @@ export default function AdminNav() {
             <Users className="w-5 h-5" />
             Usuarios
             {isActive('/admin/users') && (
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#fc4d5c] to-[#fc4d5c]/50 rounded-t-full"></div>
+            )}
+          </button>
+
+          <button
+            onClick={() => navigate('/admin/whatsapp')}
+            className={`flex items-center gap-2 px-5 py-3 font-semibold transition relative ${
+              isActive('/admin/whatsapp')
+                ? 'text-[#fc4d5c]'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <MessageCircle className="w-5 h-5" />
+            WhatsApp
+            {isActive('/admin/whatsapp') && (
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#fc4d5c] to-[#fc4d5c]/50 rounded-t-full"></div>
             )}
           </button>

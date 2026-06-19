@@ -103,5 +103,58 @@ export const verifyUserEmail = async (userId: string) => {
   return response.data;
 };
 
+// --- WhatsApp / Evolution API ---
+
+export const getWhatsAppStats = async () => {
+  const response = await adminApi.get('/whatsapp/stats');
+  return response.data;
+};
+
+export const getWhatsAppCampaigns = async () => {
+  const response = await adminApi.get('/whatsapp/campaigns');
+  return response.data;
+};
+
+export const getWhatsAppCampaign = async (id: string) => {
+  const response = await adminApi.get(`/whatsapp/campaigns/${id}`);
+  return response.data;
+};
+
+export const createWhatsAppCampaign = async (data: {
+  name?: string;
+  message: string;
+  source: string;
+  phones?: string;
+  delayMs?: number;
+}) => {
+  const response = await adminApi.post('/whatsapp/campaigns', data);
+  return response.data;
+};
+
+export const cancelWhatsAppCampaign = async (id: string) => {
+  const response = await adminApi.post(`/whatsapp/campaigns/${id}/cancel`);
+  return response.data;
+};
+
+export const importWhatsAppContacts = async (phones: string) => {
+  const response = await adminApi.post('/whatsapp/contacts/import', { phones });
+  return response.data;
+};
+
+export const syncWhatsAppProfileContacts = async () => {
+  const response = await adminApi.post('/whatsapp/contacts/sync-profiles');
+  return response.data;
+};
+
+export const getWhatsAppContacts = async (page = 1, limit = 50) => {
+  const response = await adminApi.get('/whatsapp/contacts', { params: { page, limit } });
+  return response.data;
+};
+
+export const sendWhatsAppTest = async (phone: string, message: string) => {
+  const response = await adminApi.post('/whatsapp/test', { phone, message });
+  return response.data;
+};
+
 export default adminApi;
 
