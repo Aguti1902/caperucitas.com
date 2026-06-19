@@ -209,6 +209,16 @@ export const deleteFakeProfiles = async (req: Request, res: Response) => {
   }
 };
 
+// Ejecuta promesas en lotes para no agotar el pool de Supabase (máx. ~15 conexiones)
+async function runInBatches<T>(tasks: (() => Promise<T>)[], batchSize = 5): Promise<T[]> {
+  const results: T[] = [];
+  for (let i = 0; i < tasks.length; i += batchSize) {
+    const batch = tasks.slice(i, i + batchSize);
+    results.push(...(await Promise.all(batch.map((fn) => fn()))));
+  }
+  return results;
+}
+
 // Obtener estadísticas
 export const getStats = async (req: Request, res: Response) => {
   try {
@@ -238,88 +248,98 @@ export const getStats = async (req: Request, res: Response) => {
       usersLast30days,
       messagesLast24h,
       likesLast24h,
-    ] = await Promise.all([
-      prisma.user.count(),
-      prisma.profile.count(),
-      prisma.profile.count({ where: { isFake: true } }),
-      prisma.profile.count({ where: { isFake: false } }),
-      prisma.user.count({ where: { emailVerified: true } }),
-      prisma.user.count({ where: { emailVerified: false } }),
-      prisma.profile.count({ where: { orientation: 'hetero' } }),
-      prisma.profile.count({ where: { orientation: 'gay' } }),
-      prisma.message.count(),
-      prisma.like.count(),
-      prisma.favorite.count(),
-      prisma.report.count(),
-      prisma.block.count(),
-      prisma.subscription.count({ where: { isActive: true } }),
-      prisma.profile.count({ where: { isOnline: true } }),
-      prisma.profile.count({ where: { lastSeenAt: { gte: oneDayAgo } } }),
-      prisma.user.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
-      prisma.user.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
-      prisma.message.count({ where: { createdAt: { gte: oneDayAgo } } }),
-      prisma.like.count({ where: { createdAt: { gte: oneDayAgo } } }),
+    ] = await runInBatches([
+      () => prisma.user.count(),
+      () => prisma.profile.count(),
+      () => prisma.profile.count({ where: { isFake: true } }),
+      () => prisma.profile.count({ where: { isFake: false } }),
+      () => prisma.user.count({ where: { emailVerified: true } }),
+      () => prisma.user.count({ where: { emailVerified: false } }),
+      () => prisma.profile.count({ where: { orientation: 'hetero' } }),
+      () => prisma.profile.count({ where: { orientation: 'gay' } }),
+      () => prisma.message.count(),
+      () => prisma.like.count(),
+      () => prisma.favorite.count(),
+      () => prisma.report.count(),
+      () => prisma.block.count(),
+      () => prisma.subscription.count({ where: { isActive: true } }),
+      () => prisma.profile.count({ where: { isOnline: true } }),
+      () => prisma.profile.count({ where: { lastSeenAt: { gte: oneDayAgo } } }),
+      () => prisma.user.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
+      () => prisma.user.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
+      () => prisma.message.count({ where: { createdAt: { gte: oneDayAgo } } }),
+      () => prisma.like.count({ where: { createdAt: { gte: oneDayAgo } } }),
     ]);
 
-    // Matches mutuos (consulta eficiente, sin cargar todos los likes en memoria)
-    const mutualMatches = await prisma.$queryRaw<{ count: bigint }[]>`
-      SELECT COUNT(*)::bigint AS count FROM (
-        SELECT l1."fromProfileId", l1."toProfileId"
-        FROM likes l1
-        INNER JOIN likes l2
-          ON l1."fromProfileId" = l2."toProfileId"
-         AND l1."toProfileId" = l2."fromProfileId"
-         AND l1."fromProfileId" < l1."toProfileId"
-      ) AS pairs
-    `;
-    const matches = Number(mutualMatches[0]?.count || 0);
+    // Matches mutuos (SQL eficiente, con fallback)
+    let matches = 0;
+    try {
+      const mutualMatches = await prisma.$queryRaw<{ count: bigint }[]>`
+        SELECT COUNT(*)::bigint AS count FROM (
+          SELECT l1."fromProfileId", l1."toProfileId"
+          FROM likes l1
+          INNER JOIN likes l2
+            ON l1."fromProfileId" = l2."toProfileId"
+           AND l1."toProfileId" = l2."fromProfileId"
+           AND l1."fromProfileId" < l1."toProfileId"
+        ) AS pairs
+      `;
+      matches = Number(mutualMatches[0]?.count || 0);
+    } catch (matchErr) {
+      console.warn('No se pudieron calcular matches:', matchErr);
+    }
 
-    // Obtener conversaciones activas (con al menos 1 mensaje en los últimos 7 días)
-    const recentMessages = await prisma.message.findMany({
-      where: {
-        createdAt: {
-          gte: sevenDaysAgo,
-        },
-      },
-      select: {
-        fromProfileId: true,
-        toProfileId: true,
-      },
-    });
+    // Conversaciones activas (SQL, sin cargar todos los mensajes)
+    let activeConversations = 0;
+    try {
+      const convResult = await prisma.$queryRaw<{ count: bigint }[]>`
+        SELECT COUNT(*)::bigint AS count FROM (
+          SELECT DISTINCT
+            CASE WHEN "fromProfileId" < "toProfileId"
+              THEN "fromProfileId" || '|' || "toProfileId"
+              ELSE "toProfileId" || '|' || "fromProfileId"
+            END AS pair
+          FROM messages
+          WHERE "createdAt" >= ${sevenDaysAgo}
+        ) AS pairs
+      `;
+      activeConversations = Number(convResult[0]?.count || 0);
+    } catch (convErr) {
+      console.warn('No se pudieron calcular conversaciones activas:', convErr);
+    }
 
-    // Contar pares únicos de conversaciones
-    const conversationPairs = new Set<string>();
-    recentMessages.forEach((msg) => {
-      const pair = [msg.fromProfileId, msg.toProfileId].sort().join('-');
-      conversationPairs.add(pair);
-    });
-    const activeConversations = conversationPairs.size;
+    // Registros por día (una sola consulta)
+    const sevenDaysStart = new Date(now);
+    sevenDaysStart.setDate(sevenDaysStart.getDate() - 6);
+    sevenDaysStart.setHours(0, 0, 0, 0);
 
-    // Obtener registros por día (últimos 7 días)
-    const registrationsByDay = await Promise.all(
-      Array.from({ length: 7 }).map(async (_, i) => {
+    let registrationsByDay: { date: string; count: number }[] = [];
+    try {
+      const dailyRows = await prisma.$queryRaw<{ day: Date; count: bigint }[]>`
+        SELECT DATE("createdAt") AS day, COUNT(*)::bigint AS count
+        FROM users
+        WHERE "createdAt" >= ${sevenDaysStart}
+        GROUP BY DATE("createdAt")
+        ORDER BY day ASC
+      `;
+      const countByDate = new Map(
+        dailyRows.map((r) => [new Date(r.day).toISOString().split('T')[0], Number(r.count)])
+      );
+      registrationsByDay = Array.from({ length: 7 }).map((_, i) => {
         const dayStart = new Date(now);
-        dayStart.setDate(dayStart.getDate() - i);
+        dayStart.setDate(dayStart.getDate() - (6 - i));
         dayStart.setHours(0, 0, 0, 0);
-        
-        const dayEnd = new Date(dayStart);
-        dayEnd.setHours(23, 59, 59, 999);
-
-        const count = await prisma.user.count({
-          where: {
-            createdAt: {
-              gte: dayStart,
-              lte: dayEnd,
-            },
-          },
-        });
-
-        return {
-          date: dayStart.toISOString().split('T')[0],
-          count,
-        };
-      })
-    );
+        const date = dayStart.toISOString().split('T')[0];
+        return { date, count: countByDate.get(date) || 0 };
+      });
+    } catch (regErr) {
+      console.warn('No se pudieron calcular registros por día:', regErr);
+      registrationsByDay = Array.from({ length: 7 }).map((_, i) => {
+        const dayStart = new Date(now);
+        dayStart.setDate(dayStart.getDate() - (6 - i));
+        return { date: dayStart.toISOString().split('T')[0], count: 0 };
+      });
+    }
 
     // Tasas de conversión
     const emailVerificationRate = totalUsers > 0 ? (verifiedUsers / totalUsers) * 100 : 0;
@@ -329,66 +349,37 @@ export const getStats = async (req: Request, res: Response) => {
     // Calcular promedio de mensajes por usuario
     const avgMessagesPerUser = totalProfiles > 0 ? totalMessages / totalProfiles : 0;
 
-    // Obtener usuarios más reportados
-    const mostReportedProfiles = await prisma.profile.findMany({
-      include: {
-        user: {
-          select: {
-            email: true,
-          },
+    // Perfiles más reportados / activos (opcional, no bloquea stats principales)
+    let mostReportedProfiles: Awaited<ReturnType<typeof prisma.profile.findMany>> = [];
+    let mostActiveUsers: Awaited<ReturnType<typeof prisma.profile.findMany>> = [];
+    try {
+      mostReportedProfiles = await prisma.profile.findMany({
+        include: {
+          user: { select: { email: true } },
+          photos: { where: { type: 'cover' }, take: 1 },
+          _count: { select: { reportsReceived: true } },
         },
-        photos: {
-          where: { type: 'cover' },
-          take: 1,
+        orderBy: { reportsReceived: { _count: 'desc' } },
+        take: 5,
+        where: { reportsReceived: { some: {} } },
+      });
+    } catch (e) {
+      console.warn('mostReportedProfiles:', e);
+    }
+    try {
+      mostActiveUsers = await prisma.profile.findMany({
+        include: {
+          user: { select: { email: true } },
+          photos: { where: { type: 'cover' }, take: 1 },
+          _count: { select: { sentMessages: true, receivedMessages: true } },
         },
-        _count: {
-          select: {
-            reportsReceived: true,
-          },
-        },
-      },
-      orderBy: {
-        reportsReceived: {
-          _count: 'desc',
-        },
-      },
-      take: 5,
-      where: {
-        reportsReceived: {
-          some: {},
-        },
-      },
-    });
-
-    // Obtener usuarios más activos (por mensajes enviados)
-    const mostActiveUsers = await prisma.profile.findMany({
-      include: {
-        user: {
-          select: {
-            email: true,
-          },
-        },
-        photos: {
-          where: { type: 'cover' },
-          take: 1,
-        },
-        _count: {
-          select: {
-            sentMessages: true,
-            receivedMessages: true,
-          },
-        },
-      },
-      orderBy: {
-        sentMessages: {
-          _count: 'desc',
-        },
-      },
-      take: 5,
-      where: {
-        isFake: false,
-      },
-    });
+        orderBy: { sentMessages: { _count: 'desc' } },
+        take: 5,
+        where: { isFake: false },
+      });
+    } catch (e) {
+      console.warn('mostActiveUsers:', e);
+    }
 
     res.json({
       users: {
@@ -427,7 +418,7 @@ export const getStats = async (req: Request, res: Response) => {
         emailVerificationRate: emailVerificationRate.toFixed(2),
         profileCompletionRate: profileCompletionRate.toFixed(2),
       },
-      registrationsByDay: registrationsByDay.reverse(),
+      registrationsByDay,
       mostReportedProfiles,
       mostActiveUsers,
     });

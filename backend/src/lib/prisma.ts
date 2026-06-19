@@ -17,7 +17,8 @@ export const prisma =
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   });
 
-if (process.env.NODE_ENV !== 'production') {
+// Reutilizar una instancia en producción (Railway) para no multiplicar pools
+if (!globalForPrisma.prisma) {
   globalForPrisma.prisma = prisma;
 }
 
