@@ -53,7 +53,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     loadStats();
-    const interval = setInterval(loadStats, 30000);
+    const interval = setInterval(loadStats, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -313,7 +313,7 @@ export default function AdminDashboardPage() {
         )}
 
         <p className="text-center text-gray-600 text-xs mt-6">
-          Última actualización: {lastUpdated.toLocaleTimeString('es-ES')} · Auto-refresco cada 30s
+          Última actualización: {lastUpdated.toLocaleTimeString('es-ES')} · Auto-refresco cada 60s
         </p>
       </main>
     </div>

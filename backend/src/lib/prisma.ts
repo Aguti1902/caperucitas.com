@@ -1,10 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-
-function ensureSsl(url: string | undefined): string {
-  if (!url) return '';
-  if (url.includes('sslmode')) return url;
-  return url + (url.includes('?') ? '&sslmode=require' : '?sslmode=require');
-}
+import { buildDatabaseUrl } from './databaseUrl';
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
@@ -12,12 +7,11 @@ export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     datasources: {
-      db: { url: ensureSsl(process.env.DATABASE_URL) },
+      db: { url: buildDatabaseUrl(process.env.DATABASE_URL) },
     },
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   });
 
-// Reutilizar una instancia en producción (Railway) para no multiplicar pools
 if (!globalForPrisma.prisma) {
   globalForPrisma.prisma = prisma;
 }

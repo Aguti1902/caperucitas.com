@@ -209,111 +209,132 @@ export const deleteFakeProfiles = async (req: Request, res: Response) => {
   }
 };
 
-// Ejecuta promesas en lotes para no agotar el pool de Supabase (máx. ~15 conexiones)
-async function runInBatches<T>(tasks: (() => Promise<T>)[], batchSize = 5): Promise<T[]> {
-  const results: T[] = [];
-  for (let i = 0; i < tasks.length; i += batchSize) {
-    const batch = tasks.slice(i, i + batchSize);
-    results.push(...(await Promise.all(batch.map((fn) => fn()))));
-  }
-  return results;
+// Caché en memoria para no saturar Supabase (pool máx. 15 conexiones en session mode)
+let statsCache: { data: Record<string, unknown>; expiresAt: number } | null = null;
+const STATS_CACHE_MS = 60_000;
+
+interface AdminCountsRow {
+  totalUsers: bigint;
+  totalProfiles: bigint;
+  fakeProfiles: bigint;
+  realProfiles: bigint;
+  verifiedUsers: bigint;
+  unverifiedUsers: bigint;
+  heteroProfiles: bigint;
+  gayProfiles: bigint;
+  totalMessages: bigint;
+  totalLikes: bigint;
+  totalFavorites: bigint;
+  totalReports: bigint;
+  totalBlocks: bigint;
+  activeSubscriptions: bigint;
+  onlineUsers: bigint;
+  usersLast24h: bigint;
+  usersLast7days: bigint;
+  usersLast30days: bigint;
+  messagesLast24h: bigint;
+  likesLast24h: bigint;
 }
 
-// Obtener estadísticas
+// Obtener estadísticas — 1 sola conexión, consultas mínimas
 export const getStats = async (req: Request, res: Response) => {
   try {
+    if (statsCache && Date.now() < statsCache.expiresAt) {
+      return res.json(statsCache.data);
+    }
+
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-    const [
-      totalUsers,
-      totalProfiles,
-      fakeProfiles,
-      realProfiles,
-      verifiedUsers,
-      unverifiedUsers,
-      heteroProfiles,
-      gayProfiles,
-      totalMessages,
-      totalLikes,
-      totalFavorites,
-      totalReports,
-      totalBlocks,
-      activeSubscriptions,
-      onlineUsers,
-      usersLast24h,
-      usersLast7days,
-      usersLast30days,
-      messagesLast24h,
-      likesLast24h,
-    ] = await runInBatches([
-      () => prisma.user.count(),
-      () => prisma.profile.count(),
-      () => prisma.profile.count({ where: { isFake: true } }),
-      () => prisma.profile.count({ where: { isFake: false } }),
-      () => prisma.user.count({ where: { emailVerified: true } }),
-      () => prisma.user.count({ where: { emailVerified: false } }),
-      () => prisma.profile.count({ where: { orientation: 'hetero' } }),
-      () => prisma.profile.count({ where: { orientation: 'gay' } }),
-      () => prisma.message.count(),
-      () => prisma.like.count(),
-      () => prisma.favorite.count(),
-      () => prisma.report.count(),
-      () => prisma.block.count(),
-      () => prisma.subscription.count({ where: { isActive: true } }),
-      () => prisma.profile.count({ where: { isOnline: true } }),
-      () => prisma.profile.count({ where: { lastSeenAt: { gte: oneDayAgo } } }),
-      () => prisma.user.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
-      () => prisma.user.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
-      () => prisma.message.count({ where: { createdAt: { gte: oneDayAgo } } }),
-      () => prisma.like.count({ where: { createdAt: { gte: oneDayAgo } } }),
-    ]);
-
-    // Matches mutuos (SQL eficiente, con fallback)
-    let matches = 0;
-    try {
-      const mutualMatches = await prisma.$queryRaw<{ count: bigint }[]>`
-        SELECT COUNT(*)::bigint AS count FROM (
-          SELECT l1."fromProfileId", l1."toProfileId"
-          FROM likes l1
-          INNER JOIN likes l2
-            ON l1."fromProfileId" = l2."toProfileId"
-           AND l1."toProfileId" = l2."fromProfileId"
-           AND l1."fromProfileId" < l1."toProfileId"
-        ) AS pairs
-      `;
-      matches = Number(mutualMatches[0]?.count || 0);
-    } catch (matchErr) {
-      console.warn('No se pudieron calcular matches:', matchErr);
-    }
-
-    // Conversaciones activas (SQL, sin cargar todos los mensajes)
-    let activeConversations = 0;
-    try {
-      const convResult = await prisma.$queryRaw<{ count: bigint }[]>`
-        SELECT COUNT(*)::bigint AS count FROM (
-          SELECT DISTINCT
-            CASE WHEN "fromProfileId" < "toProfileId"
-              THEN "fromProfileId" || '|' || "toProfileId"
-              ELSE "toProfileId" || '|' || "fromProfileId"
-            END AS pair
-          FROM messages
-          WHERE "createdAt" >= ${sevenDaysAgo}
-        ) AS pairs
-      `;
-      activeConversations = Number(convResult[0]?.count || 0);
-    } catch (convErr) {
-      console.warn('No se pudieron calcular conversaciones activas:', convErr);
-    }
-
-    // Registros por día (una sola consulta)
     const sevenDaysStart = new Date(now);
     sevenDaysStart.setDate(sevenDaysStart.getDate() - 6);
     sevenDaysStart.setHours(0, 0, 0, 0);
 
+    // Una única query para todos los contadores principales
+    const [counts] = await prisma.$queryRaw<AdminCountsRow[]>`
+      SELECT
+        (SELECT COUNT(*)::bigint FROM users) AS "totalUsers",
+        (SELECT COUNT(*)::bigint FROM profiles) AS "totalProfiles",
+        (SELECT COUNT(*)::bigint FROM profiles WHERE "isFake" = true) AS "fakeProfiles",
+        (SELECT COUNT(*)::bigint FROM profiles WHERE "isFake" = false) AS "realProfiles",
+        (SELECT COUNT(*)::bigint FROM users WHERE "emailVerified" = true) AS "verifiedUsers",
+        (SELECT COUNT(*)::bigint FROM users WHERE "emailVerified" = false) AS "unverifiedUsers",
+        (SELECT COUNT(*)::bigint FROM profiles WHERE orientation = 'hetero') AS "heteroProfiles",
+        (SELECT COUNT(*)::bigint FROM profiles WHERE orientation = 'gay') AS "gayProfiles",
+        (SELECT COUNT(*)::bigint FROM messages) AS "totalMessages",
+        (SELECT COUNT(*)::bigint FROM likes) AS "totalLikes",
+        (SELECT COUNT(*)::bigint FROM favorites) AS "totalFavorites",
+        (SELECT COUNT(*)::bigint FROM reports) AS "totalReports",
+        (SELECT COUNT(*)::bigint FROM blocks) AS "totalBlocks",
+        (SELECT COUNT(*)::bigint FROM subscriptions WHERE "isActive" = true) AS "activeSubscriptions",
+        (SELECT COUNT(*)::bigint FROM profiles WHERE "isOnline" = true) AS "onlineUsers",
+        (SELECT COUNT(*)::bigint FROM profiles WHERE "lastSeenAt" >= ${oneDayAgo}) AS "usersLast24h",
+        (SELECT COUNT(*)::bigint FROM users WHERE "createdAt" >= ${sevenDaysAgo}) AS "usersLast7days",
+        (SELECT COUNT(*)::bigint FROM users WHERE "createdAt" >= ${thirtyDaysAgo}) AS "usersLast30days",
+        (SELECT COUNT(*)::bigint FROM messages WHERE "createdAt" >= ${oneDayAgo}) AS "messagesLast24h",
+        (SELECT COUNT(*)::bigint FROM likes WHERE "createdAt" >= ${oneDayAgo}) AS "likesLast24h"
+    `;
+
+    const n = (v: bigint | undefined) => Number(v || 0);
+    const totalUsers = n(counts.totalUsers);
+    const totalProfiles = n(counts.totalProfiles);
+    const fakeProfiles = n(counts.fakeProfiles);
+    const realProfiles = n(counts.realProfiles);
+    const verifiedUsers = n(counts.verifiedUsers);
+    const unverifiedUsers = n(counts.unverifiedUsers);
+    const heteroProfiles = n(counts.heteroProfiles);
+    const gayProfiles = n(counts.gayProfiles);
+    const totalMessages = n(counts.totalMessages);
+    const totalLikes = n(counts.totalLikes);
+    const totalFavorites = n(counts.totalFavorites);
+    const totalReports = n(counts.totalReports);
+    const totalBlocks = n(counts.totalBlocks);
+    const activeSubscriptions = n(counts.activeSubscriptions);
+    const onlineUsers = n(counts.onlineUsers);
+    const usersLast24h = n(counts.usersLast24h);
+    const usersLast7days = n(counts.usersLast7days);
+    const usersLast30days = n(counts.usersLast30days);
+    const messagesLast24h = n(counts.messagesLast24h);
+    const likesLast24h = n(counts.likesLast24h);
+
+    let matches = 0;
+    let activeConversations = 0;
     let registrationsByDay: { date: string; count: number }[] = [];
+
+    try {
+      const extras = await prisma.$queryRaw<
+        { matches: bigint; conversations: bigint }[]
+      >`
+        SELECT
+          (
+            SELECT COUNT(*)::bigint FROM (
+              SELECT l1."fromProfileId", l1."toProfileId"
+              FROM likes l1
+              INNER JOIN likes l2
+                ON l1."fromProfileId" = l2."toProfileId"
+               AND l1."toProfileId" = l2."fromProfileId"
+               AND l1."fromProfileId" < l1."toProfileId"
+            ) AS m
+          ) AS matches,
+          (
+            SELECT COUNT(*)::bigint FROM (
+              SELECT DISTINCT
+                CASE WHEN "fromProfileId" < "toProfileId"
+                  THEN "fromProfileId" || '|' || "toProfileId"
+                  ELSE "toProfileId" || '|' || "fromProfileId"
+                END AS pair
+              FROM messages
+              WHERE "createdAt" >= ${sevenDaysAgo}
+            ) AS c
+          ) AS conversations
+      `;
+      matches = n(extras[0]?.matches);
+      activeConversations = n(extras[0]?.conversations);
+    } catch (extraErr) {
+      console.warn('Stats extras (matches/conversations):', extraErr);
+    }
+
     try {
       const dailyRows = await prisma.$queryRaw<{ day: Date; count: bigint }[]>`
         SELECT DATE("createdAt") AS day, COUNT(*)::bigint AS count
@@ -323,7 +344,7 @@ export const getStats = async (req: Request, res: Response) => {
         ORDER BY day ASC
       `;
       const countByDate = new Map(
-        dailyRows.map((r) => [new Date(r.day).toISOString().split('T')[0], Number(r.count)])
+        dailyRows.map((r) => [new Date(r.day).toISOString().split('T')[0], n(r.count)])
       );
       registrationsByDay = Array.from({ length: 7 }).map((_, i) => {
         const dayStart = new Date(now);
@@ -333,7 +354,7 @@ export const getStats = async (req: Request, res: Response) => {
         return { date, count: countByDate.get(date) || 0 };
       });
     } catch (regErr) {
-      console.warn('No se pudieron calcular registros por día:', regErr);
+      console.warn('Stats registrationsByDay:', regErr);
       registrationsByDay = Array.from({ length: 7 }).map((_, i) => {
         const dayStart = new Date(now);
         dayStart.setDate(dayStart.getDate() - (6 - i));
@@ -381,7 +402,7 @@ export const getStats = async (req: Request, res: Response) => {
       console.warn('mostActiveUsers:', e);
     }
 
-    res.json({
+    const payload = {
       users: {
         total: totalUsers,
         verified: verifiedUsers,
@@ -421,7 +442,11 @@ export const getStats = async (req: Request, res: Response) => {
       registrationsByDay,
       mostReportedProfiles,
       mostActiveUsers,
-    });
+      cachedAt: new Date().toISOString(),
+    };
+
+    statsCache = { data: payload, expiresAt: Date.now() + STATS_CACHE_MS };
+    res.json(payload);
   } catch (error) {
     console.error('Error al obtener estadísticas:', error);
     res.status(500).json({ error: 'Error al obtener estadísticas' });

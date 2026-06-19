@@ -9,14 +9,13 @@ import * as path from 'path';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import cron from 'node-cron';
+import { buildDatabaseUrl } from './lib/databaseUrl';
 
-// Cargar variables de entorno
+// Cargar variables de entorno ANTES de importar rutas/prisma
 dotenv.config();
-
-// Forzar SSL en DATABASE_URL para Supabase en producción
-if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('sslmode')) {
-  process.env.DATABASE_URL = process.env.DATABASE_URL + '?sslmode=require';
-  console.log('🔒 SSL añadido automáticamente a DATABASE_URL');
+if (process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = buildDatabaseUrl(process.env.DATABASE_URL);
+  console.log('🔒 DATABASE_URL configurada con pool limitado para Supabase');
 }
 
 // ========================================
