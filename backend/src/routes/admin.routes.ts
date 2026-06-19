@@ -14,10 +14,12 @@ router.get('/stats', authenticateAdminToken, adminController.getStats);
 
 // WhatsApp / Evolution API
 router.get('/whatsapp/stats', authenticateAdminToken, whatsappController.getWhatsAppStats);
+router.get('/whatsapp/instances', authenticateAdminToken, whatsappController.getWhatsAppInstances);
 router.get('/whatsapp/instance', authenticateAdminToken, whatsappController.getInstanceConnection);
 router.get('/whatsapp/contacts', authenticateAdminToken, whatsappController.getContacts);
 router.post('/whatsapp/contacts/import', authenticateAdminToken, whatsappController.importContacts);
 router.post('/whatsapp/contacts/sync-profiles', authenticateAdminToken, whatsappController.syncProfileContacts);
+router.get('/whatsapp/recipient-count', authenticateAdminToken, whatsappController.getRecipientCount);
 router.delete('/whatsapp/contacts/:id', authenticateAdminToken, whatsappController.deleteContact);
 router.get('/whatsapp/campaigns', authenticateAdminToken, whatsappController.getCampaigns);
 router.get('/whatsapp/campaigns/:id', authenticateAdminToken, whatsappController.getCampaignById);

@@ -48,6 +48,7 @@ interface Stats {
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(new Date());
 
   useEffect(() => {
@@ -58,11 +59,13 @@ export default function AdminDashboardPage() {
 
   const loadStats = async () => {
     try {
+      setLoadError('');
       const data = await getStats();
       setStats(data);
       setLastUpdated(new Date());
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading stats:', error);
+      setLoadError(error.response?.data?.error || 'No se pudieron cargar las estadísticas del servidor');
     } finally {
       setIsLoading(false);
     }
@@ -103,6 +106,12 @@ export default function AdminDashboardPage() {
             Actualizar
           </button>
         </div>
+
+        {loadError && (
+          <div className="mb-6 p-4 bg-red-900/30 border border-red-700 text-red-300 rounded-xl text-sm">
+            {loadError}. Pulsa «Actualizar» o vuelve a iniciar sesión en el panel admin.
+          </div>
+        )}
 
         {/* KPIs principales */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -199,7 +208,7 @@ export default function AdminDashboardPage() {
               />
             </div>
             <div className="text-xs text-gray-500 mt-2">
-              {stats?.profiles.real ?? 0} de {stats?.users.total ?? 0} usuarios tienen perfil
+              {stats?.profiles.real ?? 0} perfiles reales de {stats?.users.total ?? 0} usuarios
             </div>
           </div>
 

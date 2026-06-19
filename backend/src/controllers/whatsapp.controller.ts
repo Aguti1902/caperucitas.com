@@ -9,6 +9,8 @@ import {
   normalizePhone,
   sleep,
   isEvolutionConfigured,
+  listInstances,
+  getDefaultInstanceName,
 } from '../services/whatsapp.service';
 
 const runningCampaigns = new Set<string>();
@@ -35,7 +37,7 @@ async function processCampaign(campaignId: string) {
       const current = await prisma.whatsAppCampaign.findUnique({ where: { id: campaignId } });
       if (!current || current.status === 'cancelled') break;
 
-      const result = await sendTextMessage(log.phone, campaign.message);
+      const result = await sendTextMessage(log.phone, campaign.message, campaign.instanceName || undefined);
 
       if (result.success) {
         await prisma.whatsAppMessageLog.update({
@@ -121,37 +123,85 @@ function parsePhoneLines(raw: string): { phone: string; name?: string }[] {
   return results;
 }
 
+async function countProfilePhones(): Promise<number> {
+  const profiles = await prisma.profile.findMany({
+    where: {
+      isFake: false,
+      OR: [{ whatsapp: { not: null } }, { phone: { not: null } }],
+    },
+    select: { whatsapp: true, phone: true },
+  });
+  const seen = new Set<string>();
+  for (const p of profiles) {
+    const n = normalizePhone(p.whatsapp || p.phone || '');
+    if (n) seen.add(n);
+  }
+  return seen.size;
+}
+
+export const getWhatsAppInstances = async (_req: AuthRequest, res: Response) => {
+  const data = await listInstances();
+  res.json({ ...data, defaultInstance: getDefaultInstanceName(), costPerMessage: WHATSAPP_MESSAGE_COST_EUR });
+};
+
 export const getWhatsAppStats = async (_req: AuthRequest, res: Response) => {
   try {
-    const [totals, todaySent, contactCount, campaigns] = await Promise.all([
-      prisma.whatsAppMessageLog.groupBy({
-        by: ['status'],
-        _count: { id: true },
-        _sum: { costEur: true },
-      }),
-      prisma.whatsAppMessageLog.count({
-        where: {
-          status: 'sent',
-          sentAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-        },
-      }),
-      prisma.whatsAppContact.count(),
-      prisma.whatsAppCampaign.count(),
-    ]);
+    const profilePhoneCount = await countProfilePhones();
+
+    let totals: { status: string; _count: { id: number }; _sum: { costEur: number | null } }[] = [];
+    let todaySent = 0;
+    let contactCount = 0;
+    let campaigns = 0;
+
+    try {
+      [totals, todaySent, contactCount, campaigns] = await Promise.all([
+        prisma.whatsAppMessageLog.groupBy({
+          by: ['status'],
+          _count: { id: true },
+          _sum: { costEur: true },
+        }),
+        prisma.whatsAppMessageLog.count({
+          where: {
+            status: 'sent',
+            sentAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+          },
+        }),
+        prisma.whatsAppContact.count(),
+        prisma.whatsAppCampaign.count(),
+      ]);
+    } catch (dbErr) {
+      console.warn('Tablas WhatsApp no disponibles aún:', dbErr);
+    }
 
     const sent = totals.find((t) => t.status === 'sent')?._count.id || 0;
     const failed = totals.find((t) => t.status === 'failed')?._count.id || 0;
     const pending = totals.find((t) => t.status === 'pending')?._count.id || 0;
     const totalCostEur = totals.reduce((acc, t) => acc + (t._sum.costEur || 0), 0);
 
-    const instance = await getInstanceStatus();
+    const instancesData = await listInstances();
+    const selectedInstance = getDefaultInstanceName();
+    const instance = selectedInstance
+      ? await getInstanceStatus(selectedInstance)
+      : instancesData.instances[0]
+        ? await getInstanceStatus(instancesData.instances[0].name)
+        : await getInstanceStatus();
 
     res.json({
       costPerMessage: WHATSAPP_MESSAGE_COST_EUR,
-      totals: { sent, failed, pending, totalCostEur, contactCount, campaigns },
+      totals: {
+        sent,
+        failed,
+        pending,
+        totalCostEur,
+        contactCount,
+        profilePhoneCount,
+        campaigns,
+        reachableTotal: contactCount + profilePhoneCount,
+      },
       todaySent,
       todayCostEur: todaySent * WHATSAPP_MESSAGE_COST_EUR,
       instance,
+      instances: instancesData.instances,
       evolutionConfigured: isEvolutionConfigured(),
     });
   } catch (error) {
@@ -324,7 +374,7 @@ async function resolveRecipients(source: string, manualPhones?: string): Promise
 
 export const createCampaign = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, message, source = 'contacts_db', phones, delayMs = DEFAULT_DELAY_MS } = req.body;
+    const { name, message, source = 'contacts_db', phones, delayMs = DEFAULT_DELAY_MS, instanceName } = req.body;
 
     if (!message?.trim()) {
       return res.status(400).json({ error: 'El mensaje es obligatorio' });
@@ -333,9 +383,16 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Evolution API no está configurada en el servidor' });
     }
 
-    const instance = await getInstanceStatus();
+    const resolvedInstance = (instanceName || getDefaultInstanceName()).trim();
+    if (!resolvedInstance) {
+      return res.status(400).json({ error: 'Selecciona el móvil/instancia desde el que enviar' });
+    }
+
+    const instance = await getInstanceStatus(resolvedInstance);
     if (!instance.connected) {
-      return res.status(400).json({ error: `WhatsApp no conectado: ${instance.error || instance.state || 'desconocido'}` });
+      return res.status(400).json({
+        error: `WhatsApp "${resolvedInstance}" no conectado: ${instance.error || instance.state || 'desconocido'}`,
+      });
     }
 
     const recipients = await resolveRecipients(source, phones);
@@ -348,6 +405,7 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
         name: name?.trim() || `Campaña ${new Date().toLocaleString('es-ES')}`,
         message: message.trim(),
         source,
+        instanceName: resolvedInstance,
         totalCount: recipients.length,
         delayMs: Math.max(1000, Math.min(Number(delayMs) || DEFAULT_DELAY_MS, 10000)),
         messages: {
@@ -375,12 +433,17 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
 
 export const sendTestMessage = async (req: AuthRequest, res: Response) => {
   try {
-    const { phone, message } = req.body;
+    const { phone, message, instanceName } = req.body;
     if (!phone || !message?.trim()) {
       return res.status(400).json({ error: 'Teléfono y mensaje son obligatorios' });
     }
 
-    const result = await sendTextMessage(phone, message.trim());
+    const resolvedInstance = (instanceName || getDefaultInstanceName()).trim();
+    if (!resolvedInstance) {
+      return res.status(400).json({ error: 'Selecciona el móvil/instancia emisor' });
+    }
+
+    const result = await sendTextMessage(phone, message.trim(), resolvedInstance);
     if (!result.success) {
       return res.status(400).json({ error: result.error });
     }
@@ -389,6 +452,7 @@ export const sendTestMessage = async (req: AuthRequest, res: Response) => {
       success: true,
       costEur: WHATSAPP_MESSAGE_COST_EUR,
       phone: normalizePhone(phone),
+      instanceName: resolvedInstance,
     });
   } catch (error) {
     res.status(500).json({ error: 'Error al enviar mensaje de prueba' });
@@ -405,6 +469,21 @@ export const cancelCampaign = async (req: AuthRequest, res: Response) => {
     res.json({ message: 'Campaña cancelada' });
   } catch (error) {
     res.status(500).json({ error: 'Error al cancelar campaña' });
+  }
+};
+
+export const getRecipientCount = async (req: AuthRequest, res: Response) => {
+  try {
+    const source = String(req.query.source || 'contacts_db');
+    const phones = req.query.phones ? String(req.query.phones) : undefined;
+    const recipients = await resolveRecipients(source, phones);
+    res.json({
+      count: recipients.length,
+      estimatedCostEur: recipients.length * WHATSAPP_MESSAGE_COST_EUR,
+      costPerMessage: WHATSAPP_MESSAGE_COST_EUR,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al calcular destinatarios' });
   }
 };
 

@@ -126,6 +126,7 @@ export const createWhatsAppCampaign = async (data: {
   source: string;
   phones?: string;
   delayMs?: number;
+  instanceName?: string;
 }) => {
   const response = await adminApi.post('/whatsapp/campaigns', data);
   return response.data;
@@ -151,8 +152,23 @@ export const getWhatsAppContacts = async (page = 1, limit = 50) => {
   return response.data;
 };
 
-export const sendWhatsAppTest = async (phone: string, message: string) => {
-  const response = await adminApi.post('/whatsapp/test', { phone, message });
+export const getWhatsAppInstances = async () => {
+  const response = await adminApi.get('/whatsapp/instances');
+  return response.data;
+};
+
+export const getWhatsAppRecipientCount = async (source: string, phones?: string) => {
+  const response = await adminApi.get('/whatsapp/recipient-count', { params: { source, phones } });
+  return response.data;
+};
+
+export const deleteWhatsAppContact = async (id: string) => {
+  const response = await adminApi.delete(`/whatsapp/contacts/${id}`);
+  return response.data;
+};
+
+export const sendWhatsAppTest = async (phone: string, message: string, instanceName?: string) => {
+  const response = await adminApi.post('/whatsapp/test', { phone, message, instanceName });
   return response.data;
 };
 

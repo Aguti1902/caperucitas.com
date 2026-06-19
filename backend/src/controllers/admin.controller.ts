@@ -261,17 +261,18 @@ export const getStats = async (req: Request, res: Response) => {
       prisma.like.count({ where: { createdAt: { gte: oneDayAgo } } }),
     ]);
 
-    // Calcular matches (likes mutuos)
-    const allLikes = await prisma.like.findMany({
-      select: {
-        fromProfileId: true,
-        toProfileId: true,
-      },
-    });
-
-    const matches = allLikes.filter((like) =>
-      allLikes.some((l) => l.fromProfileId === like.toProfileId && l.toProfileId === like.fromProfileId)
-    ).length / 2;
+    // Matches mutuos (consulta eficiente, sin cargar todos los likes en memoria)
+    const mutualMatches = await prisma.$queryRaw<{ count: bigint }[]>`
+      SELECT COUNT(*)::bigint AS count FROM (
+        SELECT l1."fromProfileId", l1."toProfileId"
+        FROM likes l1
+        INNER JOIN likes l2
+          ON l1."fromProfileId" = l2."toProfileId"
+         AND l1."toProfileId" = l2."fromProfileId"
+         AND l1."fromProfileId" < l1."toProfileId"
+      ) AS pairs
+    `;
+    const matches = Number(mutualMatches[0]?.count || 0);
 
     // Obtener conversaciones activas (con al menos 1 mensaje en los últimos 7 días)
     const recentMessages = await prisma.message.findMany({
@@ -320,9 +321,10 @@ export const getStats = async (req: Request, res: Response) => {
       })
     );
 
-    // Calcular tasas de conversión
-    const conversionRate = totalUsers > 0 ? (verifiedUsers / totalUsers) * 100 : 0;
-    const profileCompletionRate = totalUsers > 0 ? (totalProfiles / totalUsers) * 100 : 0;
+    // Tasas de conversión
+    const emailVerificationRate = totalUsers > 0 ? (verifiedUsers / totalUsers) * 100 : 0;
+    const profileCompletionRate = totalUsers > 0 ? (realProfiles / totalUsers) * 100 : 0;
+    const subscriptionConversionRate = totalUsers > 0 ? (activeSubscriptions / totalUsers) * 100 : 0;
 
     // Calcular promedio de mensajes por usuario
     const avgMessagesPerUser = totalProfiles > 0 ? totalMessages / totalProfiles : 0;
@@ -419,10 +421,10 @@ export const getStats = async (req: Request, res: Response) => {
       },
       subscriptions: {
         active: activeSubscriptions,
-        conversionRate: conversionRate.toFixed(2),
+        conversionRate: subscriptionConversionRate.toFixed(2),
       },
       conversion: {
-        emailVerificationRate: conversionRate.toFixed(2),
+        emailVerificationRate: emailVerificationRate.toFixed(2),
         profileCompletionRate: profileCompletionRate.toFixed(2),
       },
       registrationsByDay: registrationsByDay.reverse(),

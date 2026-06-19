@@ -14,6 +14,9 @@ import {
   Play,
   Ban,
   Phone,
+  Smartphone,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import AdminHeader from '../components/admin/AdminHeader';
 import AdminNav from '../components/admin/AdminNav';
@@ -27,6 +30,9 @@ import {
   getWhatsAppContacts,
   sendWhatsAppTest,
   cancelWhatsAppCampaign,
+  getWhatsAppInstances,
+  getWhatsAppRecipientCount,
+  deleteWhatsAppContact,
 } from '../services/admin.api';
 
 const COST_PER_MSG = 0.0035;
@@ -35,16 +41,28 @@ function formatEur(n: number) {
   return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 4 }).format(n);
 }
 
+interface EvolutionInstance {
+  name: string;
+  connected: boolean;
+  state: string;
+  owner?: string;
+  profileName?: string;
+}
+
 export default function AdminWhatsAppPage() {
   const [stats, setStats] = useState<any>(null);
+  const [instances, setInstances] = useState<EvolutionInstance[]>([]);
+  const [selectedInstance, setSelectedInstance] = useState('');
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
   const [contactTotal, setContactTotal] = useState(0);
+  const [recipientCount, setRecipientCount] = useState(0);
   const [selectedCampaign, setSelectedCampaign] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   const [importText, setImportText] = useState('');
   const [campaignName, setCampaignName] = useState('');
@@ -55,8 +73,33 @@ export default function AdminWhatsAppPage() {
   const [testPhone, setTestPhone] = useState('');
   const [testMessage, setTestMessage] = useState('');
 
+  const loadInstances = useCallback(async () => {
+    try {
+      const data = await getWhatsAppInstances();
+      const list: EvolutionInstance[] = data.instances || [];
+      setInstances(list);
+      setSelectedInstance((prev) => {
+        if (prev && list.some((i) => i.name === prev)) return prev;
+        const connected = list.find((i) => i.connected);
+        return connected?.name || data.defaultInstance || list[0]?.name || '';
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const loadRecipientCount = useCallback(async (source: string, phones?: string) => {
+    try {
+      const data = await getWhatsAppRecipientCount(source, phones);
+      setRecipientCount(data.count || 0);
+    } catch {
+      setRecipientCount(0);
+    }
+  }, []);
+
   const loadAll = useCallback(async () => {
     try {
+      setLoadError('');
       const [statsData, campaignsData, contactsData] = await Promise.all([
         getWhatsAppStats(),
         getWhatsAppCampaigns(),
@@ -66,8 +109,12 @@ export default function AdminWhatsAppPage() {
       setCampaigns(campaignsData.campaigns || []);
       setContacts(contactsData.contacts || []);
       setContactTotal(contactsData.total || 0);
-    } catch (e) {
+      if (statsData.instances?.length) {
+        setInstances(statsData.instances);
+      }
+    } catch (e: any) {
       console.error(e);
+      setLoadError(e.response?.data?.error || 'Error al cargar datos de WhatsApp');
     } finally {
       setIsLoading(false);
     }
@@ -75,9 +122,18 @@ export default function AdminWhatsAppPage() {
 
   useEffect(() => {
     loadAll();
+    loadInstances();
     const interval = setInterval(loadAll, 10000);
     return () => clearInterval(interval);
-  }, [loadAll]);
+  }, [loadAll, loadInstances]);
+
+  useEffect(() => {
+    const phones = campaignSource === 'manual' ? manualPhones : undefined;
+    loadRecipientCount(campaignSource, phones);
+  }, [campaignSource, manualPhones, contactTotal, loadRecipientCount]);
+
+  const activeInstance = instances.find((i) => i.name === selectedInstance);
+  const connected = activeInstance?.connected ?? stats?.instance?.connected;
 
   const handleImport = async () => {
     setError('');
@@ -103,6 +159,16 @@ export default function AdminWhatsAppPage() {
     }
   };
 
+  const handleDeleteContact = async (id: string) => {
+    if (!window.confirm('¿Eliminar este contacto?')) return;
+    try {
+      await deleteWhatsAppContact(id);
+      loadAll();
+    } catch (e: any) {
+      setError(e.response?.data?.error || 'Error al eliminar');
+    }
+  };
+
   const handleCreateCampaign = async () => {
     setError('');
     setSuccess('');
@@ -110,11 +176,12 @@ export default function AdminWhatsAppPage() {
       setError('Escribe el mensaje de la campaña');
       return;
     }
-    const recipientCount =
-      campaignSource === 'contacts_db' ? contactTotal :
-      campaignSource === 'manual' ? manualPhones.split('\n').filter(Boolean).length : contactTotal;
+    if (!selectedInstance) {
+      setError('Selecciona el móvil/instancia desde el que enviar');
+      return;
+    }
 
-    if (!window.confirm(`¿Enviar campaña a ~${recipientCount} números? Coste estimado: ${formatEur(recipientCount * COST_PER_MSG)}`)) {
+    if (!window.confirm(`¿Enviar campaña a ${recipientCount} números desde "${selectedInstance}"? Coste estimado: ${formatEur(recipientCount * COST_PER_MSG)}`)) {
       return;
     }
 
@@ -126,8 +193,9 @@ export default function AdminWhatsAppPage() {
         source: campaignSource,
         phones: campaignSource === 'manual' ? manualPhones : undefined,
         delayMs,
+        instanceName: selectedInstance,
       });
-      setSuccess(`Campaña "${result.campaign.name}" iniciada. Coste estimado: ${formatEur(result.estimatedCostEur)}`);
+      setSuccess(`Campaña "${result.campaign.name}" iniciada desde ${selectedInstance}. Coste estimado: ${formatEur(result.estimatedCostEur)}`);
       setCampaignName('');
       setCampaignMessage('');
       setManualPhones('');
@@ -141,9 +209,13 @@ export default function AdminWhatsAppPage() {
 
   const handleTest = async () => {
     setError('');
+    if (!selectedInstance) {
+      setError('Selecciona el móvil emisor');
+      return;
+    }
     try {
-      await sendWhatsAppTest(testPhone, testMessage || campaignMessage || 'Mensaje de prueba Caperucitas');
-      setSuccess(`Mensaje de prueba enviado a ${testPhone} (${formatEur(COST_PER_MSG)})`);
+      await sendWhatsAppTest(testPhone, testMessage || campaignMessage || 'Mensaje de prueba Caperucitas', selectedInstance);
+      setSuccess(`Prueba enviada a ${testPhone} desde ${selectedInstance} (${formatEur(COST_PER_MSG)})`);
     } catch (e: any) {
       setError(e.response?.data?.error || 'Error al enviar prueba');
     }
@@ -169,15 +241,13 @@ export default function AdminWhatsAppPage() {
     );
   }
 
-  const connected = stats?.instance?.connected;
-
   return (
     <div className="min-h-screen bg-gray-950">
       <AdminHeader />
       <AdminNav />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-20">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-black text-white flex items-center gap-2">
               <MessageCircle className="w-7 h-7 text-green-500" />
@@ -185,22 +255,65 @@ export default function AdminWhatsAppPage() {
             </h1>
             <p className="text-gray-400 text-sm mt-1">Evolution API · {formatEur(COST_PER_MSG)}/mensaje</p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold ${connected ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>
+          <button onClick={() => { loadAll(); loadInstances(); }} className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm">
+            <RefreshCw className="w-4 h-4" /> Actualizar
+          </button>
+        </div>
+
+        {loadError && (
+          <div className="mb-4 p-3 bg-red-900/30 border border-red-700 text-red-300 rounded-lg text-sm flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" /> {loadError}
+          </div>
+        )}
+
+        {!stats?.evolutionConfigured && (
+          <div className="mb-4 p-3 bg-yellow-900/30 border border-yellow-700 text-yellow-200 rounded-lg text-sm">
+            Evolution API no configurada en el servidor. Añade EVOLUTION_API_URL y EVOLUTION_API_KEY en Railway.
+          </div>
+        )}
+
+        {/* Selector de móvil / instancia */}
+        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 mb-6">
+          <h2 className="text-white font-bold mb-3 flex items-center gap-2">
+            <Smartphone className="w-5 h-5 text-green-500" /> Móvil emisor (instancia Evolution)
+          </h2>
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="flex-1 min-w-[220px]">
+              <label className="text-gray-400 text-xs block mb-1">Selecciona desde qué número enviar</label>
+              <select
+                value={selectedInstance}
+                onChange={(e) => setSelectedInstance(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white text-sm"
+              >
+                {instances.length === 0 && (
+                  <option value="">Sin instancias disponibles</option>
+                )}
+                {instances.map((inst) => (
+                  <option key={inst.name} value={inst.name}>
+                    {inst.name}
+                    {inst.owner ? ` · ${inst.owner}` : ''}
+                    {inst.profileName ? ` (${inst.profileName})` : ''}
+                    {inst.connected ? ' ✓ conectado' : ' ✗ desconectado'}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold ${connected ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>
               {connected ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
               {connected ? 'Conectado' : 'Desconectado'}
+              {activeInstance?.state && <span className="text-xs opacity-70">({activeInstance.state})</span>}
             </div>
-            <button onClick={loadAll} className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm">
-              <RefreshCw className="w-4 h-4" /> Actualizar
-            </button>
           </div>
+          {activeInstance?.owner && (
+            <p className="text-gray-500 text-xs mt-2">Número vinculado: +{activeInstance.owner}</p>
+          )}
         </div>
 
         {error && <div className="mb-4 p-3 bg-red-900/30 border border-red-700 text-red-300 rounded-lg text-sm">{error}</div>}
         {success && <div className="mb-4 p-3 bg-green-900/30 border border-green-700 text-green-300 rounded-lg text-sm">{success}</div>}
 
         {/* KPIs */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3 mb-8">
           <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
             <div className="flex items-center gap-2 text-green-400 mb-1"><CheckCircle className="w-4 h-4" /><span className="text-xs text-gray-400">Enviados</span></div>
             <p className="text-2xl font-black text-white">{stats?.totals?.sent ?? 0}</p>
@@ -215,11 +328,20 @@ export default function AdminWhatsAppPage() {
           </div>
           <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
             <div className="flex items-center gap-2 text-emerald-400 mb-1"><Euro className="w-4 h-4" /><span className="text-xs text-gray-400">Gasto total</span></div>
-            <p className="text-2xl font-black text-white">{formatEur(stats?.totals?.totalCostEur ?? 0)}</p>
+            <p className="text-xl font-black text-white">{formatEur(stats?.totals?.totalCostEur ?? 0)}</p>
+          </div>
+          <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
+            <div className="flex items-center gap-2 text-cyan-400 mb-1"><Euro className="w-4 h-4" /><span className="text-xs text-gray-400">Hoy</span></div>
+            <p className="text-xl font-black text-white">{formatEur(stats?.todayCostEur ?? 0)}</p>
+            <p className="text-xs text-gray-500">{stats?.todaySent ?? 0} msgs</p>
           </div>
           <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
             <div className="flex items-center gap-2 text-blue-400 mb-1"><Users className="w-4 h-4" /><span className="text-xs text-gray-400">Contactos BD</span></div>
             <p className="text-2xl font-black text-white">{stats?.totals?.contactCount ?? 0}</p>
+          </div>
+          <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
+            <div className="flex items-center gap-2 text-purple-400 mb-1"><Phone className="w-4 h-4" /><span className="text-xs text-gray-400">Tel. perfiles web</span></div>
+            <p className="text-2xl font-black text-white">{stats?.totals?.profilePhoneCount ?? 0}</p>
           </div>
         </div>
 
@@ -240,14 +362,19 @@ export default function AdminWhatsAppPage() {
                 Importar números
               </button>
               <button onClick={handleSyncProfiles} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg text-sm">
-                Sync perfiles web
+                Sync perfiles web ({stats?.totals?.profilePhoneCount ?? 0})
               </button>
             </div>
             {contacts.length > 0 && (
               <div className="mt-4 max-h-40 overflow-y-auto">
                 <p className="text-gray-500 text-xs mb-2">Últimos {contacts.length} de {contactTotal}:</p>
                 {contacts.slice(0, 10).map((c) => (
-                  <div key={c.id} className="text-xs text-gray-400 py-0.5">{c.name ? `${c.name} · ` : ''}{c.phone}</div>
+                  <div key={c.id} className="flex items-center justify-between text-xs text-gray-400 py-0.5 group">
+                    <span>{c.name ? `${c.name} · ` : ''}{c.phone}</span>
+                    <button onClick={() => handleDeleteContact(c.id)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 p-1">
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -275,7 +402,7 @@ export default function AdminWhatsAppPage() {
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm mb-3"
             >
               <option value="contacts_db">Todos los contactos de la BD ({contactTotal})</option>
-              <option value="profiles">Teléfonos de perfiles de la web</option>
+              <option value="profiles">Teléfonos de perfiles de la web ({stats?.totals?.profilePhoneCount ?? 0})</option>
               <option value="mixed">BD + perfiles web (sin duplicados)</option>
               <option value="manual">Lista manual (pegar abajo)</option>
             </select>
@@ -292,40 +419,48 @@ export default function AdminWhatsAppPage() {
               <label className="text-gray-400 text-xs">Delay entre msgs (ms):</label>
               <input type="number" min={1000} max={10000} step={500} value={delayMs} onChange={(e) => setDelayMs(Number(e.target.value))} className="w-24 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-sm" />
             </div>
+            <p className="text-gray-500 text-xs mb-1">
+              Destinatarios: <span className="text-white font-bold">{recipientCount}</span> · Emisor: <span className="text-green-400">{selectedInstance || '—'}</span>
+            </p>
             <p className="text-gray-500 text-xs mb-3">
-              Coste estimado: {formatEur((campaignSource === 'manual' ? manualPhones.split('\n').filter(Boolean).length : contactTotal) * COST_PER_MSG)}
+              Coste estimado: <span className="text-emerald-400 font-bold">{formatEur(recipientCount * COST_PER_MSG)}</span>
             </p>
             <button
               onClick={handleCreateCampaign}
-              disabled={isSending || !connected}
+              disabled={isSending || !connected || !selectedInstance || recipientCount === 0}
               className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold py-3 rounded-lg"
             >
               <Play className="w-5 h-5" />
               {isSending ? 'Iniciando...' : 'Lanzar campaña'}
             </button>
+            {!connected && selectedInstance && (
+              <p className="text-red-400 text-xs mt-2 text-center">Conecta la instancia «{selectedInstance}» en Evolution API antes de enviar</p>
+            )}
           </div>
         </div>
 
         {/* Test message */}
         <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 mb-8">
           <h2 className="text-white font-bold mb-3 flex items-center gap-2"><Phone className="w-5 h-5" /> Envío de prueba</h2>
+          <p className="text-gray-500 text-xs mb-3">Se enviará desde: <span className="text-green-400">{selectedInstance || '—'}</span></p>
           <div className="flex flex-wrap gap-3">
             <input value={testPhone} onChange={(e) => setTestPhone(e.target.value)} placeholder="612345678" className="flex-1 min-w-[150px] bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm" />
             <input value={testMessage} onChange={(e) => setTestMessage(e.target.value)} placeholder="Mensaje de prueba" className="flex-[2] min-w-[200px] bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm" />
-            <button onClick={handleTest} disabled={!testPhone} className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-semibold">Enviar prueba</button>
+            <button onClick={handleTest} disabled={!testPhone || !connected || !selectedInstance} className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-semibold">Enviar prueba</button>
           </div>
         </div>
 
         {/* Historial campañas */}
         <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-800">
-            <h2 className="text-white font-bold">Historial de campañas</h2>
+            <h2 className="text-white font-bold">Historial de campañas ({stats?.totals?.campaigns ?? campaigns.length})</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-gray-400 text-left border-b border-gray-800">
                   <th className="px-5 py-3">Nombre</th>
+                  <th className="px-5 py-3">Emisor</th>
                   <th className="px-5 py-3">Estado</th>
                   <th className="px-5 py-3">Enviados</th>
                   <th className="px-5 py-3">Fallidos</th>
@@ -338,11 +473,13 @@ export default function AdminWhatsAppPage() {
                 {campaigns.map((c) => (
                   <tr key={c.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                     <td className="px-5 py-3 text-white font-medium">{c.name}</td>
+                    <td className="px-5 py-3 text-gray-400 text-xs">{c.instanceName || '—'}</td>
                     <td className="px-5 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                         c.status === 'completed' ? 'bg-green-900/50 text-green-400' :
                         c.status === 'running' ? 'bg-yellow-900/50 text-yellow-400' :
                         c.status === 'failed' ? 'bg-red-900/50 text-red-400' :
+                        c.status === 'cancelled' ? 'bg-gray-700 text-gray-400' :
                         'bg-gray-700 text-gray-300'
                       }`}>{c.status}</span>
                     </td>
@@ -359,7 +496,7 @@ export default function AdminWhatsAppPage() {
                   </tr>
                 ))}
                 {campaigns.length === 0 && (
-                  <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-500">No hay campañas aún</td></tr>
+                  <tr><td colSpan={8} className="px-5 py-8 text-center text-gray-500">No hay campañas aún</td></tr>
                 )}
               </tbody>
             </table>
@@ -371,7 +508,12 @@ export default function AdminWhatsAppPage() {
           <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setSelectedCampaign(null)}>
             <div className="bg-gray-900 rounded-xl border border-gray-800 max-w-2xl w-full max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <div className="px-5 py-4 border-b border-gray-800 flex justify-between items-center">
-                <h3 className="text-white font-bold">{selectedCampaign.name}</h3>
+                <div>
+                  <h3 className="text-white font-bold">{selectedCampaign.name}</h3>
+                  {selectedCampaign.instanceName && (
+                    <p className="text-gray-500 text-xs">Emisor: {selectedCampaign.instanceName}</p>
+                  )}
+                </div>
                 <button onClick={() => setSelectedCampaign(null)} className="text-gray-400 hover:text-white">✕</button>
               </div>
               <div className="p-5 overflow-y-auto max-h-[60vh]">

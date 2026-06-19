@@ -349,8 +349,9 @@ model WhatsAppCampaign {
   id           String    @id @default(uuid())
   name         String
   message      String    @db.Text
+  instanceName String?   // instancia Evolution API / móvil emisor
   status       String    @default("pending") // pending | running | completed | failed | cancelled
-  source       String    // contacts_db | profiles | manual
+  source       String    // contacts_db | profiles | manual | mixed
   totalCount   Int       @default(0)
   sentCount    Int       @default(0)
   failedCount  Int       @default(0)
