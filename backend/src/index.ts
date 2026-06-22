@@ -248,7 +248,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     message: 'Caperucitas API is running',
-    version: '2026-06-22-whatsapp-pairing-code',
+    version: '2026-06-22-whatsapp-sender-phone-only',
   });
 });
 

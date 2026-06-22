@@ -12,6 +12,7 @@ import {
   getWhatsAppProvider,
   listInstances,
   getDefaultInstanceName,
+  getDefaultSenderPhone,
   createEvolutionInstance,
   getEvolutionQrCode,
   restartEvolutionInstance,
@@ -599,6 +600,7 @@ export const getSetupStatus = async (_req: AuthRequest, res: Response) => {
       evolutionReachable: health.ok,
       evolutionError: health.error || instances.error,
       defaultInstance,
+      defaultSenderPhone: getDefaultSenderPhone() || instanceStatus?.owner || null,
       instanceStatus,
       instances: instances.instances,
       costPerMessage: WHATSAPP_MESSAGE_COST_EUR,
@@ -698,9 +700,9 @@ export const setupRestartInstance = async (req: AuthRequest, res: Response) => {
 export const setupPairingCode = async (req: AuthRequest, res: Response) => {
   try {
     const instanceName = (req.body.instanceName || getDefaultInstanceName() || 'caperucitas').trim();
-    const rawPhone = String(req.body.phone || '').trim();
+    const rawPhone = String(req.body.phone || getDefaultSenderPhone() || '').trim();
     if (!rawPhone) {
-      return res.status(400).json({ error: 'Introduce el número de WhatsApp (con prefijo, ej. 34612345678)' });
+      return res.status(400).json({ error: 'Introduce el número de WhatsApp emisor (ej. 34612345678)' });
     }
 
     const phone = normalizePhone(rawPhone);
@@ -716,7 +718,7 @@ export const setupPairingCode = async (req: AuthRequest, res: Response) => {
     const data = result.data;
     if (data?.connected) {
       return res.json({
-        message: 'WhatsApp ya conectado',
+        message: 'WhatsApp conectado',
         instanceName,
         connected: true,
         phone: data.phone,
@@ -724,7 +726,7 @@ export const setupPairingCode = async (req: AuthRequest, res: Response) => {
     }
 
     res.json({
-      message: 'Introduce este código en WhatsApp → Dispositivos vinculados → Vincular con número de teléfono',
+      message: 'Introduce este código en tu móvil: WhatsApp → Dispositivos vinculados → Vincular con número de teléfono',
       instanceName,
       pairingCode: data?.pairingCode,
       phone,
@@ -732,6 +734,11 @@ export const setupPairingCode = async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     console.error('Error setupPairingCode:', error);
-    res.status(500).json({ error: 'Error al generar código de vinculación' });
+    res.status(500).json({ error: 'Error al vincular WhatsApp' });
   }
+};
+
+export const setupConnect = async (req: AuthRequest, res: Response) => {
+  req.body.instanceName = req.body.instanceName || getDefaultInstanceName();
+  return setupPairingCode(req, res);
 };

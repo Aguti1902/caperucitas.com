@@ -46,6 +46,12 @@ export function getDefaultInstanceName(): string {
   );
 }
 
+/** Número emisor por defecto (Railway: WHATSAPP_SENDER_PHONE=34612345678) */
+export function getDefaultSenderPhone(): string {
+  return (process.env.WHATSAPP_SENDER_PHONE || process.env.WHATSAPP_PHONE || '')
+    .replace(/\D/g, '');
+}
+
 /** Normaliza teléfono a formato internacional sin + (España por defecto) */
 export function normalizePhone(raw: string, defaultCountry = '34'): string | null {
   let digits = raw.replace(/\D/g, '');
