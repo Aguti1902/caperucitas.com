@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import { useEffect } from 'react'
 import CookieBanner from './components/common/CookieBanner'
@@ -26,6 +26,7 @@ import AdminDashboardPage from './pages/AdminDashboardPage'
 import AdminReportsPage from './pages/AdminReportsPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import AdminWhatsAppPage from './pages/AdminWhatsAppPage'
+import AdminAnalyticsPage from './pages/AdminAnalyticsPage'
 import AdminRoute from './components/admin/AdminRoute'
 import PublicRoamPage from './pages/PublicRoamPage'
 import PublicInfoPage from './pages/PublicInfoPage'
@@ -33,10 +34,27 @@ import PrivacyPage from './pages/PrivacyPage'
 import TermsPage from './pages/TermsPage'
 import CookiesPage from './pages/CookiesPage'
 import NormasPage from './pages/NormasPage'
+import { initGA, trackPageView } from './utils/analytics'
 
 function App() {
   const { isAuthenticated, hasProfile, isLoading, initAuth, logout } = useAuthStore()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  useEffect(() => {
+    const consent = localStorage.getItem('cookie_consent');
+    if (consent === 'accepted') initGA();
+    const onStorage = () => {
+      if (localStorage.getItem('cookie_consent') === 'accepted') initGA();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  useEffect(() => {
+    if (localStorage.getItem('cookie_consent') !== 'accepted') return;
+    trackPageView(location.pathname + location.search);
+  }, [location]);
 
   useEffect(() => {
     initAuth()
@@ -163,6 +181,14 @@ function App() {
           element={
             <AdminRoute>
               <AdminUsersPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/analytics"
+          element={
+            <AdminRoute>
+              <AdminAnalyticsPage />
             </AdminRoute>
           }
         />

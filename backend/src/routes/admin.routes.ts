@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticateAdminToken } from '../middleware/auth.middleware';
 import * as adminController from '../controllers/admin.controller';
+import * as analyticsController from '../controllers/analytics.controller';
 import * as whatsappController from '../controllers/whatsapp.controller';
 import { whatsappImageUpload, handleWhatsAppExcelUpload } from '../config/whatsapp-upload';
 const router = Router();
@@ -12,6 +13,10 @@ router.post('/login', adminController.login);
 router.get('/profiles', authenticateAdminToken, adminController.getAllProfiles);
 router.get('/reports', authenticateAdminToken, adminController.getAllReports);
 router.get('/stats', authenticateAdminToken, adminController.getStats);
+
+// Google Analytics 4
+router.get('/analytics', authenticateAdminToken, analyticsController.getAnalyticsDashboard);
+router.get('/analytics/status', authenticateAdminToken, analyticsController.getAnalyticsStatus);
 
 // WhatsApp / Evolution API
 router.get('/whatsapp/stats', authenticateAdminToken, whatsappController.getWhatsAppStats);

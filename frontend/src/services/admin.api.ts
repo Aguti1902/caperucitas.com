@@ -59,6 +59,11 @@ export const getStats = async () => {
   return response.data;
 };
 
+export const getAnalyticsDashboard = async () => {
+  const response = await adminApi.get('/analytics');
+  return response.data;
+};
+
 // Perfiles
 export const getAllProfiles = async () => {
   const response = await adminApi.get('/profiles');

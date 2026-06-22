@@ -21,6 +21,7 @@ export default function CookieBanner() {
   const handleAccept = () => {
     localStorage.setItem(COOKIE_CONSENT_KEY, 'accepted')
     setShowBanner(false)
+    import('../../utils/analytics').then(({ initGA }) => initGA())
   }
 
   const handleReject = () => {
