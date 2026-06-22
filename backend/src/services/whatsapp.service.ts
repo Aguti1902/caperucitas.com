@@ -276,9 +276,6 @@ export async function getEvolutionQrCode(instanceName: string): Promise<{
     if (result.pairingCode) {
       return { success: true, pairingCode: result.pairingCode };
     }
-    if (result.base64) {
-      return { success: true, base64: result.base64 };
-    }
     return { success: false, error: result.error };
   }
 

@@ -144,7 +144,8 @@ export default function AdminWhatsAppPage() {
         setSuccess(`WhatsApp conectado — los mensajes saldrán desde +${result.phone || phone}`);
       } else if (result.pairingCode) {
         setPairingCode(result.pairingCode);
-        setSuccess('Introduce el código en tu móvil (válido ~2 min). Solo hay que hacerlo una vez.');
+        setIsWaitingConnect(true);
+        setSuccess('Código listo. Introdúcelo en el móvil ahora (tienes ~2 min).');
       } else {
         setError('No se pudo vincular. Si WhatsApp dice «inténtelo más tarde», espera 24 h.');
       }
@@ -480,18 +481,26 @@ export default function AdminWhatsAppPage() {
 
               {pairingCode && (
                 <div className="mb-4 p-4 bg-gray-800 rounded-xl border border-green-700">
-                  <p className="text-gray-400 text-xs mb-2">Código (válido ~2 min):</p>
-                  <p className="text-4xl font-mono font-bold text-green-400 tracking-widest text-center py-3">{pairingCode}</p>
+                  <p className="text-gray-400 text-xs mb-2">Código de vinculación (válido ~2 min, sin guiones):</p>
+                  <p className="text-4xl font-mono font-bold text-green-400 tracking-[0.35em] text-center py-3 select-all">
+                    {pairingCode.replace(/-/g, '')}
+                  </p>
                   <p className="text-gray-300 text-sm">
                     En el móvil <strong>+{senderPhone}</strong>: WhatsApp → Ajustes → Dispositivos vinculados →{' '}
-                    <strong>Vincular con número de teléfono</strong> → introduce el código.
+                    <strong>Vincular con número de teléfono</strong> → introduce los 8 caracteres.
                   </p>
+                  <p className="text-yellow-400/90 text-xs mt-2">
+                    Tras introducir el código, espera 10–30 s sin cerrar esta página. La conexión se completa sola.
+                  </p>
+                  {isWaitingConnect && (
+                    <p className="text-green-400 text-sm mt-2 animate-pulse">Vinculando… reconectando con WhatsApp</p>
+                  )}
                   <button
                     type="button"
                     onClick={() => checkConnectionStatus()}
                     className="mt-3 text-green-400 hover:text-green-300 text-xs underline"
                   >
-                    Ya introduje el código — comprobar
+                    Ya introduje el código — comprobar conexión
                   </button>
                 </div>
               )}
