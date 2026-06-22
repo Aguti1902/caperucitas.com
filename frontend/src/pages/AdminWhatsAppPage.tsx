@@ -116,11 +116,15 @@ export default function AdminWhatsAppPage() {
     setIsConnecting(true);
     try {
       const name = newInstanceName.trim() || 'caperucitas';
-      await createWhatsAppInstance(name);
+      const result = await createWhatsAppInstance(name);
       setSelectedInstance(name);
-      const connected = await refreshQr(name);
-      if (!connected) {
-        setSuccess('Escanea el QR con WhatsApp → Dispositivos vinculados');
+      if (result.qr?.base64) {
+        setQrBase64(result.qr.base64);
+      } else {
+        const connected = await refreshQr(name);
+        if (!connected) {
+          setSuccess('Escanea el QR con WhatsApp → Dispositivos vinculados');
+        }
       }
       loadSetup();
       loadInstances();
@@ -372,24 +376,26 @@ export default function AdminWhatsAppPage() {
         )}
 
         {!stats?.evolutionConfigured && (
-          <div className="mb-4 p-4 bg-yellow-900/30 border border-yellow-700 text-yellow-100 rounded-xl text-sm space-y-2">
-            <p className="font-bold flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> Evolution API no configurada en Railway</p>
-            <p>Añade estas variables al servicio <strong>backend</strong> y redeploy:</p>
-            <pre className="bg-black/30 p-3 rounded text-xs overflow-x-auto">{`EVOLUTION_API_URL=https://tu-evolution.up.railway.app
-EVOLUTION_API_KEY=tu-clave-api
-EVOLUTION_INSTANCE_NAME=caperucitas`}</pre>
-            <p className="text-yellow-200/80">Despliega el servicio <code className="text-yellow-100">evolution-api/</code> en Railway (carpeta del repo) con la misma API key.</p>
+          <div className="mb-4 p-4 bg-yellow-900/30 border border-yellow-700 text-yellow-100 rounded-xl text-sm">
+            <p className="font-bold">WhatsApp no disponible</p>
+            <p className="mt-1">Contacta con soporte técnico — el modo integrado debería activarse automáticamente tras el deploy.</p>
           </div>
         )}
 
-        {stats?.evolutionConfigured && setupStatus && !connected && (
+        {stats?.provider === 'builtin' && (
+          <div className="mb-4 p-3 bg-green-900/20 border border-green-800 text-green-300 rounded-lg text-sm">
+            Modo integrado activo — sesión guardada en Supabase. No necesitas Evolution API ni servicios extra.
+          </div>
+        )}
+
+        {stats?.evolutionConfigured && !connected && (
           <div className="mb-6 p-5 bg-gray-900 rounded-xl border border-green-800/50">
             <h2 className="text-white font-bold mb-3 flex items-center gap-2">
-              <Link2 className="w-5 h-5 text-green-500" /> Conectar WhatsApp (paso a paso)
+              <Link2 className="w-5 h-5 text-green-500" /> Conectar WhatsApp (escanea el QR)
             </h2>
-            {!setupStatus.evolutionReachable && (
+            {stats?.provider === 'evolution' && !setupStatus?.evolutionReachable && (
               <p className="text-red-400 text-sm mb-3">
-                No se alcanza Evolution API: {setupStatus.evolutionError || 'comprueba EVOLUTION_API_URL'}
+                No se alcanza Evolution API: {setupStatus?.evolutionError || 'comprueba EVOLUTION_API_URL'}
               </p>
             )}
             <div className="flex flex-wrap gap-3 items-end mb-4">
@@ -404,7 +410,7 @@ EVOLUTION_INSTANCE_NAME=caperucitas`}</pre>
               </div>
               <button
                 onClick={handleStartConnection}
-                disabled={isConnecting || !setupStatus.evolutionReachable}
+                disabled={isConnecting || (stats?.provider === 'evolution' && !setupStatus?.evolutionReachable)}
                 className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold px-5 py-2 rounded-lg text-sm flex items-center gap-2"
               >
                 <QrCode className="w-4 h-4" />
@@ -437,7 +443,7 @@ EVOLUTION_INSTANCE_NAME=caperucitas`}</pre>
           </div>
         )}
 
-        {stats?.evolutionConfigured && !setupStatus?.evolutionReachable && !loadError && (
+        {stats?.evolutionConfigured && stats?.provider === 'evolution' && !setupStatus?.evolutionReachable && !loadError && (
           <div className="mb-4 p-3 bg-red-900/30 border border-red-700 text-red-300 rounded-lg text-sm">
             Evolution API configurada pero no accesible. Verifica la URL pública y que el servicio Evolution esté desplegado.
           </div>

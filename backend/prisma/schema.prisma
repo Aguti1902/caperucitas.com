@@ -387,3 +387,15 @@ model WhatsAppMessageLog {
   @@map("whatsapp_message_logs")
 }
 
+model WhatsAppSession {
+  instanceName String   @id
+  authState    Json?
+  status       String   @default("disconnected") // disconnected | qr | connecting | connected
+  phone        String?
+  lastQr       String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("whatsapp_sessions")
+}
+

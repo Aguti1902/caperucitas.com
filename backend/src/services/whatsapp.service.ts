@@ -1,4 +1,6 @@
 /** Coste por mensaje WhatsApp enviado (EUR) */
+import * as baileys from './whatsapp-baileys.service';
+
 export const WHATSAPP_MESSAGE_COST_EUR = 0.0035;
 
 const DEFAULT_DELAY_MS = 2000;
@@ -9,6 +11,19 @@ export interface EvolutionInstance {
   state: string;
   owner?: string;
   profileName?: string;
+}
+
+export type WhatsAppProvider = 'builtin' | 'evolution';
+
+export function getWhatsAppProvider(): WhatsAppProvider {
+  const forced = process.env.WHATSAPP_PROVIDER;
+  if (forced === 'evolution') return 'evolution';
+  if (forced === 'builtin') return 'builtin';
+  return isEvolutionConfigured() ? 'evolution' : 'builtin';
+}
+
+export function isWhatsAppConfigured(): boolean {
+  return getWhatsAppProvider() === 'builtin' || isEvolutionConfigured();
 }
 
 function getEvolutionConfig() {
@@ -24,7 +39,11 @@ export function isEvolutionConfigured(): boolean {
 }
 
 export function getDefaultInstanceName(): string {
-  return getEvolutionConfig().instance;
+  return (
+    getEvolutionConfig().instance ||
+    process.env.WHATSAPP_INSTANCE_NAME ||
+    'caperucitas'
+  );
 }
 
 /** Normaliza teléfono a formato internacional sin + (España por defecto) */
@@ -46,7 +65,13 @@ export async function listInstances(): Promise<{
   configured: boolean;
   instances: EvolutionInstance[];
   error?: string;
+  provider?: WhatsAppProvider;
 }> {
+  if (getWhatsAppProvider() === 'builtin') {
+    const instances = await baileys.listBuiltinInstances();
+    return { configured: true, instances, provider: 'builtin' };
+  }
+
   const { baseUrl, apiKey } = getEvolutionConfig();
   if (!isEvolutionConfigured()) {
     return { configured: false, instances: [], error: 'Evolution API no configurada' };
@@ -112,12 +137,21 @@ export async function getInstanceStatus(instanceName?: string): Promise<{
   state?: string;
   owner?: string;
   error?: string;
+  provider?: WhatsAppProvider;
 }> {
-  const { baseUrl, apiKey } = getEvolutionConfig();
   const instance = resolveInstanceName(instanceName);
+  if (!instance) {
+    return { configured: false, connected: false, error: 'Instancia no definida' };
+  }
 
-  if (!isEvolutionConfigured() || !instance) {
-    return { configured: false, connected: false, error: 'Evolution API no configurada' };
+  if (getWhatsAppProvider() === 'builtin') {
+    const status = await baileys.getBuiltinStatus(instance);
+    return { ...status, provider: 'builtin' };
+  }
+
+  const { baseUrl, apiKey } = getEvolutionConfig();
+  if (!isEvolutionConfigured()) {
+    return { configured: false, connected: false, instanceName: instance, error: 'Evolution API no configurada' };
   }
 
   try {
@@ -126,7 +160,7 @@ export async function getInstanceStatus(instanceName?: string): Promise<{
     });
     if (!res.ok) {
       const text = await res.text();
-      return { configured: true, connected: false, instanceName: instance, error: text || res.statusText };
+      return { configured: true, connected: false, instanceName: instance, error: text || res.statusText, provider: 'evolution' };
     }
     const data = (await res.json()) as any;
     const state = data?.instance?.state || data?.state || data?.connectionStatus;
@@ -138,13 +172,17 @@ export async function getInstanceStatus(instanceName?: string): Promise<{
       instanceName: instance,
       state: String(state),
       owner: owner ? String(owner) : undefined,
+      provider: 'evolution',
     };
   } catch (err: any) {
-    return { configured: true, connected: false, instanceName: instance, error: err.message };
+    return { configured: true, connected: false, instanceName: instance, error: err.message, provider: 'evolution' };
   }
 }
 
-export async function checkEvolutionHealth(): Promise<{ ok: boolean; error?: string }> {
+export async function checkEvolutionHealth(): Promise<{ ok: boolean; error?: string; provider?: WhatsAppProvider }> {
+  if (getWhatsAppProvider() === 'builtin') {
+    return { ok: true, provider: 'builtin' };
+  }
   const { baseUrl, apiKey } = getEvolutionConfig();
   if (!baseUrl || !apiKey) {
     return { ok: false, error: 'EVOLUTION_API_URL o EVOLUTION_API_KEY no configuradas' };
@@ -159,13 +197,24 @@ export async function checkEvolutionHealth(): Promise<{ ok: boolean; error?: str
 }
 
 export async function createEvolutionInstance(instanceName: string): Promise<{ success: boolean; error?: string; data?: unknown }> {
+  const name = instanceName.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
+  if (!name) return { success: false, error: 'Nombre de instancia inválido' };
+
+  if (getWhatsAppProvider() === 'builtin') {
+    const result = await baileys.startBuiltinInstance(name);
+    if (result.error && !result.qrBase64 && !result.connected) {
+      return { success: false, error: result.error };
+    }
+    return {
+      success: true,
+      data: { instanceName: name, qrBase64: result.qrBase64, connected: result.connected, phone: result.phone },
+    };
+  }
+
   const { baseUrl, apiKey } = getEvolutionConfig();
   if (!isEvolutionConfigured()) {
     return { success: false, error: 'Evolution API no configurada' };
   }
-
-  const name = instanceName.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
-  if (!name) return { success: false, error: 'Nombre de instancia inválido' };
 
   try {
     const res = await fetch(`${baseUrl}/instance/create`, {
@@ -196,14 +245,28 @@ export async function getEvolutionQrCode(instanceName: string): Promise<{
   success: boolean;
   base64?: string;
   pairingCode?: string;
+  connected?: boolean;
+  owner?: string;
   error?: string;
 }> {
+  const name = instanceName.trim();
+
+  if (getWhatsAppProvider() === 'builtin') {
+    const result = await baileys.getBuiltinQr(name);
+    if (result.connected) {
+      return { success: true, connected: true, owner: result.owner };
+    }
+    if (result.base64) {
+      return { success: true, base64: result.base64 };
+    }
+    return { success: false, error: result.error };
+  }
+
   const { baseUrl, apiKey } = getEvolutionConfig();
   if (!isEvolutionConfigured()) {
     return { success: false, error: 'Evolution API no configurada' };
   }
 
-  const name = instanceName.trim();
   try {
     const res = await fetch(`${baseUrl}/instance/connect/${name}`, {
       headers: { apikey: apiKey },
@@ -231,13 +294,24 @@ export async function getEvolutionQrCode(instanceName: string): Promise<{
 }
 
 export async function restartEvolutionInstance(instanceName: string): Promise<{ success: boolean; error?: string }> {
+  const name = instanceName.trim();
+
+  if (getWhatsAppProvider() === 'builtin') {
+    try {
+      await baileys.restartBuiltinInstance(name);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+
   const { baseUrl, apiKey } = getEvolutionConfig();
   if (!isEvolutionConfigured()) {
     return { success: false, error: 'Evolution API no configurada' };
   }
 
   try {
-    const res = await fetch(`${baseUrl}/instance/restart/${instanceName.trim()}`, {
+    const res = await fetch(`${baseUrl}/instance/restart/${name}`, {
       method: 'PUT',
       headers: { apikey: apiKey },
     });
@@ -256,16 +330,23 @@ export async function sendTextMessage(
   text: string,
   instanceName?: string
 ): Promise<{ success: boolean; error?: string }> {
-  const { baseUrl, apiKey } = getEvolutionConfig();
   const instance = resolveInstanceName(instanceName);
-
-  if (!isEvolutionConfigured() || !instance) {
-    return { success: false, error: 'Evolution API no configurada (EVOLUTION_API_URL, EVOLUTION_API_KEY, EVOLUTION_INSTANCE_NAME)' };
-  }
-
   const normalized = normalizePhone(phone);
   if (!normalized) {
     return { success: false, error: `Número inválido: ${phone}` };
+  }
+
+  if (getWhatsAppProvider() === 'builtin') {
+    if (!instance) {
+      return { success: false, error: 'Instancia no definida' };
+    }
+    return baileys.sendBuiltinMessage(instance, normalized, text);
+  }
+
+  const { baseUrl, apiKey } = getEvolutionConfig();
+
+  if (!isEvolutionConfigured() || !instance) {
+    return { success: false, error: 'Evolution API no configurada (EVOLUTION_API_URL, EVOLUTION_API_KEY, EVOLUTION_INSTANCE_NAME)' };
   }
 
   try {

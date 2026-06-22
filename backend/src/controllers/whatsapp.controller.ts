@@ -8,7 +8,8 @@ import {
   sendTextMessage,
   normalizePhone,
   sleep,
-  isEvolutionConfigured,
+  isWhatsAppConfigured,
+  getWhatsAppProvider,
   listInstances,
   getDefaultInstanceName,
   createEvolutionInstance,
@@ -206,7 +207,8 @@ export const getWhatsAppStats = async (_req: AuthRequest, res: Response) => {
       todayCostEur: todaySent * WHATSAPP_MESSAGE_COST_EUR,
       instance,
       instances: instancesData.instances,
-      evolutionConfigured: isEvolutionConfigured(),
+      evolutionConfigured: isWhatsAppConfigured(),
+      provider: getWhatsAppProvider(),
     });
   } catch (error) {
     console.error('Error getWhatsAppStats:', error);
@@ -383,8 +385,8 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
     if (!message?.trim()) {
       return res.status(400).json({ error: 'El mensaje es obligatorio' });
     }
-    if (!isEvolutionConfigured()) {
-      return res.status(400).json({ error: 'Evolution API no está configurada en el servidor' });
+    if (!isWhatsAppConfigured()) {
+      return res.status(400).json({ error: 'WhatsApp no está configurado en el servidor' });
     }
 
     const resolvedInstance = (instanceName || getDefaultInstanceName()).trim();
@@ -507,7 +509,8 @@ export const getSetupStatus = async (_req: AuthRequest, res: Response) => {
   const instanceStatus = defaultInstance ? await getInstanceStatus(defaultInstance) : null;
 
   res.json({
-    evolutionConfigured: isEvolutionConfigured(),
+    evolutionConfigured: isWhatsAppConfigured(),
+    provider: getWhatsAppProvider(),
     evolutionReachable: health.ok,
     evolutionError: health.error || instances.error,
     defaultInstance,
@@ -527,7 +530,7 @@ export const setupCreateInstance = async (req: AuthRequest, res: Response) => {
   res.json({
     message: 'Instancia creada. Escanea el QR con WhatsApp.',
     instanceName,
-    qr: qr.success ? { base64: qr.base64, pairingCode: qr.pairingCode } : null,
+    qr: qr.success ? { base64: qr.base64, pairingCode: qr.pairingCode, connected: qr.connected } : null,
     qrError: qr.error,
   });
 };
@@ -542,6 +545,9 @@ export const setupGetQr = async (req: AuthRequest, res: Response) => {
     return res.json({ connected: true, instanceName, owner: status.owner });
   }
   const qr = await getEvolutionQrCode(instanceName);
+  if (qr.connected) {
+    return res.json({ connected: true, instanceName, owner: qr.owner });
+  }
   if (!qr.success) {
     return res.status(400).json({ error: qr.error });
   }

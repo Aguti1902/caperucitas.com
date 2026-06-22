@@ -309,6 +309,9 @@ const PORT = process.env.PORT || 4000;
 httpServer.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
   console.log(`📡 WebSocket disponible en ws://localhost:${PORT}`);
+  import('./services/whatsapp-baileys.service')
+    .then(({ restoreBuiltinSessions }) => restoreBuiltinSessions())
+    .catch(() => {});
 });
 
 // Exportar io para usarlo en otros módulos si es necesario
