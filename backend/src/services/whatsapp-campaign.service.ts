@@ -161,6 +161,21 @@ export async function pauseActiveCampaignsForInstance(instanceName: string, reas
   console.log(`[WhatsApp] ${campaigns.length} campaña(s) pausada(s) por desconexión (${name})`);
 }
 
+async function syncCampaignCountsFromLogs(campaignId: string): Promise<void> {
+  const [sent, failed] = await Promise.all([
+    prisma.whatsAppMessageLog.count({ where: { campaignId, status: 'sent' } }),
+    prisma.whatsAppMessageLog.count({ where: { campaignId, status: 'failed' } }),
+  ]);
+  await prisma.whatsAppCampaign.update({
+    where: { id: campaignId },
+    data: {
+      sentCount: sent,
+      failedCount: failed,
+      totalCostEur: sent * WHATSAPP_MESSAGE_COST_EUR,
+    },
+  });
+}
+
 async function sendWithRetry(
   instanceName: string | undefined,
   phone: string,
@@ -299,13 +314,7 @@ export async function processCampaign(campaignId: string): Promise<void> {
             error: null,
           },
         });
-        await prisma.whatsAppCampaign.update({
-          where: { id: campaignId },
-          data: {
-            sentCount: { increment: 1 },
-            totalCostEur: { increment: WHATSAPP_MESSAGE_COST_EUR },
-          },
-        });
+        await syncCampaignCountsFromLogs(campaignId);
         touchStats();
         burstCount += 1;
         if (burstCount >= burstLimit) {
@@ -320,10 +329,7 @@ export async function processCampaign(campaignId: string): Promise<void> {
           where: { id: log.id },
           data: { status: 'failed', error: outcome.error.slice(0, 500) },
         });
-        await prisma.whatsAppCampaign.update({
-          where: { id: campaignId },
-          data: { failedCount: { increment: 1 } },
-        });
+        await syncCampaignCountsFromLogs(campaignId);
       }
 
       await sleep(jitterDelayMs(campaign.delayMs || DEFAULT_DELAY_MS));

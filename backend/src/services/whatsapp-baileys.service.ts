@@ -10,6 +10,8 @@ import makeWASocket, {
   type SignalDataTypeMap,
   type SignalDataSet,
   type WASocket,
+  type WAMessage,
+  type WAMessageUpdate,
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import QRCode from 'qrcode';
@@ -786,7 +788,7 @@ export async function sendBuiltinMessage(
   phone: string,
   text: string,
   imageUrl?: string
-) {
+): Promise<{ success: boolean; error?: string; messageId?: string }> {
   const name = normalizeName(instanceName);
   let sock = activeSockets.get(name);
   if (!sock?.user) {
@@ -803,21 +805,93 @@ export async function sendBuiltinMessage(
   const jid = `${phone.replace(/\D/g, '')}@s.whatsapp.net`;
   const caption = text?.trim() || undefined;
 
+  /** Baileys Status: ERROR=0 PENDING=1 SERVER_ACK=2 … */
+  const SERVER_ACK = 2;
+
+  const waitForServerAck = (key: WAMessage['key'], timeoutMs = 14_000): Promise<boolean> =>
+    new Promise((resolve) => {
+      if (!key?.id) {
+        resolve(false);
+        return;
+      }
+
+      let settled = false;
+      const finish = (ok: boolean) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        sock!.ev.off('messages.update', onUpdate);
+        resolve(ok);
+      };
+
+      const timer = setTimeout(() => finish(false), timeoutMs);
+
+      const onUpdate = (updates: WAMessageUpdate[]) => {
+        for (const { key: updKey, update } of updates) {
+          if (updKey?.id !== key.id) continue;
+          if (updKey?.remoteJid && key.remoteJid && updKey.remoteJid !== key.remoteJid) continue;
+          const status = update?.status;
+          if (status === 0) {
+            finish(false);
+            return;
+          }
+          if (typeof status === 'number' && status >= SERVER_ACK) {
+            finish(true);
+            return;
+          }
+        }
+      };
+
+      sock!.ev.on('messages.update', onUpdate);
+    });
+
   try {
+    if (!isBuiltinConnected(name)) {
+      return { success: false, error: 'WhatsApp se desconectó antes de enviar' };
+    }
+
+    let sent: WAMessage | undefined;
     if (imageUrl?.trim()) {
       const imagePayload = await resolveWhatsAppImagePayload(imageUrl);
       if (imagePayload.buffer) {
-        await sock.sendMessage(jid, { image: imagePayload.buffer, caption, mimetype: imagePayload.mimetype });
+        sent = await sock.sendMessage(jid, {
+          image: imagePayload.buffer,
+          caption,
+          mimetype: imagePayload.mimetype,
+        });
       } else {
-        await sock.sendMessage(jid, { image: { url: imagePayload.url! }, caption });
+        sent = await sock.sendMessage(jid, { image: { url: imagePayload.url! }, caption });
       }
     } else {
       if (!caption) {
         return { success: false, error: 'El mensaje no puede estar vacío' };
       }
-      await sock.sendMessage(jid, { text: caption });
+      sent = await sock.sendMessage(jid, { text: caption });
     }
-    return { success: true };
+
+    const messageId = sent?.key?.id;
+    if (!messageId) {
+      return {
+        success: false,
+        error: 'WhatsApp no devolvió ID de mensaje — probablemente no se entregó',
+      };
+    }
+
+    const acked = await waitForServerAck(sent.key);
+    if (!acked) {
+      return {
+        success: false,
+        error: 'WhatsApp no confirmó el envío (desconexión o rechazo). Comprueba en el móvil; no se contabiliza como enviado.',
+        messageId,
+      };
+    }
+
+    if (!isBuiltinConnected(name)) {
+      console.warn(`[WhatsApp:${name}] ACK ok pero socket caído tras envío a ${phone}`);
+    }
+
+    console.log(`[WhatsApp:${name}] ✓ Confirmado ${phone} id=${messageId}`);
+    return { success: true, messageId };
   } catch (err: any) {
     return { success: false, error: err.message };
   }

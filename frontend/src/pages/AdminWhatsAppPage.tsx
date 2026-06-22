@@ -40,6 +40,7 @@ import {
   getWhatsAppSetupStatus,
   getWhatsAppConnectionStatus,
   connectWhatsAppSender,
+  resetWhatsAppMessages,
 } from '../services/admin.api';
 
 const COST_PER_MSG = 0.035;
@@ -85,6 +86,7 @@ export default function AdminWhatsAppPage() {
   const [campaignSource, setCampaignSource] = useState('contacts_db');
   const [manualPhones, setManualPhones] = useState('');
   const [delayMs, setDelayMs] = useState(12000);
+  const [isResettingMessages, setIsResettingMessages] = useState(false);
   const [testPhone, setTestPhone] = useState('');
   const [testMessage, setTestMessage] = useState('');
 
@@ -417,6 +419,23 @@ export default function AdminWhatsAppPage() {
     setCampaignImagePreview('');
   };
 
+  const handleResetMessageCount = async () => {
+    if (!window.confirm('¿Resetear contador de mensajes? Borra el historial de envíos del panel y corrige cifras infladas. Las campañas activas se cancelan.')) {
+      return;
+    }
+    setIsResettingMessages(true);
+    setError('');
+    try {
+      const result = await resetWhatsAppMessages();
+      setSuccess(result.message || 'Contador reseteado');
+      loadAll();
+    } catch (e: any) {
+      setError(e.response?.data?.error || 'Error al resetear contador');
+    } finally {
+      setIsResettingMessages(false);
+    }
+  };
+
   const handleCreateCampaign = async () => {
     setError('');
     setSuccess('');
@@ -689,7 +708,7 @@ export default function AdminWhatsAppPage() {
                 Mensajes restantes
               </h2>
               <p className="text-gray-400 text-xs mt-1">
-                Tienes un límite de {messageLimit.toLocaleString('es-ES')} mensajes. Cada envío exitoso consume 1 mensaje.
+                Solo cuentan envíos confirmados por WhatsApp (no los encolados si se desconecta). Límite: {messageLimit.toLocaleString('es-ES')} mensajes.
               </p>
             </div>
             <div className="text-right">
@@ -708,6 +727,16 @@ export default function AdminWhatsAppPage() {
           <p className="text-gray-500 text-xs">
             Usados: {(quota?.used ?? 0).toLocaleString('es-ES')} ({quotaPercentUsed}%)
           </p>
+          {(quota?.used ?? 0) > 0 && (
+            <button
+              type="button"
+              onClick={handleResetMessageCount}
+              disabled={isResettingMessages}
+              className="mt-3 text-xs text-gray-400 hover:text-amber-300 underline disabled:opacity-50"
+            >
+              {isResettingMessages ? 'Reseteando…' : 'Resetear contador (si no coincide con tu WhatsApp)'}
+            </button>
+          )}
           {quotaExhausted && (
             <div className="mt-4 p-4 bg-red-900/30 border border-red-700 rounded-lg text-red-200 text-sm flex items-start gap-2">
               <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
