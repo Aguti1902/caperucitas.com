@@ -35,7 +35,7 @@ import {
   resumeCampaign,
   setCampaignStatsHook,
 } from '../services/whatsapp-campaign.service';
-import { ensureWhatsAppSchemaColumns } from '../utils/whatsapp-schema-migrate.utils';
+import { ensureWhatsAppSchema } from '../utils/whatsapp-schema-migrate.utils';
 
 let whatsappStatsCache: { data: Record<string, unknown>; expiresAt: number } | null = null;
 let profilePhoneCountCache = { count: 0, expiresAt: 0 };
@@ -43,7 +43,8 @@ let schemaEnsured = false;
 
 async function ensureWhatsAppSchemaOnce(): Promise<void> {
   if (schemaEnsured) return;
-  await ensureWhatsAppSchemaColumns();
+  const { ensureWhatsAppSchema } = await import('../utils/whatsapp-schema-migrate.utils');
+  await ensureWhatsAppSchema();
   schemaEnsured = true;
 }
 
@@ -486,6 +487,8 @@ export const uploadCampaignImage = async (req: AuthRequest, res: Response) => {
 
 export const createCampaign = async (req: AuthRequest, res: Response) => {
   try {
+    await ensureWhatsAppSchemaOnce();
+
     const { name, message, imageUrl, source = 'contacts_db', phones, delayMs = DEFAULT_DELAY_MS, instanceName } = req.body;
 
     const trimmedMessage = message?.trim() || '';

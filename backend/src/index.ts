@@ -6,6 +6,10 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+
+const execFileAsync = promisify(execFile);
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import cron from 'node-cron';
@@ -311,18 +315,36 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
 // Iniciar servidor — migrar esquema WhatsApp ANTES de aceptar peticiones
 const PORT = process.env.PORT || 4000;
 
+async function runPrismaDbPush(): Promise<void> {
+  try {
+    const backendDir = path.join(__dirname, '..');
+    await execFileAsync('npx', ['prisma', 'db', 'push', '--skip-generate'], {
+      cwd: backendDir,
+      timeout: 120_000,
+    });
+    console.log('✅ prisma db push OK');
+  } catch (err: any) {
+    console.warn('⚠️ prisma db push:', err?.stderr || err?.message || err);
+  }
+}
+
 async function bootstrap() {
   try {
-    const { ensureWhatsAppSchemaColumns } = await import('./utils/whatsapp-schema-migrate.utils');
-    await ensureWhatsAppSchemaColumns();
+    const { ensureWhatsAppSchema } = await import('./utils/whatsapp-schema-migrate.utils');
+    await ensureWhatsAppSchema();
+    await runPrismaDbPush();
     console.log('✅ WhatsApp schema listo antes de arrancar');
 
     const { clearWhatsAppMessageHistory } = await import('./utils/whatsapp-db.utils');
-    const prisma = (await import('./lib/prisma')).default;
-    const sentCount = await prisma.whatsAppMessageLog.count({ where: { status: 'sent' } });
-    if (sentCount > 0 && sentCount <= 50) {
-      const deleted = await clearWhatsAppMessageHistory();
-      console.log(`✅ WhatsApp: reseteados ${deleted} mensajes de prueba al arrancar (tenías ${sentCount} usados)`);
+    const prismaClient = (await import('./lib/prisma')).default;
+    try {
+      const sentCount = await prismaClient.whatsAppMessageLog.count({ where: { status: 'sent' } });
+      if (sentCount > 0 && sentCount <= 50) {
+        const deleted = await clearWhatsAppMessageHistory();
+        console.log(`✅ WhatsApp: reseteados ${deleted} mensajes de prueba al arrancar (tenías ${sentCount} usados)`);
+      }
+    } catch {
+      /* tablas recién creadas */
     }
   } catch (err: any) {
     console.warn('⚠️ WhatsApp schema al arrancar:', err?.message);
@@ -331,18 +353,6 @@ async function bootstrap() {
   httpServer.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
     console.log(`📡 WebSocket disponible en ws://localhost:${PORT}`);
-
-    import('child_process').then(({ exec }) => {
-      exec(
-        'npx prisma db push --skip-generate',
-        { cwd: path.join(__dirname, '..') },
-        (err, stdout) => {
-          if (err) console.warn('⚠️ prisma db push:', err.message);
-          else console.log('✅ prisma db push OK');
-          if (stdout?.trim()) console.log(stdout.trim());
-        }
-      );
-    }).catch(() => {});
 
     import('./services/whatsapp.service').then(({ getWhatsAppProvider, getDefaultInstanceName, isWhatsAppConfigured }) => {
       console.log(`📱 WhatsApp provider: ${getWhatsAppProvider()} | instancia: ${getDefaultInstanceName()} | configurado: ${isWhatsAppConfigured()}`);

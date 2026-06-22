@@ -41,8 +41,8 @@ export async function ensureWhatsAppSettings() {
     Number.isFinite(envDaily) && envDaily > 0 ? envDaily : WHATSAPP_DAILY_LIMIT_DEFAULT;
 
   try {
-    const { ensureWhatsAppSchemaColumns } = await import('./whatsapp-schema-migrate.utils');
-    await ensureWhatsAppSchemaColumns();
+    const { ensureWhatsAppSchema } = await import('./whatsapp-schema-migrate.utils');
+    await ensureWhatsAppSchema();
   } catch {
     /* ignore */
   }
@@ -57,8 +57,8 @@ export async function ensureWhatsAppSettings() {
     console.warn('ensureWhatsAppSettings upsert:', err);
     try {
       await prisma.$executeRawUnsafe(`
-        INSERT INTO whatsapp_settings (id, "messageLimit", "updatedAt")
-        VALUES ('default', ${defaultLimit}, NOW())
+        INSERT INTO whatsapp_settings (id, "messageLimit", "dailyMessageLimit", "updatedAt")
+        VALUES ('default', ${defaultLimit}, ${defaultDaily}, NOW())
         ON CONFLICT (id) DO NOTHING;
       `);
     } catch {

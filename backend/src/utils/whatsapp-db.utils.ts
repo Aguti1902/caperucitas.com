@@ -1,5 +1,5 @@
 import prisma from '../lib/prisma';
-import { ensureWhatsAppSchemaColumns } from './whatsapp-schema-migrate.utils';
+import { ensureWhatsAppSchema } from './whatsapp-schema-migrate.utils';
 import { computeWhatsAppCost } from './whatsapp-cost.utils';
 
 export interface WhatsAppCampaignRow {
@@ -48,7 +48,7 @@ function mapCampaignRow(row: Record<string, unknown>): WhatsAppCampaignRow {
 
 /** Lista campañas con SQL directo (funciona aunque falten columnas nuevas en el ORM). */
 export async function listWhatsAppCampaigns(limit = 50): Promise<WhatsAppCampaignRow[]> {
-  await ensureWhatsAppSchemaColumns();
+  await ensureWhatsAppSchema();
 
   try {
     const rows = await prisma.whatsAppCampaign.findMany({
@@ -79,7 +79,7 @@ export async function listWhatsAppCampaigns(limit = 50): Promise<WhatsAppCampaig
 
 /** Borra todos los logs de mensajes y resetea contadores de campañas. */
 export async function clearWhatsAppMessageHistory(): Promise<number> {
-  await ensureWhatsAppSchemaColumns();
+  await ensureWhatsAppSchema();
 
   let deleted = 0;
 
