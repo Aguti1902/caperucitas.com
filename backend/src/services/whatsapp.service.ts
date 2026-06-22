@@ -16,10 +16,11 @@ export interface EvolutionInstance {
 export type WhatsAppProvider = 'builtin' | 'evolution';
 
 export function getWhatsAppProvider(): WhatsAppProvider {
-  const forced = process.env.WHATSAPP_PROVIDER;
+  const forced = (process.env.WHATSAPP_PROVIDER || '').toLowerCase().trim();
   if (forced === 'evolution') return 'evolution';
   if (forced === 'builtin') return 'builtin';
-  return isEvolutionConfigured() ? 'evolution' : 'builtin';
+  // Por defecto builtin — no auto-seleccionar Evolution aunque existan vars legacy
+  return 'builtin';
 }
 
 export function isWhatsAppConfigured(): boolean {
@@ -276,6 +277,9 @@ export async function getEvolutionQrCode(instanceName: string): Promise<{
     if (result.pairingCode) {
       return { success: true, pairingCode: result.pairingCode };
     }
+    if ((result as any).qrBase64) {
+      return { success: true, base64: (result as any).qrBase64 };
+    }
     return { success: false, error: result.error };
   }
 
@@ -355,6 +359,56 @@ export async function restartEvolutionInstance(
       return { success: false, error: text || res.statusText };
     }
     return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/** Inicia vinculación sin borrar sesión si ya hay un código reciente válido */
+export async function beginWhatsAppPairing(
+  instanceName: string,
+  options?: { pairingPhone?: string; forceReset?: boolean; useQr?: boolean }
+): Promise<{
+  success: boolean;
+  error?: string;
+  data?: { qrBase64?: string; pairingCode?: string; connected?: boolean; phone?: string };
+}> {
+  const name = instanceName.trim();
+  if (getWhatsAppProvider() !== 'builtin') {
+    return restartEvolutionInstance(name, { pairingPhone: options?.pairingPhone });
+  }
+
+  try {
+    if (options?.forceReset) {
+      return restartEvolutionInstance(name, { pairingPhone: options?.useQr ? undefined : options?.pairingPhone });
+    }
+
+    if (options?.useQr) {
+      const result = await baileys.restartBuiltinInstance(name, {});
+      return {
+        success: true,
+        data: {
+          qrBase64: result.qrBase64,
+          pairingCode: result.pairingCode,
+          connected: result.connected,
+          phone: result.phone,
+        },
+      };
+    }
+
+    const result = await baileys.beginBuiltinPairing(name, { pairingPhone: options?.pairingPhone });
+    if (result.error && !result.qrBase64 && !result.pairingCode && !result.connected) {
+      return { success: false, error: result.error };
+    }
+    return {
+      success: true,
+      data: {
+        qrBase64: result.qrBase64,
+        pairingCode: result.pairingCode,
+        connected: result.connected,
+        phone: result.phone,
+      },
+    };
   } catch (err: any) {
     return { success: false, error: err.message };
   }

@@ -18,6 +18,7 @@ import {
   restartEvolutionInstance,
   checkEvolutionHealth,
   getWhatsAppDiagnostics,
+  beginWhatsAppPairing,
 } from '../services/whatsapp.service';
 import { buildPublicUploadUrl } from '../utils/whatsapp-image.utils';
 
@@ -707,16 +708,23 @@ export const setupPairingCode = async (req: AuthRequest, res: Response) => {
   try {
     const instanceName = (req.body.instanceName || getDefaultInstanceName() || 'caperucitas').trim();
     const rawPhone = String(req.body.phone || getDefaultSenderPhone() || '').trim();
-    if (!rawPhone) {
+    const forceReset = Boolean(req.body.forceReset);
+    const useQr = Boolean(req.body.useQr);
+
+    if (!useQr && !rawPhone) {
       return res.status(400).json({ error: 'Introduce el número de WhatsApp emisor (ej. 34612345678)' });
     }
 
-    const phone = normalizePhone(rawPhone);
-    if (!phone) {
+    const phone = rawPhone ? normalizePhone(rawPhone) : null;
+    if (!useQr && !phone) {
       return res.status(400).json({ error: 'Número inválido. Usa formato internacional sin + (ej. 34612345678)' });
     }
 
-    const result = await restartEvolutionInstance(instanceName, { pairingPhone: phone });
+    const result = await beginWhatsAppPairing(instanceName, {
+      pairingPhone: phone || undefined,
+      forceReset,
+      useQr,
+    });
     if (!result.success) {
       return res.status(400).json({ error: result.error });
     }
@@ -728,6 +736,15 @@ export const setupPairingCode = async (req: AuthRequest, res: Response) => {
         instanceName,
         connected: true,
         phone: data.phone,
+      });
+    }
+
+    if (data?.qrBase64) {
+      return res.json({
+        message: 'Escanea el QR con WhatsApp → Dispositivos vinculados → Vincular dispositivo',
+        instanceName,
+        qr: { base64: data.qrBase64 },
+        connected: false,
       });
     }
 

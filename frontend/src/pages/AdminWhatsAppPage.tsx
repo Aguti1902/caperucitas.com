@@ -85,6 +85,7 @@ export default function AdminWhatsAppPage() {
   const [setupStatus, setSetupStatus] = useState<any>(null);
   const [senderPhone, setSenderPhone] = useState('');
   const [pairingCode, setPairingCode] = useState<string | null>(null);
+  const [qrBase64, setQrBase64] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isWaitingConnect, setIsWaitingConnect] = useState(false);
   const [autoSynced, setAutoSynced] = useState(false);
@@ -112,6 +113,7 @@ export default function AdminWhatsAppPage() {
       const data = await getWhatsAppConnectionStatus(instanceName);
       if (data.connected) {
         setPairingCode(null);
+        setQrBase64(null);
         setIsWaitingConnect(false);
         setSuccess(`WhatsApp conectado — enviando desde +${data.owner || senderPhone}`);
         if (data.owner) setSenderPhone(String(data.owner).replace(/\D/g, ''));
@@ -129,28 +131,39 @@ export default function AdminWhatsAppPage() {
     }
   }, [senderPhone, instanceName]);
 
-  const handleConnectSender = async () => {
+  const handleConnectSender = async (options?: { forceReset?: boolean; useQr?: boolean }) => {
     setError('');
     setSuccess('');
     const phone = senderPhone.trim();
-    if (!phone) {
+    if (!options?.useQr && !phone) {
       setError('Introduce el número de WhatsApp desde el que quieres enviar (ej. 34612345678)');
       return;
     }
     setIsConnecting(true);
+    if (options?.forceReset || options?.useQr) {
+      setPairingCode(null);
+      setQrBase64(null);
+    }
     setIsWaitingConnect(false);
-    setPairingCode(null);
     try {
       setSelectedInstance(instanceName);
-      const result = await connectWhatsAppSender(phone, instanceName);
+      const result = await connectWhatsAppSender(phone || '0000000000', instanceName, options);
       if (result.connected) {
+        setPairingCode(null);
+        setQrBase64(null);
         setSuccess(`WhatsApp conectado — los mensajes saldrán desde +${result.phone || phone}`);
+      } else if (result.qr?.base64) {
+        setQrBase64(result.qr.base64);
+        setPairingCode(null);
+        setIsWaitingConnect(true);
+        setSuccess('Escanea el QR con WhatsApp → Dispositivos vinculados → Vincular dispositivo.');
       } else if (result.pairingCode) {
         setPairingCode(result.pairingCode);
+        setQrBase64(null);
         setIsWaitingConnect(true);
         setSuccess('Código listo. Introdúcelo en el móvil ahora (tienes ~2 min).');
       } else {
-        setError('No se pudo vincular. Si WhatsApp dice «inténtelo más tarde», espera 24 h.');
+        setError('No se pudo vincular. Si WhatsApp dice «inténtelo más tarde», espera 24 h o prueba con QR.');
       }
       loadSetup();
       loadInstances();
@@ -217,7 +230,7 @@ export default function AdminWhatsAppPage() {
 
   // Comprobar si ya conectó tras introducir el código (sin regenerar nada)
   useEffect(() => {
-    if (!pairingCode && !isWaitingConnect) return;
+    if (!pairingCode && !qrBase64 && !isWaitingConnect) return;
     const t = setInterval(async () => {
       const ok = await checkConnectionStatus();
       if (ok) {
@@ -227,7 +240,7 @@ export default function AdminWhatsAppPage() {
       }
     }, 3000);
     return () => clearInterval(t);
-  }, [pairingCode, isWaitingConnect, checkConnectionStatus, loadAll, loadInstances, loadSetup]);
+  }, [pairingCode, qrBase64, isWaitingConnect, checkConnectionStatus, loadAll, loadInstances, loadSetup]);
 
   // Auto-sincronizar teléfonos de perfiles la primera vez
   useEffect(() => {
@@ -464,7 +477,7 @@ export default function AdminWhatsAppPage() {
             <>
               <div className="flex flex-wrap gap-2 mb-4">
                 <button
-                  onClick={handleConnectSender}
+                  onClick={() => handleConnectSender()}
                   disabled={isConnecting || !senderPhone.trim()}
                   className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold px-5 py-2.5 rounded-lg text-sm flex items-center gap-2"
                 >
@@ -473,14 +486,35 @@ export default function AdminWhatsAppPage() {
                 </button>
                 {pairingCode && (
                   <button
-                    onClick={handleConnectSender}
+                    onClick={() => handleConnectSender({ forceReset: true })}
                     disabled={isConnecting}
                     className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2.5 rounded-lg text-sm"
                   >
-                    Nuevo código
+                    Reiniciar vinculación
                   </button>
                 )}
+                <button
+                  onClick={() => handleConnectSender({ useQr: true, forceReset: true })}
+                  disabled={isConnecting}
+                  className="bg-blue-700 hover:bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm"
+                >
+                  Vincular con QR
+                </button>
               </div>
+
+              {qrBase64 && (
+                <div className="mb-4 p-4 bg-gray-800 rounded-xl border border-blue-700 text-center">
+                  <p className="text-gray-400 text-xs mb-3">Escanea con WhatsApp → Dispositivos vinculados → Vincular dispositivo</p>
+                  <img
+                    src={`data:image/png;base64,${qrBase64}`}
+                    alt="QR WhatsApp"
+                    className="mx-auto w-64 h-64 rounded-lg bg-white p-2"
+                  />
+                  {isWaitingConnect && (
+                    <p className="text-blue-400 text-sm mt-2 animate-pulse">Esperando escaneo…</p>
+                  )}
+                </div>
+              )}
 
               {pairingCode && (
                 <div className="mb-4 p-4 bg-gray-800 rounded-xl border border-green-700">

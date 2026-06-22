@@ -23,9 +23,11 @@ const connectingLocks = new Map<string, Promise<void>>();
 const pairingModeInstances = new Set<string>();
 const pairingCodeRequested = new Set<string>();
 const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const pairingReconnectAttempts = new Map<string, number>();
 
-/** Mínimo entre intentos de vinculación nueva (no aplica a reconexión automática) */
-const LINK_COOLDOWN_MS = 60 * 1000;
+/** Mínimo entre intentos de vinculación NUEVA (no aplica a reanudar código existente) */
+const LINK_COOLDOWN_MS = 30 * 1000;
+const MAX_PAIRING_RECONNECTS = 3;
 
 let cachedWaVersion: [number, number, number] | undefined;
 
@@ -327,6 +329,7 @@ async function connectSocket(instanceName: string, force = false, options: Conne
   if (force) {
     pairingModeInstances.delete(name);
     pairingCodeRequested.delete(name);
+    pairingReconnectAttempts.delete(name);
     await disconnectSocket(name);
   }
 
@@ -425,6 +428,7 @@ async function connectSocket(instanceName: string, force = false, options: Conne
         clearReconnectTimer(name);
         pairingModeInstances.delete(name);
         pairingCodeRequested.delete(name);
+        pairingReconnectAttempts.delete(name);
         const phone = extractPhone(sock);
         await updateSession(name, {
           status: 'connected',
@@ -484,8 +488,24 @@ async function connectSocket(instanceName: string, force = false, options: Conne
         if (inPairing) {
           const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
           const phone = session?.pairingPhone?.replace(/\D/g, '');
-          console.log(`[WhatsApp:${name}] Caída durante vinculación — reconectando en 2s...`);
-          scheduleReconnect(name, 2000, { pairingPhone: phone });
+          const hasCode = Boolean(session?.lastPairingCode);
+
+          if (hasCode) {
+            const attempts = (pairingReconnectAttempts.get(name) || 0) + 1;
+            if (attempts > MAX_PAIRING_RECONNECTS) {
+              console.log(`[WhatsApp:${name}] Demasiados cierres durante vinculación — pulsa «Reiniciar vinculación»`);
+              pairingModeInstances.delete(name);
+              await updateSession(name, { status: 'disconnected' });
+              return;
+            }
+            pairingReconnectAttempts.set(name, attempts);
+            console.log(
+              `[WhatsApp:${name}] Reconexión suave ${attempts}/${MAX_PAIRING_RECONNECTS} (manteniendo código)...`
+            );
+            scheduleReconnect(name, 3000, { pairingPhone: phone });
+          } else {
+            scheduleReconnect(name, 2000, { pairingPhone: phone });
+          }
         }
       }
     });
@@ -513,7 +533,7 @@ export async function startBuiltinInstance(
     return { connected: true, phone: session.phone };
   }
 
-  if (force || options.pairingPhone) {
+  if (force) {
     const cooldown = checkLinkCooldown(name, session);
     if (cooldown) {
       return {
@@ -578,6 +598,16 @@ export async function getBuiltinSessionView(instanceName: string) {
       pairingPhone: session.pairingPhone || undefined,
       state: session.status,
       pairing: true,
+    };
+  }
+
+  if (session?.lastQr && session.status === 'qr') {
+    return {
+      success: true,
+      connected: false,
+      qrBase64: session.lastQr,
+      state: session.status,
+      pairing: false,
     };
   }
 
@@ -681,6 +711,7 @@ export async function restartBuiltinInstance(instanceName: string, options: Conn
   await disconnectSocket(name);
   pairingModeInstances.delete(name);
   pairingCodeRequested.delete(name);
+  pairingReconnectAttempts.delete(name);
   await prisma.whatsAppSession.upsert({
     where: { instanceName: name },
     create: { instanceName: name, status: 'disconnected' },
@@ -696,14 +727,72 @@ export async function restartBuiltinInstance(instanceName: string, options: Conn
   return startBuiltinInstance(name, true, options);
 }
 
+/**
+ * Inicia vinculación SIN borrar sesión si ya hay un código reciente para el mismo número.
+ * Evita destruir el progreso cuando el usuario pulsa «Vincular» o recarga la página.
+ */
+export async function beginBuiltinPairing(
+  instanceName: string,
+  options: ConnectOptions = {}
+): Promise<{ qrBase64?: string; pairingCode?: string; connected: boolean; phone?: string; error?: string }> {
+  const name = normalizeName(instanceName);
+  const pairingPhone = options.pairingPhone?.replace(/\D/g, '');
+  if (!pairingPhone) {
+    return { connected: false, error: 'Número de teléfono requerido' };
+  }
+
+  const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
+
+  if (session?.status === 'connected' && session.phone) {
+    if (!activeSockets.get(name)?.user) connectSocket(name).catch(console.error);
+    return { connected: true, phone: session.phone };
+  }
+
+  // Reanudar vinculación en curso (mismo número, código < 2 min)
+  if (session?.lastPairingCode && session.pairingPhone === pairingPhone) {
+    const age = session.lastLinkAttemptAt
+      ? Date.now() - session.lastLinkAttemptAt.getTime()
+      : Infinity;
+    if (age < 120000 && (session.status === 'pairing' || session.status === 'connecting')) {
+      console.log(`[WhatsApp:${name}] Reanudando vinculación existente (código ${session.lastPairingCode})`);
+      pairingModeInstances.add(name);
+      if (!activeSockets.get(name)) {
+        await connectSocket(name, false, { pairingPhone });
+      }
+      const result = await waitForQrOrConnected(name, 45000);
+      if (result?.connected) return { connected: true, phone: result.phone };
+      if (result?.pairingCode) return { connected: false, pairingCode: result.pairingCode };
+      return { connected: false, pairingCode: session.lastPairingCode };
+    }
+  }
+
+  // Sesión corrupta parcial (auth sin registered) — limpiar y empezar de cero
+  const hasPartialAuth = session?.authState && !(await isRegisteredInDb(name));
+  if (hasPartialAuth && session?.status !== 'pairing') {
+    console.log(`[WhatsApp:${name}] Limpiando sesión parcial corrupta...`);
+    return restartBuiltinInstance(name, { pairingPhone });
+  }
+
+  // Vinculación nueva
+  return restartBuiltinInstance(name, { pairingPhone });
+}
+
 export async function restoreBuiltinSessions() {
   await getBaileysVersion();
   const sessions = await prisma.whatsAppSession.findMany({
-    where: { status: 'connected' },
+    where: { status: { in: ['connected', 'pairing', 'connecting'] } },
   });
   for (const s of sessions) {
-    connectSocket(s.instanceName).catch((err) =>
-      console.warn(`WhatsApp restore ${s.instanceName}:`, err.message)
-    );
+    if (s.status === 'connected') {
+      connectSocket(s.instanceName).catch((err) =>
+        console.warn(`WhatsApp restore ${s.instanceName}:`, err.message)
+      );
+    } else if (s.pairingPhone && s.lastPairingCode) {
+      console.log(`[WhatsApp:${s.instanceName}] Reanudando vinculación tras reinicio del servidor...`);
+      pairingModeInstances.add(s.instanceName);
+      connectSocket(s.instanceName, false, { pairingPhone: s.pairingPhone.replace(/\D/g, '') }).catch(
+        (err) => console.warn(`WhatsApp restore pairing ${s.instanceName}:`, err.message)
+      );
+    }
   }
 }

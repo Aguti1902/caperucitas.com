@@ -220,13 +220,23 @@ export const restartWhatsAppInstance = async (instanceName: string) => {
   return response.data;
 };
 
-export const connectWhatsAppSender = async (phone: string, instanceName = 'caperucitas') => {
-  const response = await adminApi.post('/whatsapp/setup/connect', { phone, instanceName });
+export const connectWhatsAppSender = async (
+  phone: string,
+  instanceName = 'caperucitas',
+  options?: { forceReset?: boolean; useQr?: boolean }
+) => {
+  const response = await adminApi.post('/whatsapp/setup/connect', {
+    phone,
+    instanceName,
+    forceReset: options?.forceReset ?? false,
+    useQr: options?.useQr ?? false,
+  });
   return response.data as {
     pairingCode?: string;
     phone?: string;
     connected?: boolean;
     message?: string;
+    qr?: { base64?: string };
   };
 };
 

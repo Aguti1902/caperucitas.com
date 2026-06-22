@@ -248,7 +248,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     message: 'Caperucitas API is running',
-    version: '2026-06-22-whatsapp-chrome-browser-fix',
+    version: '2026-06-22-whatsapp-pairing-v3',
   });
 });
 
@@ -302,6 +302,9 @@ const PORT = process.env.PORT || 4000;
 httpServer.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
   console.log(`📡 WebSocket disponible en ws://localhost:${PORT}`);
+  import('./services/whatsapp.service').then(({ getWhatsAppProvider, getDefaultInstanceName, isWhatsAppConfigured }) => {
+    console.log(`📱 WhatsApp provider: ${getWhatsAppProvider()} | instancia: ${getDefaultInstanceName()} | configurado: ${isWhatsAppConfigured()}`);
+  }).catch(() => {});
   import('./services/whatsapp-baileys.service')
     .then(({ restoreBuiltinSessions }) => restoreBuiltinSessions())
     .catch(() => {});
