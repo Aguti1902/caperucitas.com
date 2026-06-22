@@ -208,6 +208,7 @@ export const getWhatsAppStats = async (_req: AuthRequest, res: Response) => {
       instance,
       instances: instancesData.instances,
       evolutionConfigured: isWhatsAppConfigured(),
+      whatsappConfigured: isWhatsAppConfigured(),
       provider: getWhatsAppProvider(),
     });
   } catch (error) {
@@ -510,6 +511,7 @@ export const getSetupStatus = async (_req: AuthRequest, res: Response) => {
 
   res.json({
     evolutionConfigured: isWhatsAppConfigured(),
+    whatsappConfigured: isWhatsAppConfigured(),
     provider: getWhatsAppProvider(),
     evolutionReachable: health.ok,
     evolutionError: health.error || instances.error,

@@ -24,7 +24,7 @@ if (process.env.DATABASE_URL) {
 console.log('\n🔍 ========================================');
 console.log('🔍 VALIDANDO CONFIGURACIÓN DEL SERVIDOR');
 console.log('🔍 ========================================');
-console.log('📅 Última actualización: 2026-06-11 - Sin límite 100 perfiles, 7 fotos visibles');
+console.log('📅 Última actualización: 2026-06-22 - WhatsApp integrado Baileys + Supabase');
 
 // Validar variables de entorno críticas
 const requiredEnvVars = {
@@ -257,7 +257,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     message: 'Caperucitas API is running',
-    version: '2026-06-11-no-profile-limit-7-photos',
+    version: '2026-06-22-whatsapp-builtin-supabase',
   });
 });
 
