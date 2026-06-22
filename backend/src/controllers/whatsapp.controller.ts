@@ -11,6 +11,10 @@ import {
   isEvolutionConfigured,
   listInstances,
   getDefaultInstanceName,
+  createEvolutionInstance,
+  getEvolutionQrCode,
+  restartEvolutionInstance,
+  checkEvolutionHealth,
 } from '../services/whatsapp.service';
 
 const runningCampaigns = new Set<string>();
@@ -494,4 +498,73 @@ export const deleteContact = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     res.status(500).json({ error: 'Error al eliminar contacto' });
   }
+};
+
+export const getSetupStatus = async (_req: AuthRequest, res: Response) => {
+  const health = await checkEvolutionHealth();
+  const instances = await listInstances();
+  const defaultInstance = getDefaultInstanceName();
+  const instanceStatus = defaultInstance ? await getInstanceStatus(defaultInstance) : null;
+
+  res.json({
+    evolutionConfigured: isEvolutionConfigured(),
+    evolutionReachable: health.ok,
+    evolutionError: health.error || instances.error,
+    defaultInstance,
+    instanceStatus,
+    instances: instances.instances,
+    costPerMessage: WHATSAPP_MESSAGE_COST_EUR,
+  });
+};
+
+export const setupCreateInstance = async (req: AuthRequest, res: Response) => {
+  const instanceName = (req.body.instanceName || getDefaultInstanceName() || 'caperucitas').trim();
+  const result = await createEvolutionInstance(instanceName);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  const qr = await getEvolutionQrCode(instanceName);
+  res.json({
+    message: 'Instancia creada. Escanea el QR con WhatsApp.',
+    instanceName,
+    qr: qr.success ? { base64: qr.base64, pairingCode: qr.pairingCode } : null,
+    qrError: qr.error,
+  });
+};
+
+export const setupGetQr = async (req: AuthRequest, res: Response) => {
+  const instanceName = String(req.query.instanceName || getDefaultInstanceName() || '').trim();
+  if (!instanceName) {
+    return res.status(400).json({ error: 'Nombre de instancia requerido' });
+  }
+  const status = await getInstanceStatus(instanceName);
+  if (status.connected) {
+    return res.json({ connected: true, instanceName, owner: status.owner });
+  }
+  const qr = await getEvolutionQrCode(instanceName);
+  if (!qr.success) {
+    return res.status(400).json({ error: qr.error });
+  }
+  res.json({
+    connected: false,
+    instanceName,
+    base64: qr.base64,
+    pairingCode: qr.pairingCode,
+  });
+};
+
+export const setupRestartInstance = async (req: AuthRequest, res: Response) => {
+  const instanceName = (req.body.instanceName || getDefaultInstanceName() || '').trim();
+  if (!instanceName) {
+    return res.status(400).json({ error: 'Nombre de instancia requerido' });
+  }
+  const result = await restartEvolutionInstance(instanceName);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  const qr = await getEvolutionQrCode(instanceName);
+  res.json({
+    message: 'Instancia reiniciada',
+    qr: qr.success ? { base64: qr.base64, pairingCode: qr.pairingCode } : null,
+  });
 };

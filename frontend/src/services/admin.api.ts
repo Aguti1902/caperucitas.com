@@ -172,5 +172,25 @@ export const sendWhatsAppTest = async (phone: string, message: string, instanceN
   return response.data;
 };
 
+export const getWhatsAppSetupStatus = async () => {
+  const response = await adminApi.get('/whatsapp/setup/status');
+  return response.data;
+};
+
+export const createWhatsAppInstance = async (instanceName?: string) => {
+  const response = await adminApi.post('/whatsapp/setup/create-instance', { instanceName });
+  return response.data;
+};
+
+export const getWhatsAppQrCode = async (instanceName: string) => {
+  const response = await adminApi.get('/whatsapp/setup/qrcode', { params: { instanceName } });
+  return response.data;
+};
+
+export const restartWhatsAppInstance = async (instanceName: string) => {
+  const response = await adminApi.post('/whatsapp/setup/restart', { instanceName });
+  return response.data;
+};
+
 export default adminApi;
 

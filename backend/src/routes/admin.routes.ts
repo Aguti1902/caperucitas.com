@@ -26,6 +26,10 @@ router.get('/whatsapp/campaigns/:id', authenticateAdminToken, whatsappController
 router.post('/whatsapp/campaigns', authenticateAdminToken, whatsappController.createCampaign);
 router.post('/whatsapp/campaigns/:id/cancel', authenticateAdminToken, whatsappController.cancelCampaign);
 router.post('/whatsapp/test', authenticateAdminToken, whatsappController.sendTestMessage);
+router.get('/whatsapp/setup/status', authenticateAdminToken, whatsappController.getSetupStatus);
+router.post('/whatsapp/setup/create-instance', authenticateAdminToken, whatsappController.setupCreateInstance);
+router.get('/whatsapp/setup/qrcode', authenticateAdminToken, whatsappController.setupGetQr);
+router.post('/whatsapp/setup/restart', authenticateAdminToken, whatsappController.setupRestartInstance);
 
 // Acciones de administración
 router.delete('/users/:userId', authenticateAdminToken, adminController.deleteUser);

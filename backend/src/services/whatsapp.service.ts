@@ -144,6 +144,113 @@ export async function getInstanceStatus(instanceName?: string): Promise<{
   }
 }
 
+export async function checkEvolutionHealth(): Promise<{ ok: boolean; error?: string }> {
+  const { baseUrl, apiKey } = getEvolutionConfig();
+  if (!baseUrl || !apiKey) {
+    return { ok: false, error: 'EVOLUTION_API_URL o EVOLUTION_API_KEY no configuradas' };
+  }
+  try {
+    const res = await fetch(`${baseUrl}/`, { headers: { apikey: apiKey } });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err.message };
+  }
+}
+
+export async function createEvolutionInstance(instanceName: string): Promise<{ success: boolean; error?: string; data?: unknown }> {
+  const { baseUrl, apiKey } = getEvolutionConfig();
+  if (!isEvolutionConfigured()) {
+    return { success: false, error: 'Evolution API no configurada' };
+  }
+
+  const name = instanceName.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
+  if (!name) return { success: false, error: 'Nombre de instancia inválido' };
+
+  try {
+    const res = await fetch(`${baseUrl}/instance/create`, {
+      method: 'POST',
+      headers: { apikey: apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        instanceName: name,
+        integration: 'WHATSAPP-BAILEYS',
+        qrcode: true,
+      }),
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      if (text.includes('already exists') || text.includes('already in use')) {
+        return { success: true, data: { instanceName: name, existed: true } };
+      }
+      return { success: false, error: text || res.statusText };
+    }
+    let data: unknown = {};
+    try { data = JSON.parse(text); } catch { data = { raw: text }; }
+    return { success: true, data: { instanceName: name, ...(data as object) } };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function getEvolutionQrCode(instanceName: string): Promise<{
+  success: boolean;
+  base64?: string;
+  pairingCode?: string;
+  error?: string;
+}> {
+  const { baseUrl, apiKey } = getEvolutionConfig();
+  if (!isEvolutionConfigured()) {
+    return { success: false, error: 'Evolution API no configurada' };
+  }
+
+  const name = instanceName.trim();
+  try {
+    const res = await fetch(`${baseUrl}/instance/connect/${name}`, {
+      headers: { apikey: apiKey },
+    });
+    const text = await res.text();
+    if (!res.ok) return { success: false, error: text || res.statusText };
+
+    const data = JSON.parse(text) as any;
+    const base64 =
+      data?.base64 ||
+      data?.qrcode?.base64 ||
+      data?.code ||
+      (typeof data === 'string' && data.startsWith('data:image') ? data : undefined);
+
+    const rawBase64 = base64?.replace(/^data:image\/[a-z]+;base64,/, '');
+
+    return {
+      success: true,
+      base64: rawBase64,
+      pairingCode: data?.pairingCode || data?.code,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function restartEvolutionInstance(instanceName: string): Promise<{ success: boolean; error?: string }> {
+  const { baseUrl, apiKey } = getEvolutionConfig();
+  if (!isEvolutionConfigured()) {
+    return { success: false, error: 'Evolution API no configurada' };
+  }
+
+  try {
+    const res = await fetch(`${baseUrl}/instance/restart/${instanceName.trim()}`, {
+      method: 'PUT',
+      headers: { apikey: apiKey },
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      return { success: false, error: text || res.statusText };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
 export async function sendTextMessage(
   phone: string,
   text: string,

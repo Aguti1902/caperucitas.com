@@ -17,6 +17,8 @@ import {
   Smartphone,
   Trash2,
   AlertTriangle,
+  QrCode,
+  Link2,
 } from 'lucide-react';
 import AdminHeader from '../components/admin/AdminHeader';
 import AdminNav from '../components/admin/AdminNav';
@@ -33,6 +35,10 @@ import {
   getWhatsAppInstances,
   getWhatsAppRecipientCount,
   deleteWhatsAppContact,
+  getWhatsAppSetupStatus,
+  createWhatsAppInstance,
+  getWhatsAppQrCode,
+  restartWhatsAppInstance,
 } from '../services/admin.api';
 
 const COST_PER_MSG = 0.0035;
@@ -72,6 +78,73 @@ export default function AdminWhatsAppPage() {
   const [delayMs, setDelayMs] = useState(2000);
   const [testPhone, setTestPhone] = useState('');
   const [testMessage, setTestMessage] = useState('');
+
+  const [setupStatus, setSetupStatus] = useState<any>(null);
+  const [newInstanceName, setNewInstanceName] = useState('caperucitas');
+  const [qrBase64, setQrBase64] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [autoSynced, setAutoSynced] = useState(false);
+
+  const loadSetup = useCallback(async () => {
+    try {
+      const data = await getWhatsAppSetupStatus();
+      setSetupStatus(data);
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const refreshQr = useCallback(async (instanceName: string) => {
+    try {
+      const data = await getWhatsAppQrCode(instanceName);
+      if (data.connected) {
+        setQrBase64(null);
+        setSuccess(`WhatsApp conectado: +${data.owner || instanceName}`);
+        return true;
+      }
+      if (data.base64) {
+        setQrBase64(data.base64);
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const handleStartConnection = async () => {
+    setError('');
+    setIsConnecting(true);
+    try {
+      const name = newInstanceName.trim() || 'caperucitas';
+      await createWhatsAppInstance(name);
+      setSelectedInstance(name);
+      const connected = await refreshQr(name);
+      if (!connected) {
+        setSuccess('Escanea el QR con WhatsApp → Dispositivos vinculados');
+      }
+      loadSetup();
+      loadInstances();
+    } catch (e: any) {
+      setError(e.response?.data?.error || 'Error al crear instancia');
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const handleRestartConnection = async () => {
+    const name = selectedInstance || newInstanceName;
+    if (!name) return;
+    setIsConnecting(true);
+    try {
+      await restartWhatsAppInstance(name);
+      await refreshQr(name);
+      setSuccess('QR renovado. Escanea de nuevo.');
+    } catch (e: any) {
+      setError(e.response?.data?.error || 'Error al reiniciar');
+    } finally {
+      setIsConnecting(false);
+    }
+  };
 
   const loadInstances = useCallback(async () => {
     try {
@@ -123,9 +196,41 @@ export default function AdminWhatsAppPage() {
   useEffect(() => {
     loadAll();
     loadInstances();
+    loadSetup();
     const interval = setInterval(loadAll, 10000);
     return () => clearInterval(interval);
-  }, [loadAll, loadInstances]);
+  }, [loadAll, loadInstances, loadSetup]);
+
+  // Auto-sincronizar teléfonos de perfiles la primera vez
+  useEffect(() => {
+    if (autoSynced || isLoading || !stats) return;
+    const profilePhones = stats?.totals?.profilePhoneCount ?? 0;
+    const contacts = stats?.totals?.contactCount ?? 0;
+    if (profilePhones > 0 && contacts === 0) {
+      setAutoSynced(true);
+      syncWhatsAppProfileContacts()
+        .then((r) => {
+          setSuccess(`Auto-sync: ${r.synced} contactos importados desde perfiles`);
+          loadAll();
+        })
+        .catch(() => {});
+    }
+  }, [stats, isLoading, autoSynced, loadAll]);
+
+  // Polling QR / conexión cada 4s mientras hay QR visible
+  useEffect(() => {
+    if (!qrBase64) return;
+    const name = selectedInstance || newInstanceName;
+    const t = setInterval(async () => {
+      const ok = await refreshQr(name);
+      if (ok) {
+        loadAll();
+        loadInstances();
+        loadSetup();
+      }
+    }, 4000);
+    return () => clearInterval(t);
+  }, [qrBase64, selectedInstance, newInstanceName, refreshQr, loadAll, loadInstances, loadSetup]);
 
   useEffect(() => {
     const phones = campaignSource === 'manual' ? manualPhones : undefined;
@@ -267,8 +372,74 @@ export default function AdminWhatsAppPage() {
         )}
 
         {!stats?.evolutionConfigured && (
-          <div className="mb-4 p-3 bg-yellow-900/30 border border-yellow-700 text-yellow-200 rounded-lg text-sm">
-            Evolution API no configurada en el servidor. Añade EVOLUTION_API_URL y EVOLUTION_API_KEY en Railway.
+          <div className="mb-4 p-4 bg-yellow-900/30 border border-yellow-700 text-yellow-100 rounded-xl text-sm space-y-2">
+            <p className="font-bold flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> Evolution API no configurada en Railway</p>
+            <p>Añade estas variables al servicio <strong>backend</strong> y redeploy:</p>
+            <pre className="bg-black/30 p-3 rounded text-xs overflow-x-auto">{`EVOLUTION_API_URL=https://tu-evolution.up.railway.app
+EVOLUTION_API_KEY=tu-clave-api
+EVOLUTION_INSTANCE_NAME=caperucitas`}</pre>
+            <p className="text-yellow-200/80">Despliega el servicio <code className="text-yellow-100">evolution-api/</code> en Railway (carpeta del repo) con la misma API key.</p>
+          </div>
+        )}
+
+        {stats?.evolutionConfigured && setupStatus && !connected && (
+          <div className="mb-6 p-5 bg-gray-900 rounded-xl border border-green-800/50">
+            <h2 className="text-white font-bold mb-3 flex items-center gap-2">
+              <Link2 className="w-5 h-5 text-green-500" /> Conectar WhatsApp (paso a paso)
+            </h2>
+            {!setupStatus.evolutionReachable && (
+              <p className="text-red-400 text-sm mb-3">
+                No se alcanza Evolution API: {setupStatus.evolutionError || 'comprueba EVOLUTION_API_URL'}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-3 items-end mb-4">
+              <div>
+                <label className="text-gray-400 text-xs block mb-1">Nombre de instancia</label>
+                <input
+                  value={newInstanceName}
+                  onChange={(e) => setNewInstanceName(e.target.value)}
+                  className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm w-48"
+                  placeholder="caperucitas"
+                />
+              </div>
+              <button
+                onClick={handleStartConnection}
+                disabled={isConnecting || !setupStatus.evolutionReachable}
+                className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold px-5 py-2 rounded-lg text-sm flex items-center gap-2"
+              >
+                <QrCode className="w-4 h-4" />
+                {isConnecting ? 'Generando QR...' : '1. Crear instancia y mostrar QR'}
+              </button>
+              {(selectedInstance || qrBase64) && (
+                <button
+                  onClick={handleRestartConnection}
+                  disabled={isConnecting}
+                  className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm"
+                >
+                  Renovar QR
+                </button>
+              )}
+            </div>
+            {qrBase64 && (
+              <div className="flex flex-col sm:flex-row gap-6 items-center">
+                <img
+                  src={`data:image/png;base64,${qrBase64}`}
+                  alt="QR WhatsApp"
+                  className="w-56 h-56 rounded-lg border-4 border-green-600 bg-white p-2"
+                />
+                <div className="text-gray-300 text-sm space-y-2">
+                  <p className="font-semibold text-white">2. Escanea con tu móvil:</p>
+                  <p>WhatsApp → ⚙️ Ajustes → Dispositivos vinculados → Vincular dispositivo</p>
+                  <p className="text-yellow-400 animate-pulse">Esperando conexión...</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {stats?.evolutionConfigured && !setupStatus?.evolutionReachable && !loadError && (
+          <div className="mb-4 p-3 bg-red-900/30 border border-red-700 text-red-300 rounded-lg text-sm">
+            Evolution API configurada pero no accesible. Verifica la URL pública y que el servicio Evolution esté desplegado.
           </div>
         )}
 
