@@ -437,7 +437,9 @@ async function resolveRecipients(source: string, manualPhones?: string): Promise
 
 export const uploadCampaignImage = async (req: AuthRequest, res: Response) => {
   try {
-    const file = (req as AuthRequest & { file?: Express.Multer.File }).file;
+    const file = (
+      req as AuthRequest & { file?: { filename: string; size: number; mimetype: string } }
+    ).file;
     if (!file) {
       return res.status(400).json({ error: 'No se recibió ninguna imagen' });
     }
