@@ -537,17 +537,24 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
         instanceName: resolvedInstance,
         totalCount: recipients.length,
         delayMs: Math.max(1000, Math.min(Number(delayMs) || DEFAULT_DELAY_MS, 10000)),
-        messages: {
-          create: recipients.map((r) => ({
-            phone: r.phone,
-            name: r.name,
-            status: 'pending',
-          })),
-        },
       },
     });
 
-    enqueueCampaign(campaign.id);
+    const LOG_BATCH = 500;
+    for (let i = 0; i < recipients.length; i += LOG_BATCH) {
+      const chunk = recipients.slice(i, i + LOG_BATCH);
+      await prisma.whatsAppMessageLog.createMany({
+        data: chunk.map((r) => ({
+          campaignId: campaign.id,
+          phone: r.phone,
+          name: r.name,
+          status: 'pending',
+        })),
+      });
+    }
+
+    // Iniciar campaña tras crear logs (evita bloquear y abrir 2ª conexión WA)
+    setTimeout(() => enqueueCampaign(campaign.id), 1500);
 
     const dailyQuota = await getWhatsAppDailyQuota();
     const dailyWarning =

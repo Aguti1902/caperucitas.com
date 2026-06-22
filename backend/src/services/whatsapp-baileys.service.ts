@@ -140,6 +140,50 @@ export function isBuiltinConnected(instanceName: string): boolean {
   return Boolean(activeSockets.get(name)?.user);
 }
 
+export function isBuiltinConnecting(instanceName: string): boolean {
+  const name = normalizeName(instanceName);
+  return connectingLocks.has(name);
+}
+
+/** Espera socket activo sin abrir otra conexión (evita desvincular el móvil). */
+export async function waitForConnectedSocket(
+  instanceName: string,
+  timeoutMs = 45_000
+): Promise<WASocket | null> {
+  const name = normalizeName(instanceName);
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const sock = activeSockets.get(name);
+    if (sock?.user) return sock;
+
+    const lock = connectingLocks.get(name);
+    if (lock) {
+      try {
+        await Promise.race([lock, sleep(1500)]);
+      } catch {
+        /* ignore */
+      }
+      continue;
+    }
+
+    const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
+    if (session?.status !== 'connected' || !session.phone) {
+      return null;
+    }
+
+    // Sesión OK en BD pero sin socket: una sola reconexión suave (sin duplicar)
+    if (!connectingLocks.has(name)) {
+      console.log(`[WhatsApp:${name}] Reconectando socket existente para envío...`);
+      connectSocket(name).catch((err) => console.warn(`[WhatsApp:${name}] reconnect:`, err.message));
+    }
+
+    await sleep(800);
+  }
+
+  return activeSockets.get(name)?.user ? activeSockets.get(name)! : null;
+}
+
 function notifyWhatsAppConnected(instanceName: string) {
   import('./whatsapp-campaign.service')
     .then((m) => m.onWhatsAppConnected(instanceName))
@@ -360,14 +404,16 @@ async function connectSocket(instanceName: string, force = false, options: Conne
 
   const existing = activeSockets.get(name);
   if (existing?.user) return;
-  if (existing && !force) {
-    await disconnectSocket(name);
-  }
 
   const lock = connectingLocks.get(name);
   if (lock) {
     await lock;
     if (activeSockets.get(name)?.user) return;
+  }
+
+  // Solo desconectar socket zombie (sin user y sin conexión en curso)
+  if (existing && !existing.user && !connectingLocks.has(name) && !force) {
+    await disconnectSocket(name);
   }
 
   const pairingPhone = options.pairingPhone?.replace(/\D/g, '');
@@ -475,16 +521,13 @@ async function connectSocket(instanceName: string, force = false, options: Conne
         const replaced = code === DisconnectReason.connectionReplaced;
         console.log(`[WhatsApp:${name}] Cerrado código=${code} ${errMsg}`);
 
-        notifyWhatsAppDisconnected(
-          name,
-          loggedOut
-            ? 'WhatsApp cerró la sesión (posible bloqueo por envío masivo). Vincula de nuevo y reanuda la campaña.'
-            : replaced
-              ? 'Otra sesión reemplazó esta conexión.'
-              : undefined
-        );
-
         if (loggedOut || replaced) {
+          notifyWhatsAppDisconnected(
+            name,
+            loggedOut
+              ? 'WhatsApp cerró la sesión (posible bloqueo por envío masivo). Vincula de nuevo y reanuda la campaña.'
+              : 'Otra sesión reemplazó esta conexión.'
+          );
           clearReconnectTimer(name);
           pairingModeInstances.delete(name);
           pairingCodeRequested.delete(name);
@@ -498,6 +541,8 @@ async function connectSocket(instanceName: string, force = false, options: Conne
           });
           return;
         }
+
+        // Desconexiones temporales (reconexión automática): NO pausar campañas ni borrar sesión
 
         // Credenciales corruptas (Buffers mal serializados)
         if (errMsg.includes('ERR_INVALID_ARG_TYPE') || errMsg.includes('must be of type string')) {
@@ -708,20 +753,7 @@ export async function sendBuiltinMessage(
   imageUrl?: string
 ) {
   const name = normalizeName(instanceName);
-  let sock = activeSockets.get(name);
-
-  if (!sock?.user) {
-    const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
-    if (session?.status !== 'connected') {
-      return { success: false, error: 'WhatsApp no conectado. Vincula tu número primero.' };
-    }
-    await connectSocket(name);
-    for (let i = 0; i < 30; i++) {
-      await sleep(1000);
-      sock = activeSockets.get(name);
-      if (sock?.user) break;
-    }
-  }
+  const sock = await waitForConnectedSocket(name, 35_000);
 
   if (!sock?.user) {
     return { success: false, error: 'Sin conexión activa. Vincula de nuevo desde el panel.' };

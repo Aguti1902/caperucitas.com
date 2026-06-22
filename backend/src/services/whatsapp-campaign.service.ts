@@ -4,7 +4,6 @@ import {
   DEFAULT_DELAY_MS,
   sendWhatsAppMessage,
   sleep,
-  getInstanceStatus,
 } from './whatsapp.service';
 import {
   assertQuotaForSend,
@@ -12,7 +11,7 @@ import {
   DAILY_QUOTA_EXHAUSTED_MESSAGE,
   QUOTA_EXHAUSTED_MESSAGE,
 } from '../utils/whatsapp-quota.utils';
-import { isBuiltinConnected } from './whatsapp-baileys.service';
+import { isBuiltinConnected, isBuiltinConnecting } from './whatsapp-baileys.service';
 
 const runningCampaigns = new Set<string>();
 const resumeTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -30,6 +29,7 @@ function touchStats(): void {
 export const MAX_SEND_RETRIES = 3;
 export const RETRY_BASE_MS = 3000;
 export const AUTO_RESUME_DELAY_MS = 8000;
+export const CAMPAIGN_WARMUP_MS = 4000;
 
 export const PAUSE_REASON_DISCONNECT =
   'WhatsApp desconectado (WhatsApp puede haber cerrado la sesión por envío masivo). Vincula de nuevo y pulsa Reanudar.';
@@ -74,8 +74,11 @@ async function isInstanceReady(instanceName: string | null | undefined): Promise
   const name = instanceName?.trim();
   if (!name) return false;
   if (isBuiltinConnected(name)) return true;
-  const status = await getInstanceStatus(name);
-  return status.connected;
+  if (isBuiltinConnecting(name)) {
+    await sleep(2500);
+    return isBuiltinConnected(name);
+  }
+  return false;
 }
 
 export async function pauseCampaign(campaignId: string, reason: string): Promise<void> {
@@ -183,6 +186,9 @@ export async function processCampaign(campaignId: string): Promise<void> {
         pausedAt: null,
       },
     });
+
+    // Pequeña pausa antes del primer envío para no chocar con la conexión activa
+    await sleep(CAMPAIGN_WARMUP_MS);
 
     const pending = await prisma.whatsAppMessageLog.findMany({
       where: { campaignId, status: 'pending' },
