@@ -110,8 +110,15 @@ export async function ensureWhatsAppSchema(): Promise<void> {
   // Fila default de settings
   await prisma.$executeRawUnsafe(`
     INSERT INTO whatsapp_settings (id, "messageLimit", "dailyMessageLimit", "updatedAt")
-    VALUES ('default', 30000, 1000, NOW())
+    VALUES ('default', 30000, 150, NOW())
     ON CONFLICT (id) DO NOTHING;
+  `);
+
+  // Aplicar límite seguro si estaba demasiado alto (evita repetir bloqueo de WhatsApp)
+  await prisma.$executeRawUnsafe(`
+    UPDATE whatsapp_settings
+    SET "dailyMessageLimit" = 150
+    WHERE "dailyMessageLimit" > 150;
   `);
 
   schemaReady = true;

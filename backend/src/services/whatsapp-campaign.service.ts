@@ -12,6 +12,11 @@ import {
   QUOTA_EXHAUSTED_MESSAGE,
 } from '../utils/whatsapp-quota.utils';
 import { isBuiltinConnected, isBuiltinConnecting } from './whatsapp-baileys.service';
+import {
+  isWhatsAppRestrictionError,
+  jitterDelayMs,
+  WHATSAPP_RESTRICTION_PAUSE_MESSAGE,
+} from '../utils/whatsapp-safe-limits.utils';
 
 const runningCampaigns = new Set<string>();
 const resumeTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -34,6 +39,7 @@ export const CAMPAIGN_WARMUP_MS = 4000;
 export const PAUSE_REASON_DISCONNECT =
   'WhatsApp desconectado (WhatsApp puede haber cerrado la sesión por envío masivo). Vincula de nuevo y pulsa Reanudar.';
 export const PAUSE_REASON_DAILY = DAILY_QUOTA_EXHAUSTED_MESSAGE;
+export const PAUSE_REASON_RESTRICTION = WHATSAPP_RESTRICTION_PAUSE_MESSAGE;
 
 type SendOutcome =
   | { type: 'sent' }
@@ -137,6 +143,10 @@ async function sendWithRetry(
 
     if (isDisconnectError(error)) {
       return { type: 'pause', reason: PAUSE_REASON_DISCONNECT };
+    }
+
+    if (isWhatsAppRestrictionError(error)) {
+      return { type: 'pause', reason: PAUSE_REASON_RESTRICTION };
     }
 
     if (isRetryableError(error) && attempt < MAX_SEND_RETRIES) {
@@ -269,7 +279,7 @@ export async function processCampaign(campaignId: string): Promise<void> {
         });
       }
 
-      await sleep(campaign.delayMs || DEFAULT_DELAY_MS);
+      await sleep(jitterDelayMs(campaign.delayMs || DEFAULT_DELAY_MS));
     }
 
     await finalizeCampaignIfDone(campaignId);
@@ -360,6 +370,9 @@ export async function resumePausedCampaignsForInstance(instanceName: string): Pr
         if (c.pauseReason === PAUSE_REASON_DAILY) {
           const daily = await assertDailyQuotaForSend(1);
           if (daily.ok === false) continue;
+        }
+        if (c.pauseReason === PAUSE_REASON_RESTRICTION) {
+          continue;
         }
 
         console.log(`[WhatsApp] Reanudando campaña ${c.id} (${c.name})`);

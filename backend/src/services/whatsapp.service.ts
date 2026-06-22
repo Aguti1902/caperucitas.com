@@ -1,9 +1,10 @@
 /** Coste por mensaje WhatsApp enviado (EUR) */
 import * as baileys from './whatsapp-baileys.service';
+import { WHATSAPP_DEFAULT_DELAY_MS } from '../utils/whatsapp-safe-limits.utils';
 
 export const WHATSAPP_MESSAGE_COST_EUR = 0.035;
 
-const DEFAULT_DELAY_MS = 2000;
+const DEFAULT_DELAY_MS = WHATSAPP_DEFAULT_DELAY_MS;
 
 export interface EvolutionInstance {
   name: string;

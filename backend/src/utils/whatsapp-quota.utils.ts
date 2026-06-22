@@ -1,7 +1,7 @@
 import prisma from '../lib/prisma';
 
 export const WHATSAPP_MESSAGE_LIMIT_DEFAULT = 30_000;
-export const WHATSAPP_DAILY_LIMIT_DEFAULT = 1_000;
+export const WHATSAPP_DAILY_LIMIT_DEFAULT = 150;
 
 export const QUOTA_EXHAUSTED_MESSAGE =
   'Has agotado tus 30.000 mensajes disponibles. No puedes enviar más hasta recargar. Contacta con el administrador para ampliar tu cuota.';

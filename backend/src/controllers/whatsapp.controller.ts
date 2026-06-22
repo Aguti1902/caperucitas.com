@@ -35,7 +35,15 @@ import {
   resumeCampaign,
   setCampaignStatsHook,
 } from '../services/whatsapp-campaign.service';
-import { ensureWhatsAppSchema } from '../utils/whatsapp-schema-migrate.utils';
+import {
+  clampCampaignDelayMs,
+  getMaxCampaignRecipients,
+  allowLargeCampaigns,
+  WHATSAPP_MIN_DELAY_MS,
+  WHATSAPP_MAX_CAMPAIGN_RECIPIENTS,
+  WHATSAPP_DAILY_LIMIT_SAFE,
+  WHATSAPP_DEFAULT_DELAY_MS,
+} from '../utils/whatsapp-safe-limits.utils';
 
 let whatsappStatsCache: { data: Record<string, unknown>; expiresAt: number } | null = null;
 let profilePhoneCountCache = { count: 0, expiresAt: 0 };
@@ -259,6 +267,12 @@ export const getWhatsAppStats = async (_req: AuthRequest, res: Response) => {
       whatsappConfigured: isWhatsAppConfigured(),
       provider: getWhatsAppProvider(),
       cachedAt: new Date().toISOString(),
+      safeLimits: {
+        maxRecipientsPerCampaign: getMaxCampaignRecipients(),
+        minDelayMs: WHATSAPP_MIN_DELAY_MS,
+        dailyLimitSafe: WHATSAPP_DAILY_LIMIT_SAFE,
+        defaultDelayMs: WHATSAPP_DEFAULT_DELAY_MS,
+      },
     };
 
     whatsappStatsCache = { data: payload, expiresAt: Date.now() + 45_000 };
@@ -518,6 +532,22 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'No hay destinatarios válidos para esta campaña' });
     }
 
+    const maxRecipients = getMaxCampaignRecipients();
+    if (recipients.length > maxRecipients && !allowLargeCampaigns()) {
+      return res.status(400).json({
+        error: `Máximo ${maxRecipients} destinatarios por campaña para evitar bloqueo de WhatsApp. Tienes ${recipients.length}. Divide en varios días o contacta al administrador.`,
+        maxRecipients,
+        recipientCount: recipients.length,
+      });
+    }
+
+    const safeDelayMs = clampCampaignDelayMs(Number(delayMs) || DEFAULT_DELAY_MS);
+    if (safeDelayMs < WHATSAPP_MIN_DELAY_MS) {
+      return res.status(400).json({
+        error: `El delay mínimo es ${WHATSAPP_MIN_DELAY_MS / 1000} segundos para evitar restricciones de WhatsApp.`,
+      });
+    }
+
     const quotaCheck = await assertQuotaForSend(recipients.length);
     if (quotaCheck.ok === false) {
       return res.status(403).json({ error: quotaCheck.error, quota: quotaCheck.quota });
@@ -536,7 +566,7 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
         source,
         instanceName: resolvedInstance,
         totalCount: recipients.length,
-        delayMs: Math.max(1000, Math.min(Number(delayMs) || DEFAULT_DELAY_MS, 10000)),
+        delayMs: safeDelayMs,
       },
     });
 
@@ -568,6 +598,11 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
       costPerMessage: WHATSAPP_MESSAGE_COST_EUR,
       dailyQuota,
       dailyWarning,
+      safeLimits: {
+        maxRecipientsPerCampaign: maxRecipients,
+        minDelayMs: WHATSAPP_MIN_DELAY_MS,
+        dailyLimitSafe: WHATSAPP_DAILY_LIMIT_SAFE,
+      },
     });
   } catch (error) {
     console.error('Error createCampaign:', error);
@@ -926,9 +961,9 @@ export const resetWhatsAppMessages = async (_req: AuthRequest, res: Response) =>
 
     let quota = { limit: 30_000, used: 0, remaining: 30_000, exhausted: false, percentUsed: 0 };
     let dailyQuota = {
-      limit: 1000,
+      limit: 150,
       usedToday: 0,
-      remainingToday: 1000,
+      remainingToday: 150,
       exhausted: false,
       percentUsedToday: 0,
     };

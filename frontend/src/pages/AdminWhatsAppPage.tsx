@@ -84,7 +84,7 @@ export default function AdminWhatsAppPage() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [campaignSource, setCampaignSource] = useState('contacts_db');
   const [manualPhones, setManualPhones] = useState('');
-  const [delayMs, setDelayMs] = useState(5000);
+  const [delayMs, setDelayMs] = useState(12000);
   const [testPhone, setTestPhone] = useState('');
   const [testMessage, setTestMessage] = useState('');
 
@@ -309,6 +309,16 @@ export default function AdminWhatsAppPage() {
   const canSendMessages = statsLoaded && !quotaExhausted && !dailyExhausted && messagesRemaining > 0 && dailyRemaining > 0;
   const campaignExceedsQuota = recipientCount > messagesRemaining;
   const campaignExceedsDaily = recipientCount > dailyRemaining;
+  const safeLimits = stats?.safeLimits;
+  const maxRecipientsPerCampaign = safeLimits?.maxRecipientsPerCampaign ?? 200;
+  const minDelayMs = safeLimits?.minDelayMs ?? 8000;
+  const campaignExceedsMaxRecipients = recipientCount > maxRecipientsPerCampaign;
+  const canLaunchCampaign =
+    canSendMessages &&
+    !campaignExceedsQuota &&
+    !campaignExceedsMaxRecipients &&
+    connected &&
+    recipientCount > 0;
 
   useEffect(() => {
     const phones = campaignSource === 'manual' ? manualPhones : undefined;
@@ -743,13 +753,28 @@ export default function AdminWhatsAppPage() {
           )}
         </div>
 
+        {/* Aviso restricción WhatsApp */}
+        <div className="rounded-xl p-4 border border-red-700/60 bg-red-950/40 mb-6 text-sm">
+          <p className="font-bold text-red-300 mb-2 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+            Evita que WhatsApp restrinja tu cuenta
+          </p>
+          <ul className="list-disc list-inside text-xs space-y-1.5 text-red-100/90">
+            <li><strong>No envíes a listas frías</strong> (Excel de 10.000 números). WhatsApp lo detecta como spam.</li>
+            <li>Máximo <strong>{maxRecipientsPerCampaign} mensajes nuevos/día</strong> y <strong>{maxRecipientsPerCampaign} por campaña</strong>.</li>
+            <li>Delay mínimo <strong>{minDelayMs / 1000} s</strong> entre mensajes (recomendado 12–20 s).</li>
+            <li>Si ves «Tu cuenta está restringida», <strong>espera 6–24 h</strong> sin enviar nada.</li>
+            <li>Prioriza contactos que <strong>ya te hayan escrito</strong> o usuarios registrados en la web.</li>
+          </ul>
+        </div>
+
         {/* Consejos envío masivo */}
         <div className="rounded-xl p-4 border border-blue-800/40 bg-blue-950/20 mb-6 text-sm text-blue-100/90">
-          <p className="font-semibold text-blue-300 mb-2">Recomendaciones para envíos masivos</p>
+          <p className="font-semibold text-blue-300 mb-2">Plan seguro para tus 10.000 contactos</p>
           <ul className="list-disc list-inside text-xs space-y-1 text-blue-100/80">
-            <li>Usa delay de <strong>5–10 s</strong> entre mensajes para reducir bloqueos de WhatsApp.</li>
-            <li>Si WhatsApp desconecta el dispositivo, la campaña se <strong>pausa</strong> (no marca fallidos). Vincula de nuevo y pulsa <strong>Reanudar</strong>.</li>
-            <li>Divide envíos grandes en varios días (límite diario: {dailyLimit.toLocaleString('es-ES')} msgs).</li>
+            <li>Divide en campañas de <strong>{maxRecipientsPerCampaign}/día</strong> → ~50 días sin riesgo alto.</li>
+            <li>La campaña se <strong>pausa sola</strong> al llegar al límite diario y continúa mañana.</li>
+            <li>Si WhatsApp desconecta el dispositivo, vincula de nuevo y pulsa <strong>Reanudar</strong>.</li>
           </ul>
         </div>
 
@@ -905,8 +930,8 @@ export default function AdminWhatsAppPage() {
             )}
             <div className="flex items-center gap-3 mb-3">
               <label className="text-gray-400 text-xs">Delay entre msgs (ms):</label>
-              <input type="number" min={1000} max={10000} step={500} value={delayMs} onChange={(e) => setDelayMs(Number(e.target.value))} className="w-24 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-sm" />
-              <span className="text-gray-500 text-xs">Recomendado: 5000–10000</span>
+              <input type="number" min={8000} max={60000} step={1000} value={delayMs} onChange={(e) => setDelayMs(Number(e.target.value))} className="w-24 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-sm" />
+              <span className="text-gray-500 text-xs">Mín. {minDelayMs / 1000} s · recomendado 12–20 s</span>
             </div>
             <p className="text-gray-500 text-xs mb-1">
               Destinatarios: <span className="text-white font-bold">{recipientCount}</span> · Emisor:{' '}
@@ -921,12 +946,17 @@ export default function AdminWhatsAppPage() {
                 <span className="text-amber-400/80"> — se pausará al llegar al límite diario</span>
               )}
             </p>
+            {campaignExceedsMaxRecipients && recipientCount > 0 && (
+              <p className="text-red-400 text-xs mb-1">
+                Máximo {maxRecipientsPerCampaign} destinatarios por campaña. Divide en varios días ({Math.ceil(recipientCount / maxRecipientsPerCampaign)} campañas).
+              </p>
+            )}
             <p className="text-gray-500 text-xs mb-3">
               Coste estimado: <span className="text-emerald-400 font-bold">{formatEurTotal(recipientCount * COST_PER_MSG)}</span>
             </p>
             <button
               onClick={handleCreateCampaign}
-              disabled={isSending || !connected || recipientCount === 0 || !canSendMessages || campaignExceedsQuota}
+              disabled={isSending || !canLaunchCampaign}
               className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold py-3 rounded-lg"
             >
               <Play className="w-5 h-5" />
