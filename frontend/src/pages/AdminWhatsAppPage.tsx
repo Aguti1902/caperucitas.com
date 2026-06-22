@@ -763,7 +763,8 @@ export default function AdminWhatsAppPage() {
           <ul className="list-disc list-inside text-xs space-y-1.5 text-red-100/90">
             <li><strong>No envíes a listas frías</strong> (Excel de 10.000 números). WhatsApp lo detecta como spam.</li>
             <li>Máximo <strong>{maxRecipientsPerCampaign} mensajes nuevos/día</strong> y <strong>{maxRecipientsPerCampaign} por campaña</strong>.</li>
-            <li>Delay mínimo <strong>{minDelayMs / 1000} s</strong> entre mensajes (recomendado 12–20 s).</li>
+            <li>Tras <strong>{safeLimits?.burstSize ?? 15} mensajes</strong>, pausa automática de <strong>{safeLimits?.burstPauseMinutes ?? 30} min</strong> (evita corte ~15–20 msgs).</li>
+            <li>Delay mínimo <strong>{minDelayMs / 1000} s</strong> entre mensajes (recomendado 15–25 s en cuentas con aviso de spam).</li>
             <li>Si ves «Tu cuenta está restringida», <strong>espera 6–24 h</strong> sin enviar nada.</li>
             <li>Prioriza contactos que <strong>ya te hayan escrito</strong> o usuarios registrados en la web.</li>
           </ul>

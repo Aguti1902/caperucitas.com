@@ -16,10 +16,16 @@ import {
   isWhatsAppRestrictionError,
   jitterDelayMs,
   WHATSAPP_RESTRICTION_PAUSE_MESSAGE,
+  WHATSAPP_BURST_PAUSE_MESSAGE,
+  getBurstSize,
+  getBurstPauseMs,
+  isBurstPauseReason,
+  burstPauseRemainingMs,
 } from '../utils/whatsapp-safe-limits.utils';
 
 const runningCampaigns = new Set<string>();
 const resumeTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const burstResumeTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 let onStatsChange: (() => void) | undefined;
 
@@ -31,6 +37,35 @@ function touchStats(): void {
   onStatsChange?.();
 }
 
+function clearBurstTimer(campaignId: string) {
+  const t = burstResumeTimers.get(campaignId);
+  if (t) {
+    clearTimeout(t);
+    burstResumeTimers.delete(campaignId);
+  }
+}
+
+function scheduleBurstResume(campaignId: string, delayMs: number): void {
+  clearBurstTimer(campaignId);
+  const mins = Math.ceil(delayMs / 60_000);
+  console.log(`[WhatsApp] Campaña ${campaignId}: pausa anti-spam ${mins} min antes de continuar`);
+  const timer = setTimeout(() => {
+    burstResumeTimers.delete(campaignId);
+    enqueueCampaign(campaignId);
+  }, delayMs);
+  burstResumeTimers.set(campaignId, timer);
+}
+
+async function pauseForBurst(campaignId: string): Promise<void> {
+  const pauseMs = getBurstPauseMs();
+  const mins = Math.ceil(pauseMs / 60_000);
+  await pauseCampaign(
+    campaignId,
+    `${PAUSE_REASON_BURST} Espera ${mins} min (continúa sola).`
+  );
+  scheduleBurstResume(campaignId, pauseMs);
+}
+
 export const MAX_SEND_RETRIES = 3;
 export const RETRY_BASE_MS = 3000;
 export const AUTO_RESUME_DELAY_MS = 8000;
@@ -40,6 +75,7 @@ export const PAUSE_REASON_DISCONNECT =
   'WhatsApp desconectado (WhatsApp puede haber cerrado la sesión por envío masivo). Vincula de nuevo y pulsa Reanudar.';
 export const PAUSE_REASON_DAILY = DAILY_QUOTA_EXHAUSTED_MESSAGE;
 export const PAUSE_REASON_RESTRICTION = WHATSAPP_RESTRICTION_PAUSE_MESSAGE;
+export const PAUSE_REASON_BURST = WHATSAPP_BURST_PAUSE_MESSAGE;
 
 type SendOutcome =
   | { type: 'sent' }
@@ -208,6 +244,9 @@ export async function processCampaign(campaignId: string): Promise<void> {
       orderBy: { createdAt: 'asc' },
     });
 
+    let burstCount = 0;
+    const burstLimit = getBurstSize();
+
     for (const log of pending) {
       const current = await prisma.whatsAppCampaign.findUnique({ where: { id: campaignId } });
       if (!current || current.status === 'cancelled' || current.status === 'paused') break;
@@ -268,6 +307,11 @@ export async function processCampaign(campaignId: string): Promise<void> {
           },
         });
         touchStats();
+        burstCount += 1;
+        if (burstCount >= burstLimit) {
+          await pauseForBurst(campaignId);
+          break;
+        }
       } else if (outcome.type === 'pause') {
         await pauseCampaign(campaignId, outcome.reason);
         break;
@@ -375,6 +419,15 @@ export async function resumePausedCampaignsForInstance(instanceName: string): Pr
           if (daily.ok === false) continue;
         }
         if (c.pauseReason === PAUSE_REASON_RESTRICTION) {
+          continue;
+        }
+        if (isBurstPauseReason(c.pauseReason)) {
+          const remaining = burstPauseRemainingMs(c.pausedAt);
+          if (remaining > 0) {
+            scheduleBurstResume(c.id, remaining);
+          } else {
+            enqueueCampaign(c.id);
+          }
           continue;
         }
 

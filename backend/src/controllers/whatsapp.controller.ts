@@ -43,6 +43,8 @@ import {
   WHATSAPP_MAX_CAMPAIGN_RECIPIENTS,
   WHATSAPP_DAILY_LIMIT_SAFE,
   WHATSAPP_DEFAULT_DELAY_MS,
+  getBurstSize,
+  getBurstPauseMs,
 } from '../utils/whatsapp-safe-limits.utils';
 import { isBuiltinConnected, isBuiltinConnecting } from '../services/whatsapp-baileys.service';
 
@@ -273,6 +275,8 @@ export const getWhatsAppStats = async (_req: AuthRequest, res: Response) => {
         minDelayMs: WHATSAPP_MIN_DELAY_MS,
         dailyLimitSafe: WHATSAPP_DAILY_LIMIT_SAFE,
         defaultDelayMs: WHATSAPP_DEFAULT_DELAY_MS,
+        burstSize: getBurstSize(),
+        burstPauseMinutes: Math.ceil(getBurstPauseMs() / 60_000),
       },
     };
 
