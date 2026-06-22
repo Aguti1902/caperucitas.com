@@ -152,6 +152,22 @@ export const importWhatsAppContacts = async (phones: string) => {
   return response.data;
 };
 
+export const importWhatsAppContactsExcel = async (file: File) => {
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('source', 'excel');
+  const response = await adminApi.post('/whatsapp/contacts/import-excel', fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data as {
+    imported: number;
+    updated: number;
+    total: number;
+    filename: string;
+    contactCount: number;
+  };
+};
+
 export const syncWhatsAppProfileContacts = async () => {
   const response = await adminApi.post('/whatsapp/contacts/sync-profiles');
   return response.data;

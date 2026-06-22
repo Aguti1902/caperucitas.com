@@ -21,6 +21,12 @@ import {
   beginWhatsAppPairing,
 } from '../services/whatsapp.service';
 import { buildPublicUploadUrl } from '../utils/whatsapp-image.utils';
+import {
+  assertQuotaForSend,
+  getWhatsAppQuota,
+  QUOTA_EXHAUSTED_MESSAGE,
+} from '../utils/whatsapp-quota.utils';
+import { parseContactsFromSpreadsheet } from '../utils/whatsapp-excel.utils';
 
 const runningCampaigns = new Set<string>();
 
@@ -74,6 +80,27 @@ async function processCampaign(campaignId: string) {
       const current = await prisma.whatsAppCampaign.findUnique({ where: { id: campaignId } });
       if (!current || current.status === 'cancelled') break;
 
+      const quotaCheck = await assertQuotaForSend(1);
+      if (quotaCheck.ok === false) {
+        const remainingPending = await prisma.whatsAppMessageLog.count({
+          where: { campaignId, status: 'pending' },
+        });
+        await prisma.whatsAppMessageLog.updateMany({
+          where: { campaignId, status: 'pending' },
+          data: { status: 'failed', error: QUOTA_EXHAUSTED_MESSAGE.slice(0, 500) },
+        });
+        await prisma.whatsAppCampaign.update({
+          where: { id: campaignId },
+          data: {
+            status: 'completed',
+            completedAt: new Date(),
+            failedCount: { increment: remainingPending },
+          },
+        });
+        whatsappStatsCache = null;
+        break;
+      }
+
       const result = await sendWhatsAppMessage(
         log.phone,
         campaign.message,
@@ -97,6 +124,7 @@ async function processCampaign(campaignId: string) {
             totalCostEur: { increment: WHATSAPP_MESSAGE_COST_EUR },
           },
         });
+        whatsappStatsCache = null;
       } else {
         await prisma.whatsAppMessageLog.update({
           where: { id: log.id },
@@ -163,6 +191,30 @@ function parsePhoneLines(raw: string): { phone: string; name?: string }[] {
     }
   }
   return results;
+}
+
+async function upsertContactBatch(
+  parsed: { phone: string; name?: string }[],
+  source: string
+): Promise<{ imported: number; updated: number; total: number }> {
+  let imported = 0;
+  let updated = 0;
+  for (const item of parsed) {
+    const existing = await prisma.whatsAppContact.findUnique({ where: { phone: item.phone } });
+    if (existing) {
+      await prisma.whatsAppContact.update({
+        where: { phone: item.phone },
+        data: { name: item.name || existing.name, source },
+      });
+      updated++;
+    } else {
+      await prisma.whatsAppContact.create({
+        data: { phone: item.phone, name: item.name, source },
+      });
+      imported++;
+    }
+  }
+  return { imported, updated, total: parsed.length };
 }
 
 export const getWhatsAppInstances = async (_req: AuthRequest, res: Response) => {
@@ -244,6 +296,7 @@ export const getWhatsAppStats = async (_req: AuthRequest, res: Response) => {
 
     const payload = {
       costPerMessage: WHATSAPP_MESSAGE_COST_EUR,
+      quota: await getWhatsAppQuota(),
       totals: {
         sent,
         failed,
@@ -292,28 +345,49 @@ export const importContacts = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'No se encontraron números válidos' });
     }
 
-    let imported = 0;
-    let updated = 0;
-    for (const item of parsed) {
-      const existing = await prisma.whatsAppContact.findUnique({ where: { phone: item.phone } });
-      if (existing) {
-        await prisma.whatsAppContact.update({
-          where: { phone: item.phone },
-          data: { name: item.name || existing.name, source },
-        });
-        updated++;
-      } else {
-        await prisma.whatsAppContact.create({
-          data: { phone: item.phone, name: item.name, source },
-        });
-        imported++;
-      }
-    }
+    const { imported, updated, total } = await upsertContactBatch(parsed, source);
 
-    res.json({ imported, updated, total: parsed.length, contactCount: await prisma.whatsAppContact.count() });
+    res.json({ imported, updated, total, contactCount: await prisma.whatsAppContact.count() });
   } catch (error) {
     console.error('Error importContacts:', error);
     res.status(500).json({ error: 'Error al importar contactos' });
+  }
+};
+
+export const importContactsExcel = async (req: AuthRequest, res: Response) => {
+  try {
+    const file = (req as AuthRequest & { file?: { buffer: Buffer; originalname: string } }).file;
+    if (!file?.buffer?.length) {
+      return res.status(400).json({ error: 'Sube un archivo Excel (.xlsx, .xls) o CSV' });
+    }
+
+    const source = String(req.body?.source || 'excel');
+    let parsed: { phone: string; name?: string }[];
+    try {
+      parsed = parseContactsFromSpreadsheet(file.buffer);
+    } catch (parseErr) {
+      console.error('Error parseando Excel:', parseErr);
+      return res.status(400).json({ error: 'No se pudo leer el archivo. Usa .xlsx, .xls o CSV con una columna de teléfono.' });
+    }
+
+    if (parsed.length === 0) {
+      return res.status(400).json({
+        error: 'No se encontraron números válidos en el Excel. Usa columnas como teléfono, móvil o phone.',
+      });
+    }
+
+    const { imported, updated, total } = await upsertContactBatch(parsed, source);
+
+    res.json({
+      imported,
+      updated,
+      total,
+      filename: file.originalname,
+      contactCount: await prisma.whatsAppContact.count(),
+    });
+  } catch (error) {
+    console.error('Error importContactsExcel:', error);
+    res.status(500).json({ error: 'Error al importar contactos desde Excel' });
   }
 };
 
@@ -490,6 +564,11 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'No hay destinatarios válidos para esta campaña' });
     }
 
+    const quotaCheck = await assertQuotaForSend(recipients.length);
+    if (quotaCheck.ok === false) {
+      return res.status(403).json({ error: quotaCheck.error, quota: quotaCheck.quota });
+    }
+
     const campaign = await prisma.whatsAppCampaign.create({
       data: {
         name: name?.trim() || `Campaña ${new Date().toLocaleString('es-ES')}`,
@@ -532,6 +611,11 @@ export const sendTestMessage = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Teléfono y mensaje o imagen son obligatorios' });
     }
 
+    const quotaCheck = await assertQuotaForSend(1);
+    if (quotaCheck.ok === false) {
+      return res.status(403).json({ error: quotaCheck.error, quota: quotaCheck.quota });
+    }
+
     const resolvedInstance = (instanceName || getDefaultInstanceName()).trim();
     if (!resolvedInstance) {
       return res.status(400).json({ error: 'Selecciona el móvil/instancia emisor' });
@@ -541,6 +625,16 @@ export const sendTestMessage = async (req: AuthRequest, res: Response) => {
     if (!result.success) {
       return res.status(400).json({ error: result.error });
     }
+
+    await prisma.whatsAppMessageLog.create({
+      data: {
+        phone: normalizePhone(phone)!,
+        status: 'sent',
+        sentAt: new Date(),
+        costEur: WHATSAPP_MESSAGE_COST_EUR,
+      },
+    });
+    whatsappStatsCache = null;
 
     res.json({
       success: true,
@@ -774,5 +868,38 @@ export const getWhatsAppDiagnosticsHandler = async (req: AuthRequest, res: Respo
   } catch (error) {
     console.error('Error getWhatsAppDiagnostics:', error);
     res.status(500).json({ error: 'Error al obtener diagnóstico WhatsApp' });
+  }
+};
+
+export const getWhatsAppQuotaHandler = async (_req: AuthRequest, res: Response) => {
+  try {
+    const quota = await getWhatsAppQuota();
+    res.json({ quota, quotaExhaustedMessage: QUOTA_EXHAUSTED_MESSAGE });
+  } catch (error) {
+    console.error('Error getWhatsAppQuota:', error);
+    res.status(500).json({ error: 'Error al obtener cuota de mensajes' });
+  }
+};
+
+export const rechargeWhatsAppQuota = async (req: AuthRequest, res: Response) => {
+  try {
+    const { messageLimit } = req.body as { messageLimit?: number };
+    const limit = Number(messageLimit);
+    if (!Number.isFinite(limit) || limit < 1) {
+      return res.status(400).json({ error: 'Indica un límite válido (número entero mayor que 0)' });
+    }
+
+    await prisma.whatsAppSettings.upsert({
+      where: { id: 'default' },
+      create: { id: 'default', messageLimit: Math.floor(limit) },
+      update: { messageLimit: Math.floor(limit) },
+    });
+    whatsappStatsCache = null;
+
+    const quota = await getWhatsAppQuota();
+    res.json({ message: `Cuota actualizada a ${quota.limit.toLocaleString('es-ES')} mensajes`, quota });
+  } catch (error) {
+    console.error('Error rechargeWhatsAppQuota:', error);
+    res.status(500).json({ error: 'Error al recargar cuota' });
   }
 };

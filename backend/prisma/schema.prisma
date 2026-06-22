@@ -371,9 +371,9 @@ model WhatsAppCampaign {
 }
 
 model WhatsAppMessageLog {
-  id         String           @id @default(uuid())
-  campaignId String
-  campaign   WhatsAppCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  id         String            @id @default(uuid())
+  campaignId String?
+  campaign   WhatsAppCampaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   phone      String
   name       String?
   status     String           @default("pending") // pending | sent | failed | skipped
@@ -401,5 +401,13 @@ model WhatsAppSession {
   updatedAt         DateTime  @updatedAt
 
   @@map("whatsapp_sessions")
+}
+
+model WhatsAppSettings {
+  id           String   @id @default("default")
+  messageLimit Int      @default(30000)
+  updatedAt    DateTime @updatedAt
+
+  @@map("whatsapp_settings")
 }
 

@@ -28,6 +28,7 @@ import {
   createWhatsAppCampaign,
   uploadWhatsAppCampaignImage,
   importWhatsAppContacts,
+  importWhatsAppContactsExcel,
   syncWhatsAppProfileContacts,
   getWhatsAppContacts,
   sendWhatsAppTest,
@@ -70,6 +71,7 @@ export default function AdminWhatsAppPage() {
   const [loadError, setLoadError] = useState('');
 
   const [importText, setImportText] = useState('');
+  const [isImportingExcel, setIsImportingExcel] = useState(false);
   const [campaignName, setCampaignName] = useState('');
   const [campaignMessage, setCampaignMessage] = useState('');
   const [campaignImageUrl, setCampaignImageUrl] = useState('');
@@ -261,6 +263,13 @@ export default function AdminWhatsAppPage() {
   const connected = activeInstance?.connected ?? stats?.instance?.connected;
   const isConfigured = stats?.whatsappConfigured ?? stats?.evolutionConfigured ?? true;
   const provider = stats?.provider || setupStatus?.provider || 'builtin';
+  const quota = stats?.quota;
+  const messagesRemaining = quota?.remaining ?? 30_000;
+  const messageLimit = quota?.limit ?? 30_000;
+  const quotaExhausted = quota?.exhausted ?? false;
+  const quotaPercentUsed = quota?.percentUsed ?? 0;
+  const canSendMessages = !quotaExhausted && messagesRemaining > 0;
+  const campaignExceedsQuota = recipientCount > messagesRemaining;
 
   useEffect(() => {
     const phones = campaignSource === 'manual' ? manualPhones : undefined;
@@ -277,6 +286,27 @@ export default function AdminWhatsAppPage() {
       loadAll();
     } catch (e: any) {
       setError(e.response?.data?.error || 'Error al importar');
+    }
+  };
+
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    setError('');
+    setSuccess('');
+    setIsImportingExcel(true);
+    try {
+      const result = await importWhatsAppContactsExcel(file);
+      setSuccess(
+        `Excel "${result.filename}": ${result.imported} nuevos, ${result.updated} actualizados (${result.total} filas). Total en BD: ${result.contactCount}`
+      );
+      loadAll();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Error al importar Excel');
+    } finally {
+      setIsImportingExcel(false);
     }
   };
 
@@ -343,6 +373,14 @@ export default function AdminWhatsAppPage() {
       setError('Vincula tu número de WhatsApp antes de enviar');
       return;
     }
+    if (!canSendMessages) {
+      setError('Has agotado tus mensajes disponibles. Contacta con el administrador para recargar.');
+      return;
+    }
+    if (campaignExceedsQuota) {
+      setError(`Solo te quedan ${messagesRemaining.toLocaleString('es-ES')} mensajes. Reduce destinatarios o contacta con el administrador.`);
+      return;
+    }
 
     const emisor = activeInstance?.owner || senderPhone;
     if (!window.confirm(`¿Enviar campaña a ${recipientCount} números desde +${emisor}? Coste estimado: ${formatEur(recipientCount * COST_PER_MSG)}`)) {
@@ -377,6 +415,10 @@ export default function AdminWhatsAppPage() {
     setError('');
     if (!connected) {
       setError('Vincula tu número de WhatsApp antes de enviar');
+      return;
+    }
+    if (!canSendMessages) {
+      setError('Has agotado tus mensajes disponibles. Contacta con el administrador para recargar.');
       return;
     }
     try {
@@ -557,6 +599,45 @@ export default function AdminWhatsAppPage() {
         {error && <div className="mb-4 p-3 bg-red-900/30 border border-red-700 text-red-300 rounded-lg text-sm">{error}</div>}
         {success && <div className="mb-4 p-3 bg-green-900/30 border border-green-700 text-green-300 rounded-lg text-sm">{success}</div>}
 
+        {/* Cuota de mensajes */}
+        <div className={`rounded-xl p-5 border mb-6 ${quotaExhausted ? 'bg-red-950/40 border-red-700' : 'bg-gray-900 border-gray-800'}`}>
+          <div className="flex flex-wrap items-start justify-between gap-4 mb-3">
+            <div>
+              <h2 className="text-white font-bold flex items-center gap-2">
+                <MessageCircle className="w-5 h-5 text-green-500" />
+                Mensajes restantes
+              </h2>
+              <p className="text-gray-400 text-xs mt-1">
+                Tienes un límite de {messageLimit.toLocaleString('es-ES')} mensajes. Cada envío exitoso consume 1 mensaje.
+              </p>
+            </div>
+            <div className="text-right">
+              <p className={`text-3xl font-black ${quotaExhausted ? 'text-red-400' : 'text-green-400'}`}>
+                {messagesRemaining.toLocaleString('es-ES')}
+              </p>
+              <p className="text-gray-500 text-xs">de {messageLimit.toLocaleString('es-ES')}</p>
+            </div>
+          </div>
+          <div className="h-3 bg-gray-800 rounded-full overflow-hidden mb-2">
+            <div
+              className={`h-full transition-all ${quotaExhausted ? 'bg-red-500' : quotaPercentUsed > 80 ? 'bg-amber-500' : 'bg-green-500'}`}
+              style={{ width: `${Math.min(100, quotaPercentUsed)}%` }}
+            />
+          </div>
+          <p className="text-gray-500 text-xs">
+            Usados: {(quota?.used ?? 0).toLocaleString('es-ES')} ({quotaPercentUsed}%)
+          </p>
+          {quotaExhausted && (
+            <div className="mt-4 p-4 bg-red-900/30 border border-red-700 rounded-lg text-red-200 text-sm flex items-start gap-2">
+              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">No puedes enviar más mensajes</p>
+                <p className="mt-1">Has alcanzado el límite de {messageLimit.toLocaleString('es-ES')} mensajes. Para seguir enviando, contacta con el administrador para recargar tu cuota.</p>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* KPIs */}
         <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3 mb-8">
           <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
@@ -594,7 +675,18 @@ export default function AdminWhatsAppPage() {
           {/* Importar contactos */}
           <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
             <h2 className="text-white font-bold mb-3 flex items-center gap-2"><Upload className="w-5 h-5 text-green-500" /> Base de datos de teléfonos</h2>
-            <p className="text-gray-400 text-xs mb-3">Pega números (uno por línea). Formato: <code className="text-gray-300">612345678</code> o <code className="text-gray-300">Nombre;612345678</code></p>
+            <p className="text-gray-400 text-xs mb-3">Pega números (uno por línea) o sube un Excel (.xlsx, .xls, CSV). Formato texto: <code className="text-gray-300">612345678</code> o <code className="text-gray-300">Nombre;612345678</code></p>
+            <label className={`flex items-center gap-2 cursor-pointer bg-gray-800 border border-dashed rounded-lg px-3 py-3 text-sm mb-3 transition-colors ${isImportingExcel ? 'border-gray-600 text-gray-500 cursor-wait' : 'border-gray-700 text-gray-400 hover:border-green-600 hover:text-green-400'}`}>
+              <Upload className="w-4 h-4 shrink-0" />
+              <span>{isImportingExcel ? 'Importando Excel...' : 'Subir Excel con teléfonos (.xlsx, .xls, CSV)'}</span>
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+                className="hidden"
+                onChange={handleImportExcel}
+                disabled={isImportingExcel}
+              />
+            </label>
             <textarea
               value={importText}
               onChange={(e) => setImportText(e.target.value)}
@@ -701,19 +793,28 @@ export default function AdminWhatsAppPage() {
               Destinatarios: <span className="text-white font-bold">{recipientCount}</span> · Emisor:{' '}
               <span className="text-green-400">+{activeInstance?.owner || senderPhone || '—'}</span>
             </p>
+            <p className="text-gray-500 text-xs mb-1">
+              Mensajes restantes: <span className={`font-bold ${campaignExceedsQuota ? 'text-red-400' : 'text-green-400'}`}>{messagesRemaining.toLocaleString('es-ES')}</span>
+            </p>
             <p className="text-gray-500 text-xs mb-3">
               Coste estimado: <span className="text-emerald-400 font-bold">{formatEur(recipientCount * COST_PER_MSG)}</span>
             </p>
             <button
               onClick={handleCreateCampaign}
-              disabled={isSending || !connected || recipientCount === 0}
+              disabled={isSending || !connected || recipientCount === 0 || !canSendMessages || campaignExceedsQuota}
               className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold py-3 rounded-lg"
             >
               <Play className="w-5 h-5" />
-              {isSending ? 'Iniciando...' : 'Lanzar campaña'}
+              {isSending ? 'Iniciando...' : quotaExhausted ? 'Cuota agotada' : 'Lanzar campaña'}
             </button>
             {!connected && (
               <p className="text-red-400 text-xs mt-2 text-center">Vincula tu WhatsApp arriba antes de enviar</p>
+            )}
+            {quotaExhausted && (
+              <p className="text-red-400 text-xs mt-2 text-center">Contacta con el administrador para recargar mensajes</p>
+            )}
+            {canSendMessages && campaignExceedsQuota && (
+              <p className="text-red-400 text-xs mt-2 text-center">Esta campaña supera tus mensajes restantes</p>
             )}
           </div>
         </div>
@@ -725,7 +826,7 @@ export default function AdminWhatsAppPage() {
           <div className="flex flex-wrap gap-3">
             <input value={testPhone} onChange={(e) => setTestPhone(e.target.value)} placeholder="612345678" className="flex-1 min-w-[150px] bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm" />
             <input value={testMessage} onChange={(e) => setTestMessage(e.target.value)} placeholder="Mensaje de prueba" className="flex-[2] min-w-[200px] bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm" />
-            <button onClick={handleTest} disabled={!testPhone || !connected} className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-semibold">Enviar prueba</button>
+            <button onClick={handleTest} disabled={!testPhone || !connected || !canSendMessages} className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-semibold">Enviar prueba</button>
           </div>
         </div>
 

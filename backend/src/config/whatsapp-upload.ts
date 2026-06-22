@@ -29,3 +29,22 @@ export const whatsappImageUpload = multer({
 export function getWhatsAppCampaignImagePath(filename: string): string {
   return path.join(uploadDir, path.basename(filename));
 }
+
+const excelUploadDir = path.join(process.cwd(), 'uploads', 'whatsapp-imports');
+if (!fs.existsSync(excelUploadDir)) {
+  fs.mkdirSync(excelUploadDir, { recursive: true });
+}
+
+export const whatsappExcelUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ok =
+      file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      file.mimetype === 'application/vnd.ms-excel' ||
+      file.mimetype === 'text/csv' ||
+      /\.(xlsx|xls|csv)$/i.test(file.originalname);
+    if (ok) cb(null, true);
+    else cb(new Error('Solo se permiten archivos Excel (.xlsx, .xls) o CSV'));
+  },
+});
