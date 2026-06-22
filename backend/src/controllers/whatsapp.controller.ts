@@ -169,6 +169,42 @@ export const getWhatsAppStats = async (_req: AuthRequest, res: Response) => {
       }
     } catch (dbErr) {
       console.warn('Tablas WhatsApp no disponibles aún:', dbErr);
+      try {
+        [sent, failed, pending, contactCount, campaigns] = await Promise.all([
+          prisma.whatsAppMessageLog.count({ where: { status: 'sent' } }),
+          prisma.whatsAppMessageLog.count({ where: { status: 'failed' } }),
+          prisma.whatsAppMessageLog.count({ where: { status: 'pending' } }),
+          prisma.whatsAppContact.count(),
+          prisma.whatsAppCampaign.count(),
+        ]);
+        todaySent = await prisma.whatsAppMessageLog.count({
+          where: { status: 'sent', sentAt: { gte: todayStart } },
+        });
+        totalCostEur = computeWhatsAppCost(sent);
+      } catch (fallbackErr) {
+        console.warn('Fallback stats WhatsApp:', fallbackErr);
+      }
+    }
+
+    let quota: Awaited<ReturnType<typeof getWhatsAppQuota>>;
+    let dailyQuota: Awaited<ReturnType<typeof getWhatsAppDailyQuota>>;
+    try {
+      quota = await getWhatsAppQuota();
+    } catch (quotaErr) {
+      console.warn('getWhatsAppQuota fallback:', quotaErr);
+      quota = { limit: 30_000, used: sent, remaining: Math.max(0, 30_000 - sent), exhausted: false, percentUsed: 0 };
+    }
+    try {
+      dailyQuota = await getWhatsAppDailyQuota();
+    } catch (dailyErr) {
+      console.warn('getWhatsAppDailyQuota fallback:', dailyErr);
+      dailyQuota = {
+        limit: 1000,
+        usedToday: todaySent,
+        remainingToday: Math.max(0, 1000 - todaySent),
+        exhausted: todaySent >= 1000,
+        percentUsedToday: Math.min(100, Math.round((todaySent / 1000) * 100)),
+      };
     }
 
     let instances: Awaited<ReturnType<typeof listInstances>>['instances'] = [];
@@ -193,8 +229,8 @@ export const getWhatsAppStats = async (_req: AuthRequest, res: Response) => {
 
     const payload = {
       costPerMessage: WHATSAPP_MESSAGE_COST_EUR,
-      quota: await getWhatsAppQuota(),
-      dailyQuota: await getWhatsAppDailyQuota(),
+      quota,
+      dailyQuota,
       totals: {
         sent,
         failed,

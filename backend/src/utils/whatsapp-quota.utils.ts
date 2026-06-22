@@ -40,11 +40,31 @@ export async function ensureWhatsAppSettings() {
   const defaultDaily =
     Number.isFinite(envDaily) && envDaily > 0 ? envDaily : WHATSAPP_DAILY_LIMIT_DEFAULT;
 
-  await prisma.whatsAppSettings.upsert({
-    where: { id: 'default' },
-    create: { id: 'default', messageLimit: defaultLimit, dailyMessageLimit: defaultDaily },
-    update: {},
-  });
+  try {
+    const { ensureWhatsAppSchemaColumns } = await import('./whatsapp-schema-migrate.utils');
+    await ensureWhatsAppSchemaColumns();
+  } catch {
+    /* ignore */
+  }
+
+  try {
+    await prisma.whatsAppSettings.upsert({
+      where: { id: 'default' },
+      create: { id: 'default', messageLimit: defaultLimit, dailyMessageLimit: defaultDaily },
+      update: {},
+    });
+  } catch (err) {
+    console.warn('ensureWhatsAppSettings upsert:', err);
+    try {
+      await prisma.$executeRawUnsafe(`
+        INSERT INTO whatsapp_settings (id, "messageLimit", "updatedAt")
+        VALUES ('default', ${defaultLimit}, NOW())
+        ON CONFLICT (id) DO NOTHING;
+      `);
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 export async function getWhatsAppMessageLimit(): Promise<number> {

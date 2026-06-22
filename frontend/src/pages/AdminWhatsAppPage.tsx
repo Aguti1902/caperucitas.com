@@ -201,26 +201,52 @@ export default function AdminWhatsAppPage() {
   }, []);
 
   const loadAll = useCallback(async () => {
-    try {
-      setLoadError('');
-      const [statsData, campaignsData, contactsData] = await Promise.all([
-        getWhatsAppStats(),
-        getWhatsAppCampaigns(),
-        getWhatsAppContacts(1, 20),
-      ]);
-      setStats(statsData);
-      setCampaigns(campaignsData.campaigns || []);
-      setContacts(contactsData.contacts || []);
-      setContactTotal(contactsData.total || 0);
-      if (statsData.instances?.length) {
-        setInstances(statsData.instances);
+    setLoadError('');
+    const results = await Promise.allSettled([
+      getWhatsAppStats(),
+      getWhatsAppCampaigns(),
+      getWhatsAppContacts(1, 20),
+    ]);
+
+    const errors: string[] = [];
+
+    if (results[0].status === 'fulfilled') {
+      setStats(results[0].value);
+      if (results[0].value.instances?.length) {
+        setInstances(results[0].value.instances);
       }
-    } catch (e: any) {
-      console.error(e);
-      setLoadError(e.response?.data?.error || 'Error al cargar datos de WhatsApp');
-    } finally {
-      setIsLoading(false);
+    } else {
+      console.error(results[0].reason);
+      errors.push('estadísticas');
     }
+
+    if (results[1].status === 'fulfilled') {
+      setCampaigns(results[1].value.campaigns || []);
+    } else {
+      console.error(results[1].reason);
+      errors.push('campañas');
+    }
+
+    if (results[2].status === 'fulfilled') {
+      setContacts(results[2].value.contacts || []);
+      setContactTotal(results[2].value.total || 0);
+    } else {
+      console.error(results[2].reason);
+      errors.push('contactos');
+    }
+
+    if (errors.length > 0) {
+      const detail =
+        results[0].status === 'rejected'
+          ? (results[0].reason as any)?.response?.data?.error
+          : undefined;
+      setLoadError(
+        detail ||
+          `No se pudieron cargar: ${errors.join(', ')}. Pulsa Actualizar o espera 1 min al reinicio del servidor.`
+      );
+    }
+
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -270,15 +296,17 @@ export default function AdminWhatsAppPage() {
   const provider = stats?.provider || setupStatus?.provider || 'builtin';
   const quota = stats?.quota;
   const dailyQuota = stats?.dailyQuota;
-  const messagesRemaining = quota?.remaining ?? 30_000;
-  const messageLimit = quota?.limit ?? 30_000;
-  const dailyRemaining = dailyQuota?.remainingToday ?? 1000;
-  const dailyLimit = dailyQuota?.limit ?? 1000;
-  const dailyExhausted = dailyQuota?.exhausted ?? false;
-  const quotaExhausted = quota?.exhausted ?? false;
-  const quotaPercentUsed = quota?.percentUsed ?? 0;
-  const dailyPercentUsed = dailyQuota?.percentUsedToday ?? 0;
-  const canSendMessages = !quotaExhausted && !dailyExhausted && messagesRemaining > 0 && dailyRemaining > 0;
+  const statsLoaded = Boolean(stats?.cachedAt);
+  const dbContactCount = stats?.totals?.contactCount ?? contactTotal;
+  const messagesRemaining = statsLoaded ? (quota?.remaining ?? 0) : 0;
+  const messageLimit = statsLoaded ? (quota?.limit ?? 0) : 0;
+  const dailyRemaining = statsLoaded ? (dailyQuota?.remainingToday ?? 0) : 0;
+  const dailyLimit = statsLoaded ? (dailyQuota?.limit ?? 0) : 0;
+  const dailyExhausted = statsLoaded ? (dailyQuota?.exhausted ?? false) : false;
+  const quotaExhausted = statsLoaded ? (quota?.exhausted ?? false) : false;
+  const quotaPercentUsed = statsLoaded ? (quota?.percentUsed ?? 0) : 0;
+  const dailyPercentUsed = statsLoaded ? (dailyQuota?.percentUsedToday ?? 0) : 0;
+  const canSendMessages = statsLoaded && !quotaExhausted && !dailyExhausted && messagesRemaining > 0 && dailyRemaining > 0;
   const campaignExceedsQuota = recipientCount > messagesRemaining;
   const campaignExceedsDaily = recipientCount > dailyRemaining;
 
@@ -628,11 +656,21 @@ export default function AdminWhatsAppPage() {
           </div>
         )}
 
+        {loadError && (
+          <div className="mb-4 p-3 bg-amber-900/30 border border-amber-700 text-amber-200 rounded-lg text-sm flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+            <p>{loadError}</p>
+          </div>
+        )}
+
         {error && <div className="mb-4 p-3 bg-red-900/30 border border-red-700 text-red-300 rounded-lg text-sm">{error}</div>}
         {success && <div className="mb-4 p-3 bg-green-900/30 border border-green-700 text-green-300 rounded-lg text-sm">{success}</div>}
 
         {/* Cuota de mensajes */}
         <div className={`rounded-xl p-5 border mb-6 ${quotaExhausted ? 'bg-red-950/40 border-red-700' : 'bg-gray-900 border-gray-800'}`}>
+          {!statsLoaded && !isLoading && (
+            <p className="text-amber-400 text-xs mb-3">No se pudieron cargar las estadísticas. Pulsa Actualizar arriba.</p>
+          )}
           <div className="flex flex-wrap items-start justify-between gap-4 mb-3">
             <div>
               <h2 className="text-white font-bold flex items-center gap-2">
@@ -784,7 +822,7 @@ export default function AdminWhatsAppPage() {
             </div>
             {contacts.length > 0 && (
               <div className="mt-4 max-h-40 overflow-y-auto">
-                <p className="text-gray-500 text-xs mb-2">Últimos {contacts.length} de {contactTotal}:</p>
+                <p className="text-gray-500 text-xs mb-2">Últimos {contacts.length} de {dbContactCount || contactTotal}:</p>
                 {contacts.slice(0, 10).map((c) => (
                   <div key={c.id} className="flex items-center justify-between text-xs text-gray-400 py-0.5 group">
                     <span>{c.name ? `${c.name} · ` : ''}{c.phone}</span>
@@ -851,7 +889,7 @@ export default function AdminWhatsAppPage() {
               onChange={(e) => setCampaignSource(e.target.value)}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm mb-3"
             >
-              <option value="contacts_db">Todos los contactos de la BD ({contactTotal})</option>
+              <option value="contacts_db">Todos los contactos de la BD ({dbContactCount || recipientCount})</option>
               <option value="profiles">Teléfonos de perfiles de la web ({stats?.totals?.profilePhoneCount ?? 0})</option>
               <option value="mixed">BD + perfiles web (sin duplicados)</option>
               <option value="manual">Lista manual (pegar abajo)</option>
