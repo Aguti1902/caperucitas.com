@@ -443,6 +443,15 @@ export async function sendTextMessage(
   return sendWhatsAppMessage(phone, text, instanceName);
 }
 
+export async function getWhatsAppDiagnostics(instanceName?: string) {
+  const instance = resolveInstanceName(instanceName);
+  if (!instance) return { error: 'Instancia no definida' };
+  if (getWhatsAppProvider() !== 'builtin') {
+    return { provider: 'evolution', instanceName: instance };
+  }
+  return baileys.getBuiltinDiagnostics(instance);
+}
+
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

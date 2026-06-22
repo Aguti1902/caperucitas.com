@@ -117,14 +117,17 @@ export default function AdminWhatsAppPage() {
         if (data.owner) setSenderPhone(String(data.owner).replace(/\D/g, ''));
         return true;
       }
-      if (data.pairing || data.state === 'connecting') {
+      if (data.pairingCode) {
+        setPairingCode(data.pairingCode);
+      }
+      if (data.pairing || data.state === 'connecting' || data.state === 'pairing') {
         setIsWaitingConnect(true);
       }
       return false;
     } catch {
       return false;
     }
-  }, [senderPhone]);
+  }, [senderPhone, instanceName]);
 
   const handleConnectSender = async () => {
     setError('');
@@ -222,7 +225,7 @@ export default function AdminWhatsAppPage() {
         loadInstances();
         loadSetup();
       }
-    }, 5000);
+    }, 3000);
     return () => clearInterval(t);
   }, [pairingCode, isWaitingConnect, checkConnectionStatus, loadAll, loadInstances, loadSetup]);
 

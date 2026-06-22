@@ -211,6 +211,7 @@ export const getWhatsAppConnectionStatus = async (instanceName: string) => {
     owner?: string;
     state?: string;
     pairing?: boolean;
+    pairingCode?: string | null;
   };
 };
 

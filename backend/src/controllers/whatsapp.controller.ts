@@ -17,6 +17,7 @@ import {
   getEvolutionQrCode,
   restartEvolutionInstance,
   checkEvolutionHealth,
+  getWhatsAppDiagnostics,
 } from '../services/whatsapp.service';
 import { buildPublicUploadUrl } from '../utils/whatsapp-image.utils';
 
@@ -651,11 +652,14 @@ export const setupGetQr = async (req: AuthRequest, res: Response) => {
   }
 
   if (statusOnly) {
+    const view = await getEvolutionQrCode(instanceName);
     return res.json({
-      connected: false,
+      connected: status.connected,
       instanceName,
+      owner: status.owner,
       state: status.state,
-      pairing: status.state === 'connecting',
+      pairing: status.state === 'connecting' || status.state === 'pairing' || view.pairingCode,
+      pairingCode: view.pairingCode || null,
     });
   }
 
@@ -743,4 +747,15 @@ export const setupPairingCode = async (req: AuthRequest, res: Response) => {
 export const setupConnect = async (req: AuthRequest, res: Response) => {
   req.body.instanceName = req.body.instanceName || getDefaultInstanceName();
   return setupPairingCode(req, res);
+};
+
+export const getWhatsAppDiagnosticsHandler = async (req: AuthRequest, res: Response) => {
+  try {
+    const instanceName = String(req.query.instanceName || getDefaultInstanceName() || '').trim();
+    const data = await getWhatsAppDiagnostics(instanceName);
+    res.json({ provider: getWhatsAppProvider(), ...data });
+  } catch (error) {
+    console.error('Error getWhatsAppDiagnostics:', error);
+    res.status(500).json({ error: 'Error al obtener diagnóstico WhatsApp' });
+  }
 };

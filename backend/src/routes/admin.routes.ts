@@ -34,6 +34,7 @@ router.get('/whatsapp/setup/qrcode', authenticateAdminToken, whatsappController.
 router.post('/whatsapp/setup/restart', authenticateAdminToken, whatsappController.setupRestartInstance);
 router.post('/whatsapp/setup/connect', authenticateAdminToken, whatsappController.setupConnect);
 router.post('/whatsapp/setup/pairing-code', authenticateAdminToken, whatsappController.setupPairingCode);
+router.get('/whatsapp/setup/diagnostics', authenticateAdminToken, whatsappController.getWhatsAppDiagnosticsHandler);
 
 // Acciones de administración
 router.delete('/users/:userId', authenticateAdminToken, adminController.deleteUser);

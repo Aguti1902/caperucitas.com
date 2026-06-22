@@ -21,16 +21,23 @@ const logger = pino({ level: 'warn' });
 const activeSockets = new Map<string, WASocket>();
 const connectingLocks = new Map<string, Promise<void>>();
 const pairingModeInstances = new Set<string>();
+const pairingCodeRequested = new Set<string>();
 const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 /** Mínimo entre intentos de vinculación nueva (no aplica a reconexión automática) */
-const LINK_COOLDOWN_MS = 3 * 60 * 1000;
+const LINK_COOLDOWN_MS = 60 * 1000;
 
 let cachedWaVersion: [number, number, number] | undefined;
 
 interface ConnectOptions {
   pairingPhone?: string;
 }
+
+/**
+ * WhatsApp rechaza pairing codes con browser no canónico (p. ej. "Desktop (Mac OS)").
+ * Baileys usa por defecto Chrome (Mac OS) — obligatorio para requestPairingCode().
+ */
+const WHATSAPP_BROWSER = Browsers.macOS('Chrome');
 
 async function persistAuth(
   instanceName: string,
@@ -174,7 +181,6 @@ function clearReconnectTimer(name: string) {
   }
 }
 
-/** Cierra socket y limpia estado en memoria */
 export async function disconnectSocket(instanceName: string): Promise<void> {
   const name = normalizeName(instanceName);
   clearReconnectTimer(name);
@@ -196,25 +202,11 @@ async function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-function waitForSocketReady(sock: WASocket, timeoutMs = 45000): Promise<boolean> {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(false), timeoutMs);
-    const handler = (update: { connection?: string }) => {
-      if (update.connection === 'connecting' || update.connection === 'open') {
-        clearTimeout(timer);
-        sock.ev.off('connection.update', handler);
-        resolve(true);
-      }
-    };
-    sock.ev.on('connection.update', handler);
-  });
-}
-
-async function waitForRegisteredInDb(instanceName: string, maxMs = 20000): Promise<boolean> {
+async function waitForRegisteredInDb(instanceName: string, maxMs = 25000): Promise<boolean> {
   const deadline = Date.now() + maxMs;
   while (Date.now() < deadline) {
     if (await isRegisteredInDb(instanceName)) return true;
-    await sleep(500);
+    await sleep(400);
   }
   return false;
 }
@@ -226,41 +218,43 @@ async function scheduleReconnect(name: string, delayMs: number, options: Connect
     try {
       connectingLocks.delete(name);
       await disconnectSocket(name);
-      await sleep(2000);
+      await sleep(1000);
 
-      const registered = await waitForRegisteredInDb(name, 20000);
+      const registered = await waitForRegisteredInDb(name, 25000);
       if (registered) {
-        console.log(`[WhatsApp:${name}] Reconectando con sesión guardada...`);
+        console.log(`[WhatsApp:${name}] Reconectando con sesión registrada...`);
         await connectSocket(name, false, {});
         return;
       }
 
       const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
       const pairingPhone = options.pairingPhone || session?.pairingPhone?.replace(/\D/g, '');
-      if (pairingPhone && (session?.status === 'pairing' || session?.status === 'connecting')) {
-        console.log(`[WhatsApp:${name}] Reconectando para mantener vinculación activa...`);
+      if (pairingPhone && session?.lastPairingCode) {
+        console.log(`[WhatsApp:${name}] Reconectando en modo vinculación...`);
+        pairingCodeRequested.delete(name);
         pairingModeInstances.add(name);
         await connectSocket(name, false, { pairingPhone });
         return;
       }
 
-      console.log(`[WhatsApp:${name}] Sin sesión registrada tras cierre`);
-      await updateSession(name, { status: 'pairing' });
+      console.log(`[WhatsApp:${name}] Sin sesión válida tras cierre`);
+      await updateSession(name, { status: 'disconnected' });
     } catch (err: any) {
       console.error(`[WhatsApp:${name}] Error en reconexión:`, err.message);
+      await updateSession(name, { status: 'disconnected' });
     }
   }, delayMs);
   reconnectTimers.set(name, timer);
 }
 
-async function waitForQrOrConnected(name: string, timeoutMs = 40000) {
+async function waitForQrOrConnected(name: string, timeoutMs = 45000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
     if (session?.status === 'connected' && session.phone) {
       return { connected: true as const, phone: session.phone };
     }
-    if (session?.lastPairingCode && session.status === 'pairing') {
+    if (session?.lastPairingCode && (session.status === 'pairing' || session.status === 'connecting')) {
       return {
         connected: false as const,
         pairingCode: session.lastPairingCode,
@@ -270,7 +264,7 @@ async function waitForQrOrConnected(name: string, timeoutMs = 40000) {
     if (session?.lastQr) {
       return { connected: false as const, qrBase64: session.lastQr };
     }
-    await sleep(800);
+    await sleep(600);
   }
   return null;
 }
@@ -286,29 +280,66 @@ export function checkLinkCooldown(
   if (!session?.lastLinkAttemptAt) return null;
   const elapsed = Date.now() - session.lastLinkAttemptAt.getTime();
   if (elapsed >= LINK_COOLDOWN_MS) return null;
-  const mins = Math.ceil((LINK_COOLDOWN_MS - elapsed) / 60000);
-  return `Espera ${mins} min antes de otro intento. WhatsApp bloquea si se intenta vincular muchas veces seguidas.`;
+  const secs = Math.ceil((LINK_COOLDOWN_MS - elapsed) / 1000);
+  return `Espera ${secs} s antes de otro intento. WhatsApp bloquea si se intenta vincular muchas veces seguidas.`;
 }
 
-/** Inicia socket Baileys */
+async function requestPairingCodeForSocket(
+  name: string,
+  sock: WASocket,
+  pairingPhone: string,
+  saveCreds: () => Promise<void>
+): Promise<string> {
+  if (pairingCodeRequested.has(name)) {
+    const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
+    if (session?.lastPairingCode) return session.lastPairingCode;
+  }
+
+  pairingCodeRequested.add(name);
+
+  const existing = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
+  const codeAgeMs = existing?.lastLinkAttemptAt
+    ? Date.now() - existing.lastLinkAttemptAt.getTime()
+    : Infinity;
+  if (existing?.lastPairingCode && codeAgeMs < 120000 && existing.pairingPhone === pairingPhone) {
+    console.log(`[WhatsApp:${name}] Reutilizando código existente: ${existing.lastPairingCode}`);
+    return existing.lastPairingCode;
+  }
+
+  console.log(`[WhatsApp:${name}] Solicitando código para +${pairingPhone}...`);
+  const rawCode = await sock.requestPairingCode(pairingPhone);
+  await saveCreds();
+  const formatted = formatPairingCode(rawCode);
+  await updateSession(name, {
+    status: 'pairing',
+    lastPairingCode: formatted,
+    pairingPhone,
+    lastLinkAttemptAt: new Date(),
+  });
+  console.log(`[WhatsApp:${name}] Código listo: ${formatted}`);
+  return formatted;
+}
+
 async function connectSocket(instanceName: string, force = false, options: ConnectOptions = {}): Promise<void> {
   const name = normalizeName(instanceName);
   if (!name) throw new Error('Nombre de instancia inválido');
 
   if (force) {
     pairingModeInstances.delete(name);
+    pairingCodeRequested.delete(name);
     await disconnectSocket(name);
   }
 
   const existing = activeSockets.get(name);
   if (existing?.user) return;
-  if (existing && !force) return;
+  if (existing && !force) {
+    await disconnectSocket(name);
+  }
 
   const lock = connectingLocks.get(name);
   if (lock) {
     await lock;
     if (activeSockets.get(name)?.user) return;
-    if (activeSockets.get(name) && !force) return;
   }
 
   const pairingPhone = options.pairingPhone?.replace(/\D/g, '');
@@ -317,14 +348,15 @@ async function connectSocket(instanceName: string, force = false, options: Conne
   const connectPromise = (async () => {
     const registeredAlready = await isRegisteredInDb(name);
 
-    if (!registeredAlready) {
+    if (!registeredAlready && pairingPhone) {
       await updateSession(name, {
-        status: pairingPhone ? 'connecting' : 'connecting',
-        lastLinkAttemptAt: pairingPhone ? new Date() : undefined,
-        ...(pairingPhone
-          ? { lastQr: null, lastPairingCode: null, pairingPhone }
-          : { lastPairingCode: null, pairingPhone: null }),
+        status: 'connecting',
+        lastLinkAttemptAt: new Date(),
+        lastQr: null,
+        pairingPhone,
       });
+    } else if (!registeredAlready) {
+      await updateSession(name, { status: 'connecting' });
     } else {
       await updateSession(name, { status: 'connecting' });
     }
@@ -339,13 +371,13 @@ async function connectSocket(instanceName: string, force = false, options: Conne
       printQRInTerminal: false,
       syncFullHistory: false,
       markOnlineOnConnect: false,
-      browser: Browsers.macOS('Desktop'),
+      browser: WHATSAPP_BROWSER,
       generateHighQualityLinkPreview: false,
       getMessage: async () => undefined,
       connectTimeoutMs: 90000,
       defaultQueryTimeoutMs: 90000,
-      retryRequestDelayMs: 3000,
-      keepAliveIntervalMs: 30000,
+      retryRequestDelayMs: 2500,
+      keepAliveIntervalMs: 25000,
     });
 
     activeSockets.set(name, sock);
@@ -361,6 +393,24 @@ async function connectSocket(instanceName: string, force = false, options: Conne
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr, isNewLogin } = update;
 
+      // Patrón oficial Baileys: pedir código cuando connection=connecting o hay QR
+      if (
+        pairingPhone &&
+        !state.creds.registered &&
+        !pairingCodeRequested.has(name) &&
+        (connection === 'connecting' || !!qr)
+      ) {
+        try {
+          await sleep(1200);
+          await requestPairingCodeForSocket(name, sock, pairingPhone, saveCreds);
+        } catch (err: any) {
+          console.error(`[WhatsApp:${name}] Error al pedir código:`, err.message);
+          await updateSession(name, { status: 'disconnected' });
+          pairingModeInstances.delete(name);
+          pairingCodeRequested.delete(name);
+        }
+      }
+
       if (qr && !pairingModeInstances.has(name)) {
         try {
           const dataUrl = await QRCode.toDataURL(qr, { width: 300, margin: 2 });
@@ -374,6 +424,7 @@ async function connectSocket(instanceName: string, force = false, options: Conne
       if (connection === 'open') {
         clearReconnectTimer(name);
         pairingModeInstances.delete(name);
+        pairingCodeRequested.delete(name);
         const phone = extractPhone(sock);
         await updateSession(name, {
           status: 'connected',
@@ -397,13 +448,14 @@ async function connectSocket(instanceName: string, force = false, options: Conne
         if (loggedOut || replaced) {
           clearReconnectTimer(name);
           pairingModeInstances.delete(name);
+          pairingCodeRequested.delete(name);
           await updateSession(name, {
             status: 'disconnected',
             phone: null,
             lastQr: null,
-            lastPairingCode: null,
-            pairingPhone: null,
-            authState: null,
+          lastPairingCode: null,
+          pairingPhone: null,
+          authState: null,
           });
           return;
         }
@@ -411,87 +463,32 @@ async function connectSocket(instanceName: string, force = false, options: Conne
         const registered = await isRegisteredInDb(name);
         const inPairing = pairingModeInstances.has(name);
 
-        // Tras vincular con código, WhatsApp cierra con 515 — reconectar con creds guardadas
-        if (restartRequired || (registered && !inPairing)) {
+        // 515 = WhatsApp pide reiniciar socket tras vincular (comportamiento normal)
+        if (restartRequired) {
           pairingModeInstances.delete(name);
+          pairingCodeRequested.delete(name);
           await updateSession(name, { status: 'connecting' });
-          const delay = restartRequired ? 10000 : 8000;
-          console.log(`[WhatsApp:${name}] Emparejamiento completado — reconexión en ${delay / 1000}s...`);
-          scheduleReconnect(name, delay);
+          console.log(`[WhatsApp:${name}] Reinicio requerido (515) — reconectando en 3s...`);
+          scheduleReconnect(name, 3000);
           return;
         }
 
-        // Esperando código: si el stream cae, reconectar (si no, el código del móvil falla)
+        if (registered) {
+          pairingModeInstances.delete(name);
+          pairingCodeRequested.delete(name);
+          await updateSession(name, { status: 'connecting' });
+          scheduleReconnect(name, 5000);
+          return;
+        }
+
         if (inPairing) {
           const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
           const phone = session?.pairingPhone?.replace(/\D/g, '');
-          console.log(
-            `[WhatsApp:${name}] Conexión perdida durante vinculación (código=${code}), reconectando en 5s...`
-          );
-          scheduleReconnect(name, 5000, { pairingPhone: phone });
-          return;
-        }
-
-        // Desconexión genérica con sesión guardada
-        if (registered) {
-          await updateSession(name, { status: 'connecting' });
-          scheduleReconnect(name, 8000);
+          console.log(`[WhatsApp:${name}] Caída durante vinculación — reconectando en 2s...`);
+          scheduleReconnect(name, 2000, { pairingPhone: phone });
         }
       }
     });
-
-    // Pedir código solo en vinculación nueva (no en reconexión con sesión ya registrada)
-    if (pairingPhone && !state.creds.registered) {
-      try {
-        const ready = await waitForSocketReady(sock, 45000);
-        if (!ready) {
-          throw new Error('Timeout conectando con WhatsApp. Inténtalo de nuevo.');
-        }
-        await sleep(3000);
-
-        const existing = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
-        const codeAgeMs = existing?.lastLinkAttemptAt
-          ? Date.now() - existing.lastLinkAttemptAt.getTime()
-          : Infinity;
-        const keepExistingCode =
-          existing?.lastPairingCode && codeAgeMs < 120000 && existing.pairingPhone === pairingPhone;
-
-        if (keepExistingCode) {
-          pairingModeInstances.add(name);
-          await updateSession(name, {
-            status: 'pairing',
-            lastPairingCode: existing!.lastPairingCode,
-            pairingPhone,
-          });
-          console.log(
-            `[WhatsApp:${name}] Reconectado — usa el mismo código: ${existing!.lastPairingCode}`
-          );
-          return;
-        }
-
-        const rawCode = await sock.requestPairingCode(pairingPhone);
-        await saveCreds();
-        const formatted = formatPairingCode(rawCode);
-        await updateSession(name, {
-          status: 'pairing',
-          lastPairingCode: formatted,
-          pairingPhone,
-          lastLinkAttemptAt: new Date(),
-        });
-        console.log(`[WhatsApp:${name}] Código de vinculación: ${formatted} (8 caracteres, sin guiones)`);
-      } catch (err: any) {
-        const msg = err.message || '';
-        const row = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
-        if (row?.lastPairingCode && pairingModeInstances.has(name)) {
-          console.warn(`[WhatsApp:${name}] requestPairingCode: ${msg} — usando código existente`);
-          return;
-        }
-        console.error(`[WhatsApp:${name}] Error pairing code:`, msg);
-        pairingModeInstances.delete(name);
-        await updateSession(name, { status: 'disconnected' });
-        throw err;
-      }
-    }
   })();
 
   connectingLocks.set(name, connectPromise);
@@ -596,6 +593,26 @@ export async function getBuiltinQr(instanceName: string) {
   return getBuiltinSessionView(instanceName);
 }
 
+export async function getBuiltinDiagnostics(instanceName: string) {
+  const name = normalizeName(instanceName);
+  const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
+  const registered = await isRegisteredInDb(name);
+  return {
+    instanceName: name,
+    status: session?.status || 'disconnected',
+    phone: session?.phone,
+    pairingPhone: session?.pairingPhone,
+    hasPairingCode: Boolean(session?.lastPairingCode),
+    registeredInDb: registered,
+    socketActive: Boolean(activeSockets.get(name)),
+    socketUser: Boolean(activeSockets.get(name)?.user),
+    inPairingMode: pairingModeInstances.has(name),
+    lastLinkAttemptAt: session?.lastLinkAttemptAt,
+    browser: WHATSAPP_BROWSER.join(' / '),
+    waVersion: cachedWaVersion?.join('.') || 'unknown',
+  };
+}
+
 export async function sendBuiltinMessage(
   instanceName: string,
   phone: string,
@@ -663,6 +680,7 @@ export async function restartBuiltinInstance(instanceName: string, options: Conn
   const name = normalizeName(instanceName);
   await disconnectSocket(name);
   pairingModeInstances.delete(name);
+  pairingCodeRequested.delete(name);
   await prisma.whatsAppSession.upsert({
     where: { instanceName: name },
     create: { instanceName: name, status: 'disconnected' },
