@@ -14,8 +14,7 @@ import {
   Download,
 } from 'lucide-react';
 import { getAllProfiles, deleteUser, exportEmails, verifyUserEmail } from '../services/admin.api';
-import AdminHeader from '../components/admin/AdminHeader';
-import AdminNav from '../components/admin/AdminNav';
+import AdminLayout from '../components/admin/AdminLayout';
 import { showToast } from '@/store/toastStore';
 
 interface Profile {
@@ -149,27 +148,20 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
-      <AdminHeader />
-      <AdminNav />
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-20">
-        <div className="mb-6">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <h1 className="text-2xl font-black text-white">Gestión de usuarios</h1>
-              <p className="text-gray-400 text-sm mt-1">Controla todos los perfiles publicados en Caperucitas.com</p>
-            </div>
-            <button
-              onClick={handleExportEmails}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-700 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold transition"
-            >
-              <Download className="w-4 h-4" />
-              Exportar emails
-            </button>
-          </div>
-
-          {/* Modal exportar emails */}
+    <AdminLayout
+      title="Gestión de usuarios"
+      subtitle="Controla todos los perfiles publicados en Caperucitas.com"
+      actions={
+        <button
+          onClick={handleExportEmails}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-700 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold transition"
+        >
+          <Download className="w-4 h-4" />
+          Exportar emails
+        </button>
+      }
+    >
+        {/* Modal exportar emails */}
           {emailExport !== null && (
             <div className="mt-4 bg-gray-900 rounded-xl border border-blue-600/40 p-4">
               <div className="flex items-center justify-between mb-2">
@@ -185,7 +177,6 @@ export default function AdminUsersPage() {
               <p className="text-gray-500 text-xs mt-1">Haz clic en el área de texto para seleccionar todos los emails</p>
             </div>
           )}
-        </div>
 
         {/* Filtros */}
         <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 mb-6 flex flex-col md:flex-row gap-3">
@@ -349,7 +340,6 @@ export default function AdminUsersPage() {
             })}
           </div>
         )}
-      </main>
-    </div>
+    </AdminLayout>
   );
 }

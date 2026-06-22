@@ -11,8 +11,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { getStats } from '../services/admin.api';
-import AdminHeader from '../components/admin/AdminHeader';
-import AdminNav from '../components/admin/AdminNav';
+import AdminLayout from '../components/admin/AdminLayout';
 
 interface Stats {
   users: {
@@ -86,26 +85,19 @@ export default function AdminDashboardPage() {
   const maxReg = Math.max(...(stats?.registrationsByDay.map(d => d.count) || [1]), 1);
 
   return (
-    <div className="min-h-screen bg-gray-950">
-      <AdminHeader />
-      <AdminNav />
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-20">
-
-        {/* Header row */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-black text-white">Panel de Control</h1>
-            <p className="text-gray-400 text-sm mt-1">Caperucitas.com · Vista general</p>
-          </div>
-          <button
-            onClick={loadStats}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Actualizar
-          </button>
-        </div>
+    <AdminLayout
+      title="Panel de Control"
+      subtitle="Caperucitas.com · Vista general"
+      actions={
+        <button
+          onClick={loadStats}
+          className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Actualizar
+        </button>
+      }
+    >
 
         {loadError && (
           <div className="mb-6 p-4 bg-red-900/30 border border-red-700 text-red-300 rounded-xl text-sm">
@@ -315,7 +307,6 @@ export default function AdminDashboardPage() {
         <p className="text-center text-gray-600 text-xs mt-6">
           Última actualización: {lastUpdated.toLocaleTimeString('es-ES')} · Auto-refresco cada 60s
         </p>
-      </main>
-    </div>
+    </AdminLayout>
   );
 }

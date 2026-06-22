@@ -20,8 +20,7 @@ import {
   Link2,
   Image as ImageIcon,
 } from 'lucide-react';
-import AdminHeader from '../components/admin/AdminHeader';
-import AdminNav from '../components/admin/AdminNav';
+import AdminLayout from '../components/admin/AdminLayout';
 import {
   getWhatsAppStats,
   getWhatsAppCampaigns,
@@ -41,7 +40,7 @@ import {
   connectWhatsAppSender,
 } from '../services/admin.api';
 
-const COST_PER_MSG = 0.0035;
+const COST_PER_MSG = 0.035;
 
 function formatEur(n: number) {
   return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 4 }).format(n);
@@ -414,25 +413,16 @@ export default function AdminWhatsAppPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
-      <AdminHeader />
-      <AdminNav />
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-20">
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-          <div>
-            <h1 className="text-2xl font-black text-white flex items-center gap-2">
-              <MessageCircle className="w-7 h-7 text-green-500" />
-              WhatsApp Masivo
-            </h1>
-            <p className="text-gray-400 text-sm mt-1">
-              {provider === 'builtin' ? 'Integrado · Supabase' : 'Evolution API'} · {formatEur(COST_PER_MSG)}/mensaje
-            </p>
-          </div>
-          <button onClick={() => { loadAll(); loadInstances(); }} className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm">
-            <RefreshCw className="w-4 h-4" /> Actualizar
-          </button>
-        </div>
+    <AdminLayout
+      title="WhatsApp Masivo"
+      subtitle={`${provider === 'builtin' ? 'Integrado · Supabase' : 'Evolution API'} · ${formatEur(stats?.costPerMessage ?? COST_PER_MSG)}/mensaje`}
+      icon={<MessageCircle className="w-7 h-7 text-green-500" />}
+      actions={
+        <button onClick={() => { loadAll(); loadInstances(); }} className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm">
+          <RefreshCw className="w-4 h-4" /> Actualizar
+        </button>
+      }
+    >
 
         {loadError && (
           <div className="mb-4 p-3 bg-red-900/30 border border-red-700 text-red-300 rounded-lg text-sm flex items-center gap-2">
@@ -826,7 +816,6 @@ export default function AdminWhatsAppPage() {
             </div>
           </div>
         )}
-      </main>
-    </div>
+    </AdminLayout>
   );
 }

@@ -69,13 +69,12 @@ body {
    HEADER Y FOOTER FIJOS - SIN SCROLL
    ==================================================== */
 
-/* HEADER - MAXIMA ESPECIFICIDAD */
+/* HEADER - solo dashboard (no admin ni landing) */
 html body #root div.min-h-screen header.dashboard-header,
 html body #root div header.dashboard-header,
 body #root header.dashboard-header,
 #root header.dashboard-header,
-header.dashboard-header,
-header {
+header.dashboard-header {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
@@ -93,15 +92,14 @@ header {
   transition: none !important;
 }
 
-/* FOOTER - MAXIMA ESPECIFICIDAD */
+/* FOOTER nav - solo dashboard */
 html body #root div.min-h-screen nav.dashboard-footer,
 html body #root div nav.dashboard-footer,
 body #root nav.dashboard-footer,
 #root nav.dashboard-footer,
 nav.dashboard-footer,
 nav#bottom-nav-fixed,
-nav[id="bottom-nav-fixed"],
-nav {
+nav[id="bottom-nav-fixed"] {
   position: fixed !important;
   bottom: 0 !important;
   left: 0 !important;
@@ -120,18 +118,32 @@ nav {
   transition: none !important;
 }
 
-/* Desactivar CUALQUIER transformacion en scroll */
-@supports (-webkit-overflow-scrolling: touch) {
-  header, nav {
-    -webkit-overflow-scrolling: auto !important;
-  }
+/* Admin: header y nav en flujo normal (no fixed) */
+.admin-layout header.admin-header,
+.admin-layout nav.admin-nav {
+  position: static !important;
+  top: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  right: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  transform: none !important;
+  -webkit-transform: none !important;
+  z-index: auto !important;
 }
 
-/* Prevenir sticky behavior */
-header, nav {
-  position: fixed !important;
-  position: -webkit-fixed !important;
-  position: -moz-fixed !important;
+.admin-layout main {
+  position: relative !important;
+  top: auto !important;
+  bottom: auto !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+.admin-hero {
+  position: relative !important;
+  z-index: 1 !important;
 }
 
 /* Prevenir que el body o html muevan header/footer */

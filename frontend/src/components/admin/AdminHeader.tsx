@@ -11,7 +11,7 @@ export default function AdminHeader() {
   };
 
   return (
-    <header className="bg-black border-b border-[#fc4d5c]/30 shadow-lg shadow-[#fc4d5c]/10">
+    <header className="admin-header bg-black border-b border-[#fc4d5c]/30 shadow-lg shadow-[#fc4d5c]/10">
       <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 py-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-6">

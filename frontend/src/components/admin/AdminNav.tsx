@@ -8,7 +8,7 @@ export default function AdminNav() {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <nav className="bg-black/80 backdrop-blur-sm border-b border-[#fc4d5c]/20">
+    <nav className="admin-nav bg-black/80 backdrop-blur-sm border-b border-[#fc4d5c]/20">
       <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
         <div className="flex gap-2">
           <button

@@ -10,8 +10,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { getAllReports, deleteReport, deleteUser } from '../services/admin.api';
-import AdminHeader from '../components/admin/AdminHeader';
-import AdminNav from '../components/admin/AdminNav';
+import AdminLayout from '../components/admin/AdminLayout';
 import { showToast } from '@/store/toastStore';
 
 interface Report {
@@ -122,16 +121,10 @@ export default function AdminReportsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
-      <AdminHeader />
-      <AdminNav />
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-20">
-        <div className="mb-6">
-          <h1 className="text-2xl font-black text-white">Gestión de denuncias</h1>
-          <p className="text-gray-400 text-sm mt-1">Revisa y actúa sobre las denuncias recibidas en Caperucitas.com</p>
-        </div>
-
+    <AdminLayout
+      title="Gestión de denuncias"
+      subtitle="Revisa y actúa sobre las denuncias recibidas en Caperucitas.com"
+    >
         {/* Tarjetas de resumen por tipo */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {[
@@ -297,7 +290,6 @@ export default function AdminReportsPage() {
             })}
           </div>
         )}
-      </main>
-    </div>
+    </AdminLayout>
   );
 }
