@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authenticateAdminToken } from '../middleware/auth.middleware';
 import * as adminController from '../controllers/admin.controller';
 import * as whatsappController from '../controllers/whatsapp.controller';
-import { whatsappImageUpload, whatsappExcelUpload } from '../config/whatsapp-upload';
+import { whatsappImageUpload, handleWhatsAppExcelUpload } from '../config/whatsapp-upload';
 const router = Router();
 
 // Login de admin (sin autenticación)
@@ -19,7 +19,7 @@ router.get('/whatsapp/instances', authenticateAdminToken, whatsappController.get
 router.get('/whatsapp/instance', authenticateAdminToken, whatsappController.getInstanceConnection);
 router.get('/whatsapp/contacts', authenticateAdminToken, whatsappController.getContacts);
 router.post('/whatsapp/contacts/import', authenticateAdminToken, whatsappController.importContacts);
-router.post('/whatsapp/contacts/import-excel', authenticateAdminToken, whatsappExcelUpload.single('file'), whatsappController.importContactsExcel);
+router.post('/whatsapp/contacts/import-excel', authenticateAdminToken, handleWhatsAppExcelUpload, whatsappController.importContactsExcel);
 router.get('/whatsapp/quota', authenticateAdminToken, whatsappController.getWhatsAppQuotaHandler);
 router.patch('/whatsapp/quota', authenticateAdminToken, whatsappController.rechargeWhatsAppQuota);
 router.post('/whatsapp/contacts/sync-profiles', authenticateAdminToken, whatsappController.syncProfileContacts);

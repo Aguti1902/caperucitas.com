@@ -15,6 +15,10 @@ adminApi.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // FormData: no fijar Content-Type — axios debe añadir el boundary del multipart
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
   return config;
 });
 
@@ -123,9 +127,7 @@ export const getWhatsAppCampaign = async (id: string) => {
 export const uploadWhatsAppCampaignImage = async (file: File) => {
   const fd = new FormData();
   fd.append('image', file);
-  const response = await adminApi.post('/whatsapp/campaigns/upload-image', fd, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  const response = await adminApi.post('/whatsapp/campaigns/upload-image', fd);
   return response.data as { url: string; filename: string; size: number; mimetype: string };
 };
 
@@ -156,9 +158,7 @@ export const importWhatsAppContactsExcel = async (file: File) => {
   const fd = new FormData();
   fd.append('file', file);
   fd.append('source', 'excel');
-  const response = await adminApi.post('/whatsapp/contacts/import-excel', fd, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  const response = await adminApi.post('/whatsapp/contacts/import-excel', fd);
   return response.data as {
     imported: number;
     updated: number;

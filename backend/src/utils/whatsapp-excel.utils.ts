@@ -26,8 +26,17 @@ function normHeader(value: unknown): string {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+function cellToText(value: unknown): string {
+  if (value == null || value === '') return '';
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (Number.isInteger(value)) return String(Math.trunc(value));
+    return String(value).replace(/\.0+$/, '').replace(/e\+?/i, '');
+  }
+  return String(value).trim();
+}
+
 function cellLooksLikePhone(value: unknown): boolean {
-  const digits = String(value ?? '').replace(/\D/g, '');
+  const digits = cellToText(value).replace(/\D/g, '');
   return digits.length >= 9;
 }
 
@@ -67,7 +76,7 @@ function extractPhoneFromRow(row: Record<string, unknown>, phoneKey?: string, na
     }
   }
 
-  const normalized = normalizePhone(String(phoneRaw ?? ''));
+  const normalized = normalizePhone(cellToText(phoneRaw));
   if (!normalized) return null;
   const name = nameRaw != null ? String(nameRaw).trim().slice(0, 120) : undefined;
   return { phone: normalized, name: name || undefined };
@@ -80,17 +89,20 @@ export function parseContactsFromSpreadsheet(buffer: Buffer): { phone: string; n
   if (!sheetName) return [];
 
   const sheet = workbook.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '', raw: false });
   if (rows.length === 0) {
-    const matrix = XLSX.utils.sheet_to_json<(string | number)[]>(sheet, { header: 1, defval: '' });
+    const matrix = XLSX.utils.sheet_to_json<(string | number)[]>(sheet, { header: 1, defval: '', raw: false });
     const results: { phone: string; name?: string }[] = [];
     const seen = new Set<string>();
-    for (const row of matrix) {
+    for (let i = 0; i < matrix.length; i++) {
+      const row = matrix[i];
       if (!Array.isArray(row)) continue;
-      const cells = row.map((c) => String(c ?? '').trim()).filter(Boolean);
+      const cells = row.map((c) => cellToText(c)).filter(Boolean);
       if (cells.length === 0) continue;
-      let phoneCell = cells.find((c) => cellLooksLikePhone(c)) || cells[cells.length - 1];
-      let nameCell = cells.length > 1 && !cellLooksLikePhone(cells[0]) ? cells[0] : undefined;
+      // Saltar fila de cabecera si no parece teléfono
+      if (i === 0 && cells.every((c) => !cellLooksLikePhone(c))) continue;
+      const phoneCell = cells.find((c) => cellLooksLikePhone(c)) || cells[cells.length - 1];
+      const nameCell = cells.length > 1 && !cellLooksLikePhone(cells[0]) ? cells[0] : undefined;
       const normalized = normalizePhone(phoneCell);
       if (normalized && !seen.has(normalized)) {
         seen.add(normalized);

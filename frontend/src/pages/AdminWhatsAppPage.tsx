@@ -304,7 +304,12 @@ export default function AdminWhatsAppPage() {
       );
       loadAll();
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al importar Excel');
+      const status = err.response?.status;
+      if (status === 404) {
+        setError('El servidor aún no tiene la importación Excel desplegada. Espera 2–3 min a que Railway actualice y pulsa Actualizar.');
+      } else {
+        setError(err.response?.data?.error || err.message || 'Error al importar Excel');
+      }
     } finally {
       setIsImportingExcel(false);
     }
