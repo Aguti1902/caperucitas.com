@@ -680,7 +680,10 @@ export default function AdminWhatsAppPage() {
           {/* Importar contactos */}
           <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
             <h2 className="text-white font-bold mb-3 flex items-center gap-2"><Upload className="w-5 h-5 text-green-500" /> Base de datos de teléfonos</h2>
-            <p className="text-gray-400 text-xs mb-3">Pega números (uno por línea) o sube un Excel (.xlsx, .xls, CSV). Formato texto: <code className="text-gray-300">612345678</code> o <code className="text-gray-300">Nombre;612345678</code></p>
+            <p className="text-gray-400 text-xs mb-3">
+              Sube un Excel con <strong className="text-gray-300">una columna de teléfonos</strong> (sin cabecera, un número por fila) o pega números abajo.
+              Ejemplo columna A: <code className="text-gray-300">612345678</code>, <code className="text-gray-300">623456789</code>…
+            </p>
             <label className={`flex items-center gap-2 cursor-pointer bg-gray-800 border border-dashed rounded-lg px-3 py-3 text-sm mb-3 transition-colors ${isImportingExcel ? 'border-gray-600 text-gray-500 cursor-wait' : 'border-gray-700 text-gray-400 hover:border-green-600 hover:text-green-400'}`}>
               <Upload className="w-4 h-4 shrink-0" />
               <span>{isImportingExcel ? 'Importando Excel...' : 'Subir Excel con teléfonos (.xlsx, .xls, CSV)'}</span>
@@ -696,7 +699,7 @@ export default function AdminWhatsAppPage() {
               value={importText}
               onChange={(e) => setImportText(e.target.value)}
               rows={6}
-              placeholder={"María;612345678\nPedro;623456789\n34612345678"}
+              placeholder={"612345678\n623456789\n34612345678"}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm mb-3 font-mono"
             />
             <div className="flex gap-2">
