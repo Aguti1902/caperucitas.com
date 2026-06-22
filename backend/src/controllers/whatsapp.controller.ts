@@ -28,6 +28,7 @@ import {
 } from '../utils/whatsapp-quota.utils';
 import { parseContactsFromSpreadsheet } from '../utils/whatsapp-excel.utils';
 import { syncWhatsAppStoredCosts, computeWhatsAppCost } from '../utils/whatsapp-cost.utils';
+import { upsertWhatsAppContactsBatch } from '../utils/whatsapp-contacts.utils';
 
 const runningCampaigns = new Set<string>();
 
@@ -198,24 +199,7 @@ async function upsertContactBatch(
   parsed: { phone: string; name?: string }[],
   source: string
 ): Promise<{ imported: number; updated: number; total: number }> {
-  let imported = 0;
-  let updated = 0;
-  for (const item of parsed) {
-    const existing = await prisma.whatsAppContact.findUnique({ where: { phone: item.phone } });
-    if (existing) {
-      await prisma.whatsAppContact.update({
-        where: { phone: item.phone },
-        data: { name: item.name || existing.name, source },
-      });
-      updated++;
-    } else {
-      await prisma.whatsAppContact.create({
-        data: { phone: item.phone, name: item.name, source },
-      });
-      imported++;
-    }
-  }
-  return { imported, updated, total: parsed.length };
+  return upsertWhatsAppContactsBatch(parsed, source);
 }
 
 export const getWhatsAppInstances = async (_req: AuthRequest, res: Response) => {

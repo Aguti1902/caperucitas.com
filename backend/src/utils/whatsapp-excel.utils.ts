@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { normalizePhone } from '../services/whatsapp.service';
+import { normalizePhone } from '../utils/phone.utils';
 
 const PHONE_HEADERS = [
   'telefono',
@@ -48,10 +48,21 @@ function isHeaderRow(cells: string[]): boolean {
   });
 }
 
+function isJunkName(value: string): boolean {
+  const v = value.toLowerCase();
+  return v.includes('mycontacts') || v.includes('importado el') || v.startsWith('*');
+}
+
 function parseDataRow(cells: string[]): { phone: string; name?: string } | null {
   if (cells.length === 0) return null;
 
-  // Una sola columna: solo teléfono (formato más habitual)
+  // Export Google Contacts: teléfono en columna A
+  if (cellLooksLikePhone(cells[0])) {
+    const phone = normalizePhone(cells[0]);
+    return phone ? { phone } : null;
+  }
+
+  // Una sola columna
   if (cells.length === 1) {
     const phone = normalizePhone(cells[0]);
     return phone ? { phone } : null;
@@ -61,7 +72,7 @@ function parseDataRow(cells: string[]): { phone: string; name?: string } | null 
   const phone = normalizePhone(phoneCell);
   if (!phone) return null;
 
-  const nameCell = cells.find((c) => c !== phoneCell && !cellLooksLikePhone(c));
+  const nameCell = cells.find((c) => c !== phoneCell && !cellLooksLikePhone(c) && !isJunkName(c));
   return { phone, name: nameCell?.slice(0, 120) };
 }
 

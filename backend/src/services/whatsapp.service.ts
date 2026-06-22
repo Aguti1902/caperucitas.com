@@ -53,15 +53,9 @@ export function getDefaultSenderPhone(): string {
     .replace(/\D/g, '');
 }
 
-/** Normaliza teléfono a formato internacional sin + (España por defecto) */
-export function normalizePhone(raw: string, defaultCountry = '34'): string | null {
-  let digits = raw.replace(/\D/g, '');
-  if (!digits) return null;
-  if (digits.startsWith('00')) digits = digits.slice(2);
-  if (digits.length === 9 && /^[67]/.test(digits)) digits = defaultCountry + digits;
-  if (digits.length < 10) return null;
-  return digits;
-}
+import { normalizePhone } from '../utils/phone.utils';
+
+export { normalizePhone };
 
 function resolveInstanceName(instanceName?: string): string | null {
   const name = (instanceName || getDefaultInstanceName()).trim();
