@@ -21,6 +21,8 @@ interface Ga4Setup {
   steps: { title: string; detail: string }[];
   links: { analytics: string; cloudConsole: string };
   error?: string;
+  serviceAccountEmail?: string | null;
+  propertyId?: string | null;
 }
 
 interface Ga4Data {
@@ -65,7 +67,16 @@ export default function AdminAnalyticsPage() {
       const result = await getAnalyticsDashboard();
       setData(result);
     } catch (e: any) {
-      setError(e.response?.data?.error || 'Error al cargar analíticas');
+      const body = e.response?.data;
+      setError(body?.error || 'Error al cargar analíticas');
+      if (body?.setup) {
+        setData({
+          ...body.setup,
+          error: body.error,
+          serviceAccountEmail: body.serviceAccountEmail,
+          propertyId: body.propertyId,
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -114,8 +125,30 @@ export default function AdminAnalyticsPage() {
       }
     >
       {(error || setup?.error) && (
-        <div className="mb-4 p-3 bg-red-900/30 border border-red-700 text-red-300 rounded-lg text-sm flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 shrink-0" /> {error || setup?.error}
+        <div className="mb-4 p-4 bg-red-900/30 border border-red-700 text-red-200 rounded-lg text-sm space-y-3">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+            <p>{error || setup?.error}</p>
+          </div>
+          {(setup?.serviceAccountEmail || setup?.propertyId) && (
+            <div className="bg-black/30 rounded-lg p-3 text-xs space-y-2 font-mono">
+              {setup.propertyId && (
+                <p><span className="text-gray-400">GA4_PROPERTY_ID:</span> {setup.propertyId}</p>
+              )}
+              {setup.serviceAccountEmail && (
+                <p className="break-all">
+                  <span className="text-gray-400">Email a añadir en GA4:</span>{' '}
+                  <span className="text-yellow-300 select-all">{setup.serviceAccountEmail}</span>
+                </p>
+              )}
+            </div>
+          )}
+          <ol className="list-decimal list-inside text-xs text-red-100/90 space-y-1 pl-1">
+            <li>analytics.google.com → Admin (engranaje)</li>
+            <li>Columna <strong>Propiedad</strong> → Acceso a la propiedad</li>
+            <li>+ Añadir usuarios → pega el email de arriba → Rol <strong>Lector</strong></li>
+            <li>Guardar → espera 1 min → pulsa Actualizar aquí</li>
+          </ol>
         </div>
       )}
 

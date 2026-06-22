@@ -17,6 +17,35 @@ function getServiceAccountCredentials(): Record<string, unknown> | null {
   }
 }
 
+export function getServiceAccountEmail(): string | null {
+  const creds = getServiceAccountCredentials();
+  const email = creds?.client_email;
+  return typeof email === 'string' ? email : null;
+}
+
+export function formatGa4Error(error: unknown): string {
+  const msg = error instanceof Error ? error.message : String(error);
+  const email = getServiceAccountEmail();
+  const propertyId = process.env.GA4_PROPERTY_ID || '?';
+
+  if (msg.includes('PERMISSION_DENIED') || msg.includes('permission')) {
+    return [
+      'La cuenta de servicio no tiene permiso para leer esta propiedad GA4.',
+      email ? `Añade este email en GA4 → Admin → Acceso a la propiedad → Lector: ${email}` : '',
+      `Verifica que GA4_PROPERTY_ID=${propertyId} sea el ID numérico correcto (Admin → Detalles de la propiedad).`,
+      'Tras añadir el permiso, espera 1–2 minutos y pulsa Actualizar.',
+    ]
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  if (msg.includes('INVALID_ARGUMENT') && msg.includes('property')) {
+    return `GA4_PROPERTY_ID incorrecto (${propertyId}). Debe ser el ID numérico de la propiedad, no G-65MTSFL92G.`;
+  }
+
+  return msg;
+}
+
 function getPropertyId(): string {
   const id = (process.env.GA4_PROPERTY_ID || '').replace(/^properties\//, '').trim();
   if (!id) throw new Error('GA4_PROPERTY_ID no configurado');

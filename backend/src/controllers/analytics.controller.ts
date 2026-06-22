@@ -4,6 +4,8 @@ import {
   fetchGa4Dashboard,
   isGoogleAnalyticsConfigured,
   getGa4SetupInstructions,
+  formatGa4Error,
+  getServiceAccountEmail,
 } from '../services/google-analytics.service';
 
 export const getAnalyticsDashboard = async (_req: AuthRequest, res: Response) => {
@@ -14,11 +16,13 @@ export const getAnalyticsDashboard = async (_req: AuthRequest, res: Response) =>
 
     const data = await fetchGa4Dashboard();
     res.json(data);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error getAnalyticsDashboard:', error);
     res.status(500).json({
       configured: false,
-      error: error.message || 'Error al obtener datos de Google Analytics',
+      error: formatGa4Error(error),
+      serviceAccountEmail: getServiceAccountEmail(),
+      propertyId: process.env.GA4_PROPERTY_ID || null,
       setup: getGa4SetupInstructions(),
     });
   }
@@ -30,5 +34,6 @@ export const getAnalyticsStatus = async (_req: AuthRequest, res: Response) => {
     propertyId: process.env.GA4_PROPERTY_ID || null,
     hasCredentials: Boolean(process.env.GA4_SERVICE_ACCOUNT_JSON?.trim()),
     measurementId: process.env.GA4_MEASUREMENT_ID || null,
+    serviceAccountEmail: getServiceAccountEmail(),
   });
 };
