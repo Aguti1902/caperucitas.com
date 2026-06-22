@@ -221,9 +221,28 @@ export default function AdminWhatsAppPage() {
     loadAll();
     loadInstances();
     loadSetup();
-    const interval = setInterval(loadAll, 10000);
+    const interval = setInterval(() => {
+      loadAll();
+      loadInstances();
+      loadSetup();
+    }, 20000);
     return () => clearInterval(interval);
   }, [loadAll, loadInstances, loadSetup]);
+
+  // Polling conexión cada 4s mientras hay QR o esperando conectar
+  useEffect(() => {
+    if (!qrBase64 && !isWaitingConnect) return;
+    const name = selectedInstance || newInstanceName;
+    const t = setInterval(async () => {
+      const ok = await refreshQr(name);
+      if (ok) {
+        loadAll();
+        loadInstances();
+        loadSetup();
+      }
+    }, 4000);
+    return () => clearInterval(t);
+  }, [qrBase64, isWaitingConnect, selectedInstance, newInstanceName, refreshQr, loadAll, loadInstances, loadSetup]);
 
   // Auto-sincronizar teléfonos de perfiles la primera vez
   useEffect(() => {
@@ -245,31 +264,6 @@ export default function AdminWhatsAppPage() {
   const connected = activeInstance?.connected ?? stats?.instance?.connected;
   const isConfigured = stats?.whatsappConfigured ?? stats?.evolutionConfigured ?? true;
   const provider = stats?.provider || setupStatus?.provider || 'builtin';
-
-  // Polling conexión cada 2s mientras hay QR o esperando conectar
-  useEffect(() => {
-    if (!qrBase64 && !isWaitingConnect) return;
-    const name = selectedInstance || newInstanceName;
-    const t = setInterval(async () => {
-      const ok = await refreshQr(name);
-      if (ok) {
-        loadAll();
-        loadInstances();
-        loadSetup();
-      }
-    }, 2000);
-    return () => clearInterval(t);
-  }, [qrBase64, isWaitingConnect, selectedInstance, newInstanceName, refreshQr, loadAll, loadInstances, loadSetup]);
-
-  // Polling general cuando no conectado
-  useEffect(() => {
-    if (connected) return;
-    const t = setInterval(() => {
-      loadAll();
-      loadInstances();
-    }, 5000);
-    return () => clearInterval(t);
-  }, [connected, loadAll, loadInstances]);
 
   useEffect(() => {
     const phones = campaignSource === 'manual' ? manualPhones : undefined;

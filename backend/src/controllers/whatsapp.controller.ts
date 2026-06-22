@@ -20,6 +20,34 @@ import {
 
 const runningCampaigns = new Set<string>();
 
+let whatsappStatsCache: { data: Record<string, unknown>; expiresAt: number } | null = null;
+let profilePhoneCountCache = { count: 0, expiresAt: 0 };
+
+async function countProfilePhones(): Promise<number> {
+  if (Date.now() < profilePhoneCountCache.expiresAt) {
+    return profilePhoneCountCache.count;
+  }
+  try {
+    const profiles = await prisma.profile.findMany({
+      where: {
+        isFake: false,
+        OR: [{ whatsapp: { not: null } }, { phone: { not: null } }],
+      },
+      select: { whatsapp: true, phone: true },
+    });
+    const seen = new Set<string>();
+    for (const p of profiles) {
+      const n = normalizePhone(p.whatsapp || p.phone || '');
+      if (n) seen.add(n);
+    }
+    profilePhoneCountCache = { count: seen.size, expiresAt: Date.now() + 120_000 };
+    return seen.size;
+  } catch (err) {
+    console.warn('countProfilePhones:', err);
+    return profilePhoneCountCache.count;
+  }
+}
+
 async function processCampaign(campaignId: string) {
   if (runningCampaigns.has(campaignId)) return;
   runningCampaigns.add(campaignId);
@@ -128,22 +156,6 @@ function parsePhoneLines(raw: string): { phone: string; name?: string }[] {
   return results;
 }
 
-async function countProfilePhones(): Promise<number> {
-  const profiles = await prisma.profile.findMany({
-    where: {
-      isFake: false,
-      OR: [{ whatsapp: { not: null } }, { phone: { not: null } }],
-    },
-    select: { whatsapp: true, phone: true },
-  });
-  const seen = new Set<string>();
-  for (const p of profiles) {
-    const n = normalizePhone(p.whatsapp || p.phone || '');
-    if (n) seen.add(n);
-  }
-  return seen.size;
-}
-
 export const getWhatsAppInstances = async (_req: AuthRequest, res: Response) => {
   const data = await listInstances();
   res.json({ ...data, defaultInstance: getDefaultInstanceName(), costPerMessage: WHATSAPP_MESSAGE_COST_EUR });
@@ -151,47 +163,77 @@ export const getWhatsAppInstances = async (_req: AuthRequest, res: Response) => 
 
 export const getWhatsAppStats = async (_req: AuthRequest, res: Response) => {
   try {
-    const profilePhoneCount = await countProfilePhones();
+    if (whatsappStatsCache && Date.now() < whatsappStatsCache.expiresAt) {
+      return res.json(whatsappStatsCache.data);
+    }
 
-    let totals: { status: string; _count: { id: number }; _sum: { costEur: number | null } }[] = [];
+    const profilePhoneCount = await countProfilePhones();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    let sent = 0;
+    let failed = 0;
+    let pending = 0;
+    let totalCostEur = 0;
     let todaySent = 0;
     let contactCount = 0;
     let campaigns = 0;
 
     try {
-      [totals, todaySent, contactCount, campaigns] = await Promise.all([
-        prisma.whatsAppMessageLog.groupBy({
-          by: ['status'],
-          _count: { id: true },
-          _sum: { costEur: true },
-        }),
-        prisma.whatsAppMessageLog.count({
-          where: {
-            status: 'sent',
-            sentAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-          },
-        }),
-        prisma.whatsAppContact.count(),
-        prisma.whatsAppCampaign.count(),
-      ]);
+      const [waRows] = await prisma.$queryRaw<
+        {
+          sent: bigint;
+          failed: bigint;
+          pending: bigint;
+          totalCostEur: number | null;
+          todaySent: bigint;
+          contactCount: bigint;
+          campaigns: bigint;
+        }[]
+      >`
+        SELECT
+          (SELECT COUNT(*)::bigint FROM whatsapp_message_logs WHERE status = 'sent') AS sent,
+          (SELECT COUNT(*)::bigint FROM whatsapp_message_logs WHERE status = 'failed') AS failed,
+          (SELECT COUNT(*)::bigint FROM whatsapp_message_logs WHERE status = 'pending') AS pending,
+          (SELECT COALESCE(SUM("costEur"), 0)::float FROM whatsapp_message_logs) AS "totalCostEur",
+          (SELECT COUNT(*)::bigint FROM whatsapp_message_logs WHERE status = 'sent' AND "sentAt" >= ${todayStart}) AS "todaySent",
+          (SELECT COUNT(*)::bigint FROM whatsapp_contacts) AS "contactCount",
+          (SELECT COUNT(*)::bigint FROM whatsapp_campaigns) AS campaigns
+      `;
+      if (waRows) {
+        sent = Number(waRows.sent || 0);
+        failed = Number(waRows.failed || 0);
+        pending = Number(waRows.pending || 0);
+        totalCostEur = Number(waRows.totalCostEur || 0);
+        todaySent = Number(waRows.todaySent || 0);
+        contactCount = Number(waRows.contactCount || 0);
+        campaigns = Number(waRows.campaigns || 0);
+      }
     } catch (dbErr) {
       console.warn('Tablas WhatsApp no disponibles aún:', dbErr);
     }
 
-    const sent = totals.find((t) => t.status === 'sent')?._count.id || 0;
-    const failed = totals.find((t) => t.status === 'failed')?._count.id || 0;
-    const pending = totals.find((t) => t.status === 'pending')?._count.id || 0;
-    const totalCostEur = totals.reduce((acc, t) => acc + (t._sum.costEur || 0), 0);
+    let instances: Awaited<ReturnType<typeof listInstances>>['instances'] = [];
+    let instance: Awaited<ReturnType<typeof getInstanceStatus>> = {
+      configured: isWhatsAppConfigured(),
+      connected: false,
+      provider: getWhatsAppProvider(),
+    };
 
-    const instancesData = await listInstances();
-    const selectedInstance = getDefaultInstanceName();
-    const instance = selectedInstance
-      ? await getInstanceStatus(selectedInstance)
-      : instancesData.instances[0]
-        ? await getInstanceStatus(instancesData.instances[0].name)
-        : await getInstanceStatus();
+    try {
+      const instancesData = await listInstances();
+      instances = instancesData.instances;
+      const selectedInstance = getDefaultInstanceName();
+      instance = selectedInstance
+        ? await getInstanceStatus(selectedInstance)
+        : instancesData.instances[0]
+          ? await getInstanceStatus(instancesData.instances[0].name)
+          : await getInstanceStatus();
+    } catch (instErr) {
+      console.warn('Error listando instancias WhatsApp:', instErr);
+    }
 
-    res.json({
+    const payload = {
       costPerMessage: WHATSAPP_MESSAGE_COST_EUR,
       totals: {
         sent,
@@ -206,13 +248,20 @@ export const getWhatsAppStats = async (_req: AuthRequest, res: Response) => {
       todaySent,
       todayCostEur: todaySent * WHATSAPP_MESSAGE_COST_EUR,
       instance,
-      instances: instancesData.instances,
+      instances,
       evolutionConfigured: isWhatsAppConfigured(),
       whatsappConfigured: isWhatsAppConfigured(),
       provider: getWhatsAppProvider(),
-    });
+      cachedAt: new Date().toISOString(),
+    };
+
+    whatsappStatsCache = { data: payload, expiresAt: Date.now() + 45_000 };
+    res.json(payload);
   } catch (error) {
     console.error('Error getWhatsAppStats:', error);
+    if (whatsappStatsCache) {
+      return res.json(whatsappStatsCache.data);
+    }
     res.status(500).json({ error: 'Error al obtener estadísticas WhatsApp' });
   }
 };
@@ -504,22 +553,27 @@ export const deleteContact = async (req: AuthRequest, res: Response) => {
 };
 
 export const getSetupStatus = async (_req: AuthRequest, res: Response) => {
-  const health = await checkEvolutionHealth();
-  const instances = await listInstances();
-  const defaultInstance = getDefaultInstanceName();
-  const instanceStatus = defaultInstance ? await getInstanceStatus(defaultInstance) : null;
+  try {
+    const health = await checkEvolutionHealth();
+    const instances = await listInstances();
+    const defaultInstance = getDefaultInstanceName();
+    const instanceStatus = defaultInstance ? await getInstanceStatus(defaultInstance) : null;
 
-  res.json({
-    evolutionConfigured: isWhatsAppConfigured(),
-    whatsappConfigured: isWhatsAppConfigured(),
-    provider: getWhatsAppProvider(),
-    evolutionReachable: health.ok,
-    evolutionError: health.error || instances.error,
-    defaultInstance,
-    instanceStatus,
-    instances: instances.instances,
-    costPerMessage: WHATSAPP_MESSAGE_COST_EUR,
-  });
+    res.json({
+      evolutionConfigured: isWhatsAppConfigured(),
+      whatsappConfigured: isWhatsAppConfigured(),
+      provider: getWhatsAppProvider(),
+      evolutionReachable: health.ok,
+      evolutionError: health.error || instances.error,
+      defaultInstance,
+      instanceStatus,
+      instances: instances.instances,
+      costPerMessage: WHATSAPP_MESSAGE_COST_EUR,
+    });
+  } catch (error) {
+    console.error('Error getSetupStatus:', error);
+    res.status(500).json({ error: 'Error al obtener estado de WhatsApp' });
+  }
 };
 
 export const setupCreateInstance = async (req: AuthRequest, res: Response) => {

@@ -129,61 +129,65 @@ const io = new Server(httpServer, {
 // Configurar instancia global de Socket.IO
 setIO(io);
 
-// Middleware CORS - Configuración simplificada y permisiva
-// Permitir todos los orígenes de Vercel, localhost y dominio de producción
-const allowedOrigins = [
+// Middleware CORS — siempre incluir headers en respuestas (incl. errores 500)
+const allowedOrigins: (string | RegExp)[] = [
   'http://localhost:3000',
-  // Dominios de producción caperucitas
   'https://caperucitas.com',
   'https://www.caperucitas.com',
-  // Cualquier subdominio de Vercel (deploys de preview)
   /^https:\/\/.*\.vercel\.app$/,
 ];
 
-// Si hay variable de entorno, añadir esos orígenes también
 if (process.env.FRONTEND_URL) {
-  const envOrigins = process.env.FRONTEND_URL.split(',').map(url => url.trim()).filter(Boolean);
+  const envOrigins = process.env.FRONTEND_URL.split(',').map((url) => url.trim()).filter(Boolean);
   allowedOrigins.push(...envOrigins);
   console.log('🌐 Orígenes CORS desde ENV:', envOrigins);
 }
 
+function isCorsOriginAllowed(origin: string | undefined): boolean {
+  if (!origin) return true;
+  const listed = allowedOrigins.some((allowed) =>
+    typeof allowed === 'string' ? origin === allowed : allowed.test(origin)
+  );
+  if (listed) return true;
+  if (process.env.NODE_ENV === 'production') {
+    return (
+      origin.includes('vercel.app') ||
+      origin.includes('caperucitas.com') ||
+      origin.includes('9citas.com')
+    );
+  }
+  return false;
+}
+
+function applyCorsHeaders(req: express.Request, res: express.Response): void {
+  const origin = req.headers.origin;
+  if (origin && isCorsOriginAllowed(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin');
+  }
+}
+
 console.log('🌐 Configuración CORS activa');
 
-// Configuración de CORS permisiva
+app.use((req, res, next) => {
+  applyCorsHeaders(req, res);
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Permitir requests sin origin
-    if (!origin) {
-      return callback(null, true);
-    }
-    
-    // Verificar si el origen está permitido
-    const isAllowed = allowedOrigins.some(allowed => {
-      if (typeof allowed === 'string') {
-        return origin === allowed;
-      }
-      if (allowed instanceof RegExp) {
-        return allowed.test(origin);
-      }
-      return false;
-    });
-    
-    if (isAllowed) {
-      console.log(`✅ CORS permitido para: ${origin}`);
+    if (!origin || isCorsOriginAllowed(origin)) {
       callback(null, true);
     } else {
-      // En producción, permitir temporalmente cualquier origen de Vercel o 9citas.com
-      if (process.env.NODE_ENV === 'production' && (
-        origin.includes('vercel.app') ||
-        origin.includes('caperucitas.com') ||
-        origin.includes('9citas.com')
-      )) {
-        console.log(`⚠️  Permitiendo origen de producción temporalmente: ${origin}`);
-        callback(null, true);
-      } else {
-        console.warn(`⚠️  CORS bloqueado para: ${origin}`);
-        callback(new Error('Not allowed by CORS'));
-      }
+      console.warn(`⚠️  CORS bloqueado para: ${origin}`);
+      callback(null, false);
     }
   },
   credentials: true,
@@ -193,19 +197,6 @@ app.use(cors({
   preflightContinue: false,
   optionsSuccessStatus: 204,
 }));
-
-// Manejar preflight OPTIONS requests explícitamente
-app.options('*', (req, res) => {
-  const origin = req.headers.origin;
-  
-  res.header('Access-Control-Allow-Origin', origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400');
-  console.log(`✅ OPTIONS request respondida para: ${origin || 'sin origin'}`);
-  res.sendStatus(204);
-});
 
 // ============================================================
 // SEGURIDAD: Helmet y rate limiting — DESPUÉS de CORS
@@ -257,7 +248,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     message: 'Caperucitas API is running',
-    version: '2026-06-22-whatsapp-qr-generate-fix',
+    version: '2026-06-22-cors-whatsapp-stats-fix',
   });
 });
 
@@ -296,10 +287,12 @@ cron.schedule('0 9 * * *', async () => {
   }
 });
 
-// Manejo de errores global
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+// Manejo de errores global — siempre con headers CORS
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Error:', err);
-  res.status(err.status || 500).json({
+  applyCorsHeaders(req, res);
+  const status = err.status || (err.message === 'Not allowed by CORS' ? 403 : 500);
+  res.status(status).json({
     error: err.message || 'Error interno del servidor',
   });
 });
