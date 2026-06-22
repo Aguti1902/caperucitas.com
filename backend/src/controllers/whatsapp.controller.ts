@@ -528,9 +528,23 @@ export const setupCreateInstance = async (req: AuthRequest, res: Response) => {
   if (!result.success) {
     return res.status(400).json({ error: result.error });
   }
-  const qr = await getEvolutionQrCode(instanceName);
+
+  const data = result.data as { qrBase64?: string; connected?: boolean; phone?: string } | undefined;
+  if (data?.connected) {
+    return res.json({
+      message: 'WhatsApp ya conectado',
+      instanceName,
+      connected: true,
+      phone: data.phone,
+    });
+  }
+
+  const qr = data?.qrBase64
+    ? { success: true, base64: data.qrBase64 }
+    : await getEvolutionQrCode(instanceName);
+
   res.json({
-    message: 'Instancia creada. Escanea el QR con WhatsApp.',
+    message: 'Escanea el QR con WhatsApp → Dispositivos vinculados. Tras escanear, espera unos segundos.',
     instanceName,
     qr: qr.success ? { base64: qr.base64, pairingCode: qr.pairingCode, connected: qr.connected } : null,
     qrError: qr.error,

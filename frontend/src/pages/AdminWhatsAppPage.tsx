@@ -83,6 +83,7 @@ export default function AdminWhatsAppPage() {
   const [newInstanceName, setNewInstanceName] = useState('caperucitas');
   const [qrBase64, setQrBase64] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isWaitingConnect, setIsWaitingConnect] = useState(false);
   const [autoSynced, setAutoSynced] = useState(false);
 
   const loadSetup = useCallback(async () => {
@@ -99,11 +100,16 @@ export default function AdminWhatsAppPage() {
       const data = await getWhatsAppQrCode(instanceName);
       if (data.connected) {
         setQrBase64(null);
+        setIsWaitingConnect(false);
         setSuccess(`WhatsApp conectado: +${data.owner || instanceName}`);
         return true;
       }
       if (data.base64) {
         setQrBase64(data.base64);
+        setIsWaitingConnect(false);
+      } else if (qrBase64) {
+        // QR desapareció tras escaneo — Baileys está reconectando
+        setIsWaitingConnect(true);
       }
       return false;
     } catch {
@@ -120,10 +126,11 @@ export default function AdminWhatsAppPage() {
       setSelectedInstance(name);
       if (result.qr?.base64) {
         setQrBase64(result.qr.base64);
+        setIsWaitingConnect(false);
       } else {
-        const connected = await refreshQr(name);
-        if (!connected) {
-          setSuccess('Escanea el QR con WhatsApp → Dispositivos vinculados');
+        const connectedOk = await refreshQr(name);
+        if (!connectedOk) {
+          setSuccess('Escanea el QR. Tras escanear, espera unos segundos sin cerrar esta página.');
         }
       }
       loadSetup();
@@ -221,9 +228,14 @@ export default function AdminWhatsAppPage() {
     }
   }, [stats, isLoading, autoSynced, loadAll]);
 
-  // Polling QR / conexión cada 4s mientras hay QR visible
+  const activeInstance = instances.find((i) => i.name === selectedInstance);
+  const connected = activeInstance?.connected ?? stats?.instance?.connected;
+  const isConfigured = stats?.whatsappConfigured ?? stats?.evolutionConfigured ?? true;
+  const provider = stats?.provider || setupStatus?.provider || 'builtin';
+
+  // Polling conexión cada 2s mientras hay QR o esperando conectar
   useEffect(() => {
-    if (!qrBase64) return;
+    if (!qrBase64 && !isWaitingConnect) return;
     const name = selectedInstance || newInstanceName;
     const t = setInterval(async () => {
       const ok = await refreshQr(name);
@@ -232,19 +244,24 @@ export default function AdminWhatsAppPage() {
         loadInstances();
         loadSetup();
       }
-    }, 4000);
+    }, 2000);
     return () => clearInterval(t);
-  }, [qrBase64, selectedInstance, newInstanceName, refreshQr, loadAll, loadInstances, loadSetup]);
+  }, [qrBase64, isWaitingConnect, selectedInstance, newInstanceName, refreshQr, loadAll, loadInstances, loadSetup]);
+
+  // Polling general cuando no conectado
+  useEffect(() => {
+    if (connected) return;
+    const t = setInterval(() => {
+      loadAll();
+      loadInstances();
+    }, 5000);
+    return () => clearInterval(t);
+  }, [connected, loadAll, loadInstances]);
 
   useEffect(() => {
     const phones = campaignSource === 'manual' ? manualPhones : undefined;
     loadRecipientCount(campaignSource, phones);
   }, [campaignSource, manualPhones, contactTotal, loadRecipientCount]);
-
-  const activeInstance = instances.find((i) => i.name === selectedInstance);
-  const connected = activeInstance?.connected ?? stats?.instance?.connected;
-  const isConfigured = stats?.whatsappConfigured ?? stats?.evolutionConfigured ?? true;
-  const provider = stats?.provider || setupStatus?.provider || 'builtin';
 
   const handleImport = async () => {
     setError('');
@@ -440,7 +457,11 @@ export default function AdminWhatsAppPage() {
                 <div className="text-gray-300 text-sm space-y-2">
                   <p className="font-semibold text-white">2. Escanea con tu móvil:</p>
                   <p>WhatsApp → ⚙️ Ajustes → Dispositivos vinculados → Vincular dispositivo</p>
-                  <p className="text-yellow-400 animate-pulse">Esperando conexión...</p>
+                  <p className="text-yellow-400 animate-pulse">
+                    {isWaitingConnect
+                      ? 'QR escaneado — conectando (puede tardar 10-30 s)...'
+                      : 'Escanea el QR — se renovará automáticamente cada ~20 s'}
+                  </p>
                 </div>
               </div>
             )}
