@@ -143,15 +143,28 @@ export default function AdminWhatsAppPage() {
   };
 
   const handleRestartConnection = async () => {
-    const name = selectedInstance || newInstanceName;
-    if (!name) return;
+    const name = selectedInstance || newInstanceName || 'caperucitas';
     setIsConnecting(true);
+    setError('');
+    setQrBase64(null);
+    setIsWaitingConnect(false);
     try {
       await restartWhatsAppInstance(name);
-      await refreshQr(name);
-      setSuccess('QR renovado. Escanea de nuevo.');
+      setSelectedInstance(name);
+      const data = await getWhatsAppQrCode(name);
+      if (data.connected) {
+        setSuccess(`WhatsApp conectado: +${data.owner}`);
+        loadAll();
+        return;
+      }
+      if (data.base64) {
+        setQrBase64(data.base64);
+        setSuccess('Nuevo QR generado. Escanéalo con WhatsApp.');
+      } else {
+        setError(data.error || 'No se pudo generar QR. Inténtalo de nuevo.');
+      }
     } catch (e: any) {
-      setError(e.response?.data?.error || 'Error al reiniciar');
+      setError(e.response?.data?.error || 'Error al renovar QR');
     } finally {
       setIsConnecting(false);
     }

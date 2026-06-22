@@ -9,14 +9,15 @@ import makeWASocket, {
   type AuthenticationState,
   type SignalDataTypeMap,
   type SignalDataSet,
+  type WASocket,
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import QRCode from 'qrcode';
 import pino from 'pino';
 import prisma from '../lib/prisma';
 
-const logger = pino({ level: 'silent' });
-const activeSockets = new Map<string, ReturnType<typeof makeWASocket>>();
+const logger = pino({ level: 'warn' });
+const activeSockets = new Map<string, WASocket>();
 const connectingLocks = new Map<string, Promise<void>>();
 
 async function persistAuth(
@@ -28,16 +29,10 @@ async function persistAuth(
     where: { instanceName },
     create: {
       instanceName,
-      authState: {
-        creds: JSON.stringify(creds, BufferJSON.replacer),
-        keys: keysJson,
-      },
+      authState: { creds: JSON.stringify(creds, BufferJSON.replacer), keys: keysJson },
     },
     update: {
-      authState: {
-        creds: JSON.stringify(creds, BufferJSON.replacer),
-        keys: keysJson,
-      },
+      authState: { creds: JSON.stringify(creds, BufferJSON.replacer), keys: keysJson },
     },
   });
 }
@@ -53,55 +48,42 @@ async function readAuthState(instanceName: string): Promise<{
   if (row?.authState && typeof row.authState === 'object') {
     const stored = row.authState as { creds?: string; keys?: Record<string, string> };
     if (stored.creds) {
-      creds = JSON.parse(stored.creds, BufferJSON.replacer);
+      try {
+        creds = JSON.parse(stored.creds, BufferJSON.replacer);
+      } catch {
+        creds = initAuthCreds();
+      }
     }
-    if (stored.keys) {
-      Object.assign(keysJson, stored.keys);
-    }
+    if (stored.keys) Object.assign(keysJson, stored.keys);
   }
 
   const keyStore = {
-    get: async <T extends keyof SignalDataTypeMap>(
-      type: T,
-      ids: string[]
-    ): Promise<{ [id: string]: SignalDataTypeMap[T] }> => {
+    get: async <T extends keyof SignalDataTypeMap>(type: T, ids: string[]) => {
       const result: { [id: string]: SignalDataTypeMap[T] } = {};
       for (const id of ids) {
         const val = keysJson[`${type}-${id}`];
-        if (val) {
-          result[id] = JSON.parse(val, BufferJSON.replacer);
-        }
+        if (val) result[id] = JSON.parse(val, BufferJSON.replacer);
       }
       return result;
     },
-    set: async (data: SignalDataSet): Promise<void> => {
+    set: async (data: SignalDataSet) => {
       for (const category of Object.keys(data) as (keyof SignalDataTypeMap)[]) {
         const bucket = data[category];
         if (!bucket) continue;
         for (const id of Object.keys(bucket)) {
           const value = bucket[id];
           const key = `${category}-${id}`;
-          if (value) {
-            keysJson[key] = JSON.stringify(value, BufferJSON.replacer);
-          } else {
-            delete keysJson[key];
-          }
+          if (value) keysJson[key] = JSON.stringify(value, BufferJSON.replacer);
+          else delete keysJson[key];
         }
       }
       await persistAuth(instanceName, creds, keysJson);
     },
   };
 
-  const saveCreds = async () => {
-    await persistAuth(instanceName, creds, keysJson);
-  };
-
   return {
-    state: {
-      creds,
-      keys: makeCacheableSignalKeyStore(keyStore, logger),
-    },
-    saveCreds,
+    state: { creds, keys: makeCacheableSignalKeyStore(keyStore, logger) },
+    saveCreds: async () => persistAuth(instanceName, creds, keysJson),
   };
 }
 
@@ -109,55 +91,117 @@ function normalizeName(instanceName: string): string {
   return instanceName.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
 }
 
-function extractPhone(sock: ReturnType<typeof makeWASocket>): string | undefined {
+function extractPhone(sock: WASocket): string | undefined {
   return sock.user?.id?.split(':')[0]?.split('@')[0];
 }
 
 async function updateSession(
   instanceName: string,
-  data: Partial<{
-    status: string;
-    phone: string | null;
-    lastQr: string | null;
-    authState: typeof Prisma.DbNull | object;
-  }>
+  data: Partial<{ status: string; phone: string | null; lastQr: string | null; authState: object | null }>
 ) {
+  const payload = { ...data };
+  if (payload.authState === null) {
+    await prisma.whatsAppSession.upsert({
+      where: { instanceName },
+      create: { instanceName, status: data.status || 'disconnected' },
+      update: { ...data, authState: Prisma.DbNull },
+    });
+    return;
+  }
   await prisma.whatsAppSession.upsert({
     where: { instanceName },
-    create: { instanceName, ...data },
-    update: data,
+    create: { instanceName, ...payload },
+    update: payload,
   });
 }
 
-/** Mantiene el socket vivo — reconecta tras escanear QR (flujo normal de Baileys) */
-async function connectSocket(instanceName: string): Promise<void> {
+async function getBaileysVersion(): Promise<[number, number, number] | undefined> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    const { version } = await fetchLatestBaileysVersion({ signal: ctrl.signal });
+    clearTimeout(timer);
+    return version;
+  } catch (err) {
+    console.warn('[WhatsApp] fetchLatestBaileysVersion falló, usando versión por defecto:', err);
+    return undefined;
+  }
+}
+
+/** Cierra socket y limpia estado en memoria */
+export async function disconnectSocket(instanceName: string): Promise<void> {
+  const name = normalizeName(instanceName);
+  const sock = activeSockets.get(name);
+  if (sock) {
+    try {
+      sock.ev.removeAllListeners('connection.update');
+      sock.ev.removeAllListeners('creds.update');
+      sock.end(new Error('disconnect'));
+    } catch {
+      /* ignore */
+    }
+    activeSockets.delete(name);
+  }
+  connectingLocks.delete(name);
+}
+
+async function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function waitForQrOrConnected(name: string, timeoutMs = 40000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
+    if (session?.status === 'connected' && session.phone) {
+      return { connected: true as const, phone: session.phone };
+    }
+    if (session?.lastQr) {
+      return { connected: false as const, qrBase64: session.lastQr };
+    }
+    await sleep(800);
+  }
+  return null;
+}
+
+/** Inicia socket Baileys y mantiene reconexión tras escanear QR */
+async function connectSocket(instanceName: string, force = false): Promise<void> {
   const name = normalizeName(instanceName);
   if (!name) throw new Error('Nombre de instancia inválido');
 
-  if (activeSockets.has(name)) return;
+  if (force) await disconnectSocket(name);
 
-  const existingLock = connectingLocks.get(name);
-  if (existingLock) {
-    await existingLock;
-    return;
+  const existing = activeSockets.get(name);
+  if (existing?.user) return;
+
+  if (existing && !existing.user) {
+    await disconnectSocket(name);
+  }
+
+  const lock = connectingLocks.get(name);
+  if (lock) {
+    await lock;
+    if (activeSockets.get(name)?.user) return;
   }
 
   const connectPromise = (async () => {
-    await updateSession(name, { status: 'connecting' });
+    await updateSession(name, { status: 'connecting', lastQr: null });
 
+    const version = await getBaileysVersion();
     const { state, saveCreds } = await readAuthState(name);
-    const { version } = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
-      version,
+      ...(version ? { version } : {}),
       auth: state,
       logger,
       printQRInTerminal: false,
       syncFullHistory: false,
       markOnlineOnConnect: false,
-      browser: Browsers.macOS('Caperucitas'),
+      browser: Browsers.macOS('Chrome'),
       generateHighQualityLinkPreview: false,
       getMessage: async () => undefined,
+      connectTimeoutMs: 60000,
+      defaultQueryTimeoutMs: 60000,
     });
 
     activeSockets.set(name, sock);
@@ -168,45 +212,43 @@ async function connectSocket(instanceName: string): Promise<void> {
 
       if (qr) {
         try {
-          const dataUrl = await QRCode.toDataURL(qr);
+          const dataUrl = await QRCode.toDataURL(qr, { width: 300, margin: 2 });
           const raw = dataUrl.replace(/^data:image\/png;base64,/, '');
           await updateSession(name, { status: 'qr', lastQr: raw });
-          console.log(`[WhatsApp:${name}] QR generado`);
+          console.log(`[WhatsApp:${name}] QR generado (${raw.length} bytes)`);
         } catch (err) {
-          console.error(`[WhatsApp:${name}] Error QR:`, err);
+          console.error(`[WhatsApp:${name}] Error generando imagen QR:`, err);
         }
       }
 
       if (connection === 'open') {
         const phone = extractPhone(sock);
         await updateSession(name, { status: 'connected', phone: phone || null, lastQr: null });
-        console.log(`[WhatsApp:${name}] Conectado: +${phone}`);
+        console.log(`[WhatsApp:${name}] Conectado +${phone}`);
       }
 
       if (connection === 'close') {
         activeSockets.delete(name);
         const code = (lastDisconnect?.error as Boom)?.output?.statusCode;
         const loggedOut = code === DisconnectReason.loggedOut;
-
-        console.log(`[WhatsApp:${name}] Conexión cerrada, código: ${code}`);
+        console.log(`[WhatsApp:${name}] Cerrado código=${code}`);
 
         if (loggedOut) {
           await updateSession(name, {
             status: 'disconnected',
             phone: null,
             lastQr: null,
-            authState: Prisma.DbNull,
+            authState: null,
           });
           return;
         }
 
-        // Tras escanear QR, Baileys cierra y reconecta — esto es NORMAL
         await updateSession(name, { status: 'connecting', lastQr: null });
         setTimeout(() => {
-          connectSocket(name).catch((err) =>
-            console.error(`[WhatsApp:${name}] Reconexión fallida:`, err.message)
+          connectSocket(name, false).catch((e) =>
+            console.error(`[WhatsApp:${name}] Reconexión:`, e.message)
           );
-        }, 2000);
+        }, 1500);
       }
     });
   })();
@@ -219,118 +261,95 @@ async function connectSocket(instanceName: string): Promise<void> {
   }
 }
 
-export async function startBuiltinInstance(instanceName: string): Promise<{
-  qrBase64?: string;
-  connected: boolean;
-  phone?: string;
-  error?: string;
-}> {
+export async function startBuiltinInstance(
+  instanceName: string,
+  force = false
+): Promise<{ qrBase64?: string; connected: boolean; phone?: string; error?: string }> {
   const name = normalizeName(instanceName);
   if (!name) return { connected: false, error: 'Nombre de instancia inválido' };
 
   const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
-  if (session?.status === 'connected' && session.phone) {
-    if (!activeSockets.has(name)) {
-      connectSocket(name).catch(console.error);
-    }
+  if (!force && session?.status === 'connected' && session.phone) {
+    if (!activeSockets.get(name)?.user) connectSocket(name).catch(console.error);
     return { connected: true, phone: session.phone };
   }
 
   try {
-    await connectSocket(name);
+    await connectSocket(name, force);
+    const result = await waitForQrOrConnected(name, 45000);
 
-    // Esperar QR o conexión (hasta 25s)
-    for (let i = 0; i < 25; i++) {
-      await new Promise((r) => setTimeout(r, 1000));
-      const current = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
-      if (current?.status === 'connected' && current.phone) {
-        return { connected: true, phone: current.phone };
-      }
-      if (current?.lastQr) {
-        return { connected: false, qrBase64: current.lastQr };
-      }
-    }
+    if (result?.connected) return { connected: true, phone: result.phone };
+    if (result?.qrBase64) return { connected: false, qrBase64: result.qrBase64 };
 
-    const final = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
-    if (final?.lastQr) return { connected: false, qrBase64: final.lastQr };
-    if (final?.status === 'connected') return { connected: true, phone: final.phone || undefined };
+    const last = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
+    if (last?.lastQr) return { connected: false, qrBase64: last.lastQr };
 
-    return { connected: false, error: 'Generando QR... Pulsa Actualizar o Renovar QR.' };
+    return {
+      connected: false,
+      error:
+        'No se generó QR. Pulsa «Renovar QR» para limpiar la sesión e intentar de nuevo.',
+    };
   } catch (err: any) {
-    return { connected: false, error: err.message };
+    console.error(`[WhatsApp:${name}] startBuiltinInstance:`, err);
+    return { connected: false, error: err.message || 'Error al conectar WhatsApp' };
   }
 }
 
 export async function getBuiltinStatus(instanceName: string) {
   const name = normalizeName(instanceName);
   const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
-  const connected =
-    (session?.status === 'connected' && !!session.phone) ||
-    (activeSockets.has(name) && !!extractPhone(activeSockets.get(name)!));
+  const sock = activeSockets.get(name);
+  const connected = (session?.status === 'connected' && !!session.phone) || !!sock?.user;
 
   return {
     configured: true,
     connected,
     instanceName: name,
     state: session?.status || 'disconnected',
-    owner: session?.phone || undefined,
+    owner: session?.phone || extractPhone(sock!) || undefined,
   };
 }
 
 export async function getBuiltinQr(instanceName: string) {
   const name = normalizeName(instanceName);
   const status = await getBuiltinStatus(name);
-  if (status.connected) {
-    return { success: true, connected: true, owner: status.owner };
+  if (status.connected) return { success: true, connected: true, owner: status.owner };
+
+  const sock = activeSockets.get(name);
+  if (!sock || !sock.user) {
+    await connectSocket(name, false);
   }
 
-  // Siempre iniciar/reanudar socket — no devolver QR caducado sin conexión activa
-  if (!activeSockets.has(name)) {
-    connectSocket(name).catch(console.error);
-  }
+  const result = await waitForQrOrConnected(name, 35000);
+  if (result?.connected) return { success: true, connected: true, owner: result.phone };
+  if (result?.qrBase64) return { success: true, base64: result.qrBase64 };
 
-  for (let i = 0; i < 20; i++) {
-    await new Promise((r) => setTimeout(r, 1000));
-    const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
-    if (session?.status === 'connected' && session.phone) {
-      return { success: true, connected: true, owner: session.phone };
-    }
-    if (session?.lastQr) {
-      return { success: true, base64: session.lastQr };
-    }
-  }
-
-  return { success: false, error: 'No se pudo generar QR. Pulsa Renovar QR.' };
+  return { success: false, error: 'No se pudo generar QR. Pulsa «Renovar QR».' };
 }
 
-export async function sendBuiltinMessage(
-  instanceName: string,
-  phone: string,
-  text: string
-): Promise<{ success: boolean; error?: string }> {
+export async function sendBuiltinMessage(instanceName: string, phone: string, text: string) {
   const name = normalizeName(instanceName);
   let sock = activeSockets.get(name);
 
-  if (!sock) {
+  if (!sock?.user) {
     const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
     if (session?.status !== 'connected') {
-      return { success: false, error: 'WhatsApp no conectado. Escanea el QR en el panel admin.' };
+      return { success: false, error: 'WhatsApp no conectado. Escanea el QR primero.' };
     }
     await connectSocket(name);
-    for (let i = 0; i < 15; i++) {
-      await new Promise((r) => setTimeout(r, 1000));
+    for (let i = 0; i < 20; i++) {
+      await sleep(1000);
       sock = activeSockets.get(name);
       if (sock?.user) break;
     }
   }
 
   if (!sock?.user) {
-    return { success: false, error: 'No hay conexión activa con WhatsApp. Reconecta desde el panel.' };
+    return { success: false, error: 'Sin conexión activa. Reconecta desde el panel.' };
   }
 
   try {
-    const jid = `${phone.replace(/\D/g, '')}@s.whatsapp.net`;
-    await sock.sendMessage(jid, { text });
+    await sock.sendMessage(`${phone.replace(/\D/g, '')}@s.whatsapp.net`, { text });
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
@@ -345,7 +364,7 @@ export async function listBuiltinInstances() {
   }
   return sessions.map((s) => ({
     name: s.instanceName,
-    connected: s.status === 'connected' || activeSockets.has(s.instanceName),
+    connected: s.status === 'connected' || !!activeSockets.get(s.instanceName)?.user,
     state: s.status,
     owner: s.phone || undefined,
   }));
@@ -353,26 +372,18 @@ export async function listBuiltinInstances() {
 
 export async function restartBuiltinInstance(instanceName: string) {
   const name = normalizeName(instanceName);
-  if (activeSockets.has(name)) {
-    try {
-      await activeSockets.get(name)?.logout();
-    } catch {
-      activeSockets.get(name)?.end(undefined);
-    }
-    activeSockets.delete(name);
-  }
-  connectingLocks.delete(name);
+  await disconnectSocket(name);
   await prisma.whatsAppSession.upsert({
     where: { instanceName: name },
     create: { instanceName: name, status: 'disconnected' },
     update: { status: 'disconnected', phone: null, lastQr: null, authState: Prisma.DbNull },
   });
-  return startBuiltinInstance(name);
+  return startBuiltinInstance(name, true);
 }
 
 export async function restoreBuiltinSessions() {
   const sessions = await prisma.whatsAppSession.findMany({
-    where: { status: { in: ['connected', 'connecting'] } },
+    where: { status: 'connected' },
   });
   for (const s of sessions) {
     connectSocket(s.instanceName).catch((err) =>
