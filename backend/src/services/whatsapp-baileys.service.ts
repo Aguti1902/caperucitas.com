@@ -41,6 +41,14 @@ interface ConnectOptions {
  */
 const WHATSAPP_BROWSER = Browsers.macOS('Chrome');
 
+function parseBaileysJson<T>(json: string): T {
+  return JSON.parse(json, BufferJSON.reviver);
+}
+
+function stringifyBaileysJson(value: unknown): string {
+  return JSON.stringify(value, BufferJSON.replacer);
+}
+
 async function persistAuth(
   instanceName: string,
   creds: AuthenticationState['creds'],
@@ -50,10 +58,10 @@ async function persistAuth(
     where: { instanceName },
     create: {
       instanceName,
-      authState: { creds: JSON.stringify(creds, BufferJSON.replacer), keys: keysJson },
+      authState: { creds: stringifyBaileysJson(creds), keys: keysJson },
     },
     update: {
-      authState: { creds: JSON.stringify(creds, BufferJSON.replacer), keys: keysJson },
+      authState: { creds: stringifyBaileysJson(creds), keys: keysJson },
     },
   });
 }
@@ -71,7 +79,7 @@ async function readAuthState(instanceName: string): Promise<{
     const stored = row.authState as { creds?: string; keys?: Record<string, string> };
     if (stored.creds) {
       try {
-        creds = JSON.parse(stored.creds, BufferJSON.replacer);
+        creds = parseBaileysJson(stored.creds);
       } catch {
         creds = initAuthCreds();
       }
@@ -84,7 +92,7 @@ async function readAuthState(instanceName: string): Promise<{
       const result: { [id: string]: SignalDataTypeMap[T] } = {};
       for (const id of ids) {
         const val = keysJson[`${type}-${id}`];
-        if (val) result[id] = JSON.parse(val, BufferJSON.replacer);
+        if (val) result[id] = parseBaileysJson(val);
       }
       return result;
     },
@@ -95,7 +103,7 @@ async function readAuthState(instanceName: string): Promise<{
         for (const id of Object.keys(bucket)) {
           const value = bucket[id];
           const key = `${category}-${id}`;
-          if (value) keysJson[key] = JSON.stringify(value, BufferJSON.replacer);
+          if (value) keysJson[key] = stringifyBaileysJson(value);
           else delete keysJson[key];
         }
       }
@@ -116,7 +124,7 @@ async function isRegisteredInDb(instanceName: string): Promise<boolean> {
   const stored = row.authState as { creds?: string };
   if (!stored.creds) return false;
   try {
-    const creds = JSON.parse(stored.creds, BufferJSON.replacer);
+    const creds = parseBaileysJson<{ registered?: boolean }>(stored.creds);
     return Boolean(creds.registered);
   } catch {
     return false;
@@ -489,8 +497,14 @@ async function connectSocket(instanceName: string, force = false, options: Conne
           pairingModeInstances.delete(name);
           pairingCodeRequested.delete(name);
           await updateSession(name, { status: 'connecting' });
-          console.log(`[WhatsApp:${name}] Reinicio requerido (515) — reconectando en 3s...`);
-          scheduleReconnect(name, 3000);
+          try {
+            await saveCreds();
+            await sleep(2500);
+          } catch {
+            /* ignore */
+          }
+          console.log(`[WhatsApp:${name}] Reinicio requerido (515) — reconectando en 4s...`);
+          scheduleReconnect(name, 4000);
           return;
         }
 
