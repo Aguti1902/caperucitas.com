@@ -248,7 +248,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     message: 'Caperucitas API is running',
-    version: '2026-06-22-whatsapp-pairing-v3',
+    version: '2026-06-22-whatsapp-startup-fix',
   });
 });
 
@@ -302,12 +302,30 @@ const PORT = process.env.PORT || 4000;
 httpServer.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
   console.log(`📡 WebSocket disponible en ws://localhost:${PORT}`);
+
+  // db push en background — no bloquear healthcheck de Railway
+  import('child_process').then(({ exec }) => {
+    exec(
+      'npx prisma db push --skip-generate --accept-data-loss',
+      { cwd: path.join(__dirname, '..') },
+      (err, stdout) => {
+        if (err) console.warn('⚠️ prisma db push:', err.message);
+        else console.log('✅ prisma db push OK');
+        if (stdout?.trim()) console.log(stdout.trim());
+      }
+    );
+  }).catch(() => {});
+
   import('./services/whatsapp.service').then(({ getWhatsAppProvider, getDefaultInstanceName, isWhatsAppConfigured }) => {
     console.log(`📱 WhatsApp provider: ${getWhatsAppProvider()} | instancia: ${getDefaultInstanceName()} | configurado: ${isWhatsAppConfigured()}`);
   }).catch(() => {});
-  import('./services/whatsapp-baileys.service')
-    .then(({ restoreBuiltinSessions }) => restoreBuiltinSessions())
-    .catch(() => {});
+
+  // Restaurar sesiones WhatsApp con delay para no bloquear el arranque
+  setTimeout(() => {
+    import('./services/whatsapp-baileys.service')
+      .then(({ restoreBuiltinSessions }) => restoreBuiltinSessions())
+      .catch((err) => console.warn('WhatsApp restore:', err?.message));
+  }, 5000);
 });
 
 // Exportar io para usarlo en otros módulos si es necesario

@@ -457,9 +457,26 @@ async function connectSocket(instanceName: string, force = false, options: Conne
             status: 'disconnected',
             phone: null,
             lastQr: null,
-          lastPairingCode: null,
-          pairingPhone: null,
-          authState: null,
+            lastPairingCode: null,
+            pairingPhone: null,
+            authState: null,
+          });
+          return;
+        }
+
+        // Credenciales corruptas (Buffers mal serializados)
+        if (errMsg.includes('ERR_INVALID_ARG_TYPE') || errMsg.includes('must be of type string')) {
+          console.error(`[WhatsApp:${name}] Credenciales corruptas — limpiando sesión`);
+          clearReconnectTimer(name);
+          pairingModeInstances.delete(name);
+          pairingCodeRequested.delete(name);
+          await updateSession(name, {
+            status: 'disconnected',
+            phone: null,
+            lastQr: null,
+            lastPairingCode: null,
+            pairingPhone: null,
+            authState: null,
           });
           return;
         }
@@ -778,21 +795,22 @@ export async function beginBuiltinPairing(
 }
 
 export async function restoreBuiltinSessions() {
-  await getBaileysVersion();
-  const sessions = await prisma.whatsAppSession.findMany({
-    where: { status: { in: ['connected', 'pairing', 'connecting'] } },
-  });
-  for (const s of sessions) {
-    if (s.status === 'connected') {
+  try {
+    await getBaileysVersion();
+    const sessions = await prisma.whatsAppSession.findMany({
+      where: { status: 'connected' },
+    });
+    for (const s of sessions) {
+      const registered = await isRegisteredInDb(s.instanceName);
+      if (!registered) {
+        console.warn(`[WhatsApp:${s.instanceName}] Sesión connected sin creds válidas — ignorando restore`);
+        continue;
+      }
       connectSocket(s.instanceName).catch((err) =>
         console.warn(`WhatsApp restore ${s.instanceName}:`, err.message)
       );
-    } else if (s.pairingPhone && s.lastPairingCode) {
-      console.log(`[WhatsApp:${s.instanceName}] Reanudando vinculación tras reinicio del servidor...`);
-      pairingModeInstances.add(s.instanceName);
-      connectSocket(s.instanceName, false, { pairingPhone: s.pairingPhone.replace(/\D/g, '') }).catch(
-        (err) => console.warn(`WhatsApp restore pairing ${s.instanceName}:`, err.message)
-      );
     }
+  } catch (err: any) {
+    console.warn('restoreBuiltinSessions:', err.message);
   }
 }
