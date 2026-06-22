@@ -219,5 +219,16 @@ export const restartWhatsAppInstance = async (instanceName: string) => {
   return response.data;
 };
 
+export const requestWhatsAppPairingCode = async (instanceName: string, phone: string) => {
+  const response = await adminApi.post('/whatsapp/setup/pairing-code', { instanceName, phone });
+  return response.data as {
+    pairingCode?: string;
+    phone?: string;
+    connected?: boolean;
+    error?: string;
+    message?: string;
+  };
+};
+
 export default adminApi;
 

@@ -40,6 +40,7 @@ import {
   getWhatsAppSetupStatus,
   createWhatsAppInstance,
   getWhatsAppConnectionStatus,
+  requestWhatsAppPairingCode,
   restartWhatsAppInstance,
 } from '../services/admin.api';
 
@@ -87,6 +88,9 @@ export default function AdminWhatsAppPage() {
   const [setupStatus, setSetupStatus] = useState<any>(null);
   const [newInstanceName, setNewInstanceName] = useState('caperucitas');
   const [qrBase64, setQrBase64] = useState<string | null>(null);
+  const [pairingCode, setPairingCode] = useState<string | null>(null);
+  const [pairingPhone, setPairingPhone] = useState('');
+  const [linkMethod, setLinkMethod] = useState<'qr' | 'code'>('code');
   const [isConnecting, setIsConnecting] = useState(false);
   const [isWaitingConnect, setIsWaitingConnect] = useState(false);
   const [autoSynced, setAutoSynced] = useState(false);
@@ -105,6 +109,7 @@ export default function AdminWhatsAppPage() {
       const data = await getWhatsAppConnectionStatus(instanceName);
       if (data.connected) {
         setQrBase64(null);
+        setPairingCode(null);
         setIsWaitingConnect(false);
         setSuccess(`WhatsApp conectado: +${data.owner || instanceName}`);
         return true;
@@ -122,23 +127,42 @@ export default function AdminWhatsAppPage() {
     setError('');
     setIsConnecting(true);
     setIsWaitingConnect(false);
+    setPairingCode(null);
+    setQrBase64(null);
     try {
       const name = newInstanceName.trim() || 'caperucitas';
-      const result = await createWhatsAppInstance(name);
       setSelectedInstance(name);
-      if (result.connected) {
-        setQrBase64(null);
-        setSuccess(`WhatsApp ya conectado: +${result.phone || name}`);
-      } else if (result.qr?.base64) {
-        setQrBase64(result.qr.base64);
-        setSuccess('QR listo. Escanea con WhatsApp y espera unos segundos.');
+
+      if (linkMethod === 'code') {
+        const phone = pairingPhone.trim();
+        if (!phone) {
+          setError('Introduce tu número de WhatsApp (ej. 34612345678)');
+          return;
+        }
+        const result = await requestWhatsAppPairingCode(name, phone);
+        if (result.connected) {
+          setSuccess(`WhatsApp ya conectado: +${result.phone || name}`);
+        } else if (result.pairingCode) {
+          setPairingCode(result.pairingCode);
+          setSuccess('Código generado. Introdúcelo en WhatsApp en menos de 2 minutos.');
+        } else {
+          setError('No se generó código. Inténtalo más tarde.');
+        }
       } else {
-        setError(result.qrError || 'No se generó QR. Pulsa «Renovar QR».');
+        const result = await createWhatsAppInstance(name);
+        if (result.connected) {
+          setSuccess(`WhatsApp ya conectado: +${result.phone || name}`);
+        } else if (result.qr?.base64) {
+          setQrBase64(result.qr.base64);
+          setSuccess('QR listo. Escanea con WhatsApp y espera unos segundos.');
+        } else {
+          setError(result.qrError || 'No se generó QR. Prueba con código de vinculación.');
+        }
       }
       loadSetup();
       loadInstances();
     } catch (e: any) {
-      setError(e.response?.data?.error || 'Error al crear instancia');
+      setError(e.response?.data?.error || 'Error al conectar');
     } finally {
       setIsConnecting(false);
     }
@@ -149,10 +173,27 @@ export default function AdminWhatsAppPage() {
     setIsConnecting(true);
     setError('');
     setQrBase64(null);
+    setPairingCode(null);
     setIsWaitingConnect(false);
     try {
-      const result = await restartWhatsAppInstance(name);
       setSelectedInstance(name);
+      if (linkMethod === 'code' && pairingPhone.trim()) {
+        const result = await requestWhatsAppPairingCode(name, pairingPhone.trim());
+        if (result.connected) {
+          setSuccess(`WhatsApp conectado: +${result.phone}`);
+          loadAll();
+          return;
+        }
+        if (result.pairingCode) {
+          setPairingCode(result.pairingCode);
+          setSuccess('Nuevo código generado.');
+        } else {
+          setError('No se pudo generar código.');
+        }
+        return;
+      }
+
+      const result = await restartWhatsAppInstance(name);
       if (result.connected) {
         setSuccess(`WhatsApp conectado: +${result.phone}`);
         loadAll();
@@ -160,12 +201,15 @@ export default function AdminWhatsAppPage() {
       }
       if (result.qr?.base64) {
         setQrBase64(result.qr.base64);
-        setSuccess('Nuevo QR generado. Escanea con WhatsApp (no se renueva solo).');
+        setSuccess('Nuevo QR generado.');
+      } else if (result.pairingCode) {
+        setPairingCode(result.pairingCode);
+        setSuccess('Nuevo código generado.');
       } else {
-        setError('No se pudo generar QR. Inténtalo de nuevo.');
+        setError('No se pudo generar QR. Prueba vinculación por código.');
       }
     } catch (e: any) {
-      setError(e.response?.data?.error || 'Error al renovar QR');
+      setError(e.response?.data?.error || 'Error al renovar');
     } finally {
       setIsConnecting(false);
     }
@@ -229,9 +273,9 @@ export default function AdminWhatsAppPage() {
     return () => clearInterval(interval);
   }, [loadAll, loadInstances, loadSetup]);
 
-  // Tras escanear QR: solo comprobar si ya conectó (sin regenerar QR)
+  // Tras escanear QR o introducir código: solo comprobar conexión (sin regenerar)
   useEffect(() => {
-    if (!qrBase64 && !isWaitingConnect) return;
+    if (!qrBase64 && !pairingCode && !isWaitingConnect) return;
     const name = selectedInstance || newInstanceName;
     const t = setInterval(async () => {
       const ok = await checkConnectionStatus(name);
@@ -242,7 +286,7 @@ export default function AdminWhatsAppPage() {
       }
     }, 5000);
     return () => clearInterval(t);
-  }, [qrBase64, isWaitingConnect, selectedInstance, newInstanceName, checkConnectionStatus, loadAll, loadInstances, loadSetup]);
+  }, [qrBase64, pairingCode, isWaitingConnect, selectedInstance, newInstanceName, checkConnectionStatus, loadAll, loadInstances, loadSetup]);
 
   // Auto-sincronizar teléfonos de perfiles la primera vez
   useEffect(() => {
@@ -449,16 +493,38 @@ export default function AdminWhatsAppPage() {
         )}
 
         {provider === 'builtin' && isConfigured && (
-          <div className="mb-4 p-3 bg-green-900/20 border border-green-800 text-green-300 rounded-lg text-sm">
-            Modo integrado activo — sesión guardada en Supabase. Escanea el QR abajo para conectar tu móvil.
+          <div className="mb-4 p-4 bg-amber-900/20 border border-amber-700/60 text-amber-100 rounded-lg text-sm space-y-2">
+            <p className="font-semibold text-amber-300">Si WhatsApp dice «No se pueden vincular nuevos dispositivos»:</p>
+            <ol className="list-decimal list-inside space-y-1 text-amber-100/90">
+              <li>En el móvil: WhatsApp → Ajustes → <strong>Dispositivos vinculados</strong> → cierra sesiones antiguas (máx. 4 dispositivos).</li>
+              <li>Espera <strong>24 horas</strong> si has intentado muchas veces — WhatsApp bloquea temporalmente.</li>
+              <li>Usa <strong>vinculación por código</strong> (recomendado) en lugar del QR.</li>
+              <li>No pulses «Renovar» repetidamente — empeora el bloqueo.</li>
+            </ol>
           </div>
         )}
 
         {!connected && isConfigured && (
           <div className="mb-6 p-5 bg-gray-900 rounded-xl border border-green-800/50">
             <h2 className="text-white font-bold mb-3 flex items-center gap-2">
-              <Link2 className="w-5 h-5 text-green-500" /> Conectar WhatsApp (escanea el QR)
+              <Link2 className="w-5 h-5 text-green-500" /> Conectar WhatsApp
             </h2>
+            <div className="flex gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => setLinkMethod('code')}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold ${linkMethod === 'code' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400'}`}
+              >
+                Por código (recomendado)
+              </button>
+              <button
+                type="button"
+                onClick={() => setLinkMethod('qr')}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold ${linkMethod === 'qr' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400'}`}
+              >
+                Por QR
+              </button>
+            </div>
             {stats?.provider === 'evolution' && !setupStatus?.evolutionReachable && (
               <p className="text-red-400 text-sm mb-3">
                 No se alcanza Evolution API: {setupStatus?.evolutionError || 'comprueba EVOLUTION_API_URL'}
@@ -474,24 +540,55 @@ export default function AdminWhatsAppPage() {
                   placeholder="caperucitas"
                 />
               </div>
+              {linkMethod === 'code' && (
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">Tu número WhatsApp (sin +)</label>
+                  <input
+                    value={pairingPhone}
+                    onChange={(e) => setPairingPhone(e.target.value.replace(/\D/g, ''))}
+                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm w-52"
+                    placeholder="34612345678"
+                  />
+                </div>
+              )}
               <button
                 onClick={handleStartConnection}
                 disabled={isConnecting || (stats?.provider === 'evolution' && !setupStatus?.evolutionReachable)}
                 className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold px-5 py-2 rounded-lg text-sm flex items-center gap-2"
               >
                 <QrCode className="w-4 h-4" />
-                {isConnecting ? 'Generando QR...' : '1. Crear instancia y mostrar QR'}
+                {isConnecting
+                  ? 'Generando...'
+                  : linkMethod === 'code'
+                    ? 'Generar código de vinculación'
+                    : 'Generar QR'}
               </button>
-              {(selectedInstance || qrBase64) && (
+              {(selectedInstance || qrBase64 || pairingCode) && (
                 <button
                   onClick={handleRestartConnection}
                   disabled={isConnecting}
                   className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm"
                 >
-                  Renovar QR
+                  Renovar
                 </button>
               )}
             </div>
+            {pairingCode && (
+              <div className="mb-4 p-4 bg-gray-800 rounded-xl border border-green-700">
+                <p className="text-gray-400 text-xs mb-2">Código de vinculación (válido ~2 min):</p>
+                <p className="text-4xl font-mono font-bold text-green-400 tracking-widest text-center py-3">{pairingCode}</p>
+                <p className="text-gray-300 text-sm mt-2">
+                  WhatsApp → Ajustes → Dispositivos vinculados → <strong>Vincular con número de teléfono</strong> → introduce el código.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => checkConnectionStatus(selectedInstance || newInstanceName)}
+                  className="mt-3 text-green-400 hover:text-green-300 text-xs underline"
+                >
+                  Ya introduje el código — comprobar conexión
+                </button>
+              </div>
+            )}
             {qrBase64 && (
               <div className="flex flex-col sm:flex-row gap-6 items-center">
                 <img

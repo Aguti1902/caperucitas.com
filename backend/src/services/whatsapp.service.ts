@@ -196,18 +196,29 @@ export async function checkEvolutionHealth(): Promise<{ ok: boolean; error?: str
   }
 }
 
-export async function createEvolutionInstance(instanceName: string): Promise<{ success: boolean; error?: string; data?: unknown }> {
+export async function createEvolutionInstance(
+  instanceName: string,
+  options?: { pairingPhone?: string; force?: boolean }
+): Promise<{ success: boolean; error?: string; data?: unknown }> {
   const name = instanceName.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
   if (!name) return { success: false, error: 'Nombre de instancia inválido' };
 
   if (getWhatsAppProvider() === 'builtin') {
-    const result = await baileys.startBuiltinInstance(name);
-    if (result.error && !result.qrBase64 && !result.connected) {
+    const result = await baileys.startBuiltinInstance(name, Boolean(options?.force), {
+      pairingPhone: options?.pairingPhone,
+    });
+    if (result.error && !result.qrBase64 && !result.pairingCode && !result.connected) {
       return { success: false, error: result.error };
     }
     return {
       success: true,
-      data: { instanceName: name, qrBase64: result.qrBase64, connected: result.connected, phone: result.phone },
+      data: {
+        instanceName: name,
+        qrBase64: result.qrBase64,
+        pairingCode: result.pairingCode,
+        connected: result.connected,
+        phone: result.phone,
+      },
     };
   }
 
@@ -256,6 +267,9 @@ export async function getEvolutionQrCode(instanceName: string): Promise<{
     if (result.connected) {
       return { success: true, connected: true, owner: result.owner };
     }
+    if (result.pairingCode) {
+      return { success: true, pairingCode: result.pairingCode };
+    }
     if (result.base64) {
       return { success: true, base64: result.base64 };
     }
@@ -293,22 +307,30 @@ export async function getEvolutionQrCode(instanceName: string): Promise<{
   }
 }
 
-export async function restartEvolutionInstance(instanceName: string): Promise<{
+export async function restartEvolutionInstance(
+  instanceName: string,
+  options?: { pairingPhone?: string }
+): Promise<{
   success: boolean;
   error?: string;
-  data?: { qrBase64?: string; connected?: boolean; phone?: string };
+  data?: { qrBase64?: string; pairingCode?: string; connected?: boolean; phone?: string };
 }> {
   const name = instanceName.trim();
 
   if (getWhatsAppProvider() === 'builtin') {
     try {
-      const result = await baileys.restartBuiltinInstance(name);
-      if (result.error && !result.qrBase64 && !result.connected) {
+      const result = await baileys.restartBuiltinInstance(name, { pairingPhone: options?.pairingPhone });
+      if (result.error && !result.qrBase64 && !result.pairingCode && !result.connected) {
         return { success: false, error: result.error };
       }
       return {
         success: true,
-        data: { qrBase64: result.qrBase64, connected: result.connected, phone: result.phone },
+        data: {
+          qrBase64: result.qrBase64,
+          pairingCode: result.pairingCode,
+          connected: result.connected,
+          phone: result.phone,
+        },
       };
     } catch (err: any) {
       return { success: false, error: err.message };

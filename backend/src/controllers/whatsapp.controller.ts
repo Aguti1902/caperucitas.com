@@ -691,5 +691,47 @@ export const setupRestartInstance = async (req: AuthRequest, res: Response) => {
     connected: data?.connected,
     phone: data?.phone,
     qr: data?.qrBase64 ? { base64: data.qrBase64 } : null,
+    pairingCode: data?.pairingCode || null,
   });
+};
+
+export const setupPairingCode = async (req: AuthRequest, res: Response) => {
+  try {
+    const instanceName = (req.body.instanceName || getDefaultInstanceName() || 'caperucitas').trim();
+    const rawPhone = String(req.body.phone || '').trim();
+    if (!rawPhone) {
+      return res.status(400).json({ error: 'Introduce el número de WhatsApp (con prefijo, ej. 34612345678)' });
+    }
+
+    const phone = normalizePhone(rawPhone);
+    if (!phone) {
+      return res.status(400).json({ error: 'Número inválido. Usa formato internacional sin + (ej. 34612345678)' });
+    }
+
+    const result = await restartEvolutionInstance(instanceName, { pairingPhone: phone });
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    const data = result.data;
+    if (data?.connected) {
+      return res.json({
+        message: 'WhatsApp ya conectado',
+        instanceName,
+        connected: true,
+        phone: data.phone,
+      });
+    }
+
+    res.json({
+      message: 'Introduce este código en WhatsApp → Dispositivos vinculados → Vincular con número de teléfono',
+      instanceName,
+      pairingCode: data?.pairingCode,
+      phone,
+      connected: false,
+    });
+  } catch (error) {
+    console.error('Error setupPairingCode:', error);
+    res.status(500).json({ error: 'Error al generar código de vinculación' });
+  }
 };
