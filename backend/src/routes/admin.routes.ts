@@ -16,6 +16,7 @@ router.get('/stats', authenticateAdminToken, adminController.getStats);
 
 // Google Analytics 4
 router.get('/analytics', authenticateAdminToken, analyticsController.getAnalyticsDashboard);
+router.get('/analytics/diagnostics', authenticateAdminToken, analyticsController.getAnalyticsDiagnostics);
 router.get('/analytics/status', authenticateAdminToken, analyticsController.getAnalyticsStatus);
 
 // WhatsApp / Evolution API

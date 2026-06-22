@@ -6,6 +6,7 @@ import {
   getGa4SetupInstructions,
   formatGa4Error,
   getServiceAccountEmail,
+  runGa4Diagnostics,
 } from '../services/google-analytics.service';
 
 export const getAnalyticsDashboard = async (_req: AuthRequest, res: Response) => {
@@ -25,6 +26,15 @@ export const getAnalyticsDashboard = async (_req: AuthRequest, res: Response) =>
       propertyId: process.env.GA4_PROPERTY_ID || null,
       setup: getGa4SetupInstructions(),
     });
+  }
+};
+
+export const getAnalyticsDiagnostics = async (_req: AuthRequest, res: Response) => {
+  try {
+    const diagnostics = await runGa4Diagnostics();
+    res.json(diagnostics);
+  } catch (error: unknown) {
+    res.status(500).json({ error: formatGa4Error(error) });
   }
 };
 

@@ -13,7 +13,7 @@ import {
   UserPlus,
 } from 'lucide-react';
 import AdminLayout from '../components/admin/AdminLayout';
-import { getAnalyticsDashboard } from '../services/admin.api';
+import { getAnalyticsDashboard, getAnalyticsDiagnostics } from '../services/admin.api';
 
 interface Ga4Setup {
   configured: false;
@@ -48,6 +48,17 @@ interface Ga4Data {
 
 type AnalyticsResponse = Ga4Data | Ga4Setup;
 
+interface Ga4Diagnostics {
+  jsonValid: boolean;
+  serviceAccountEmail: string | null;
+  configuredPropertyId: string | null;
+  measurementId: string | null;
+  accessibleProperties: { propertyId: string; displayName: string; account: string }[];
+  configuredPropertyAccessible: boolean;
+  realtimeTest: { ok: boolean; activeUsers?: number; error?: string };
+  suggestedPropertyId: string | null;
+}
+
 function formatDate(iso: string) {
   try {
     return new Date(iso).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -58,14 +69,26 @@ function formatDate(iso: string) {
 
 export default function AdminAnalyticsPage() {
   const [data, setData] = useState<AnalyticsResponse | null>(null);
+  const [diagnostics, setDiagnostics] = useState<Ga4Diagnostics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const runDiagnostics = useCallback(async () => {
+    try {
+      const d = await getAnalyticsDiagnostics();
+      setDiagnostics(d);
+      return d;
+    } catch {
+      return null;
+    }
+  }, []);
 
   const load = useCallback(async () => {
     try {
       setError('');
       const result = await getAnalyticsDashboard();
       setData(result);
+      if (!result.configured) await runDiagnostics();
     } catch (e: any) {
       const body = e.response?.data;
       setError(body?.error || 'Error al cargar analíticas');
@@ -77,10 +100,11 @@ export default function AdminAnalyticsPage() {
           propertyId: body.propertyId,
         });
       }
+      await runDiagnostics();
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [runDiagnostics]);
 
   useEffect(() => {
     load();
@@ -116,6 +140,12 @@ export default function AdminAnalyticsPage() {
             <ExternalLink className="w-4 h-4" /> Abrir GA4
           </a>
           <button
+            onClick={async () => { setIsLoading(true); await runDiagnostics(); await load(); setIsLoading(false); }}
+            className="flex items-center gap-2 px-4 py-2 bg-amber-900/40 hover:bg-amber-900/60 text-amber-200 rounded-lg text-sm"
+          >
+            Diagnóstico
+          </button>
+          <button
             onClick={() => { setIsLoading(true); load().finally(() => setIsLoading(false)); }}
             className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm"
           >
@@ -149,6 +179,51 @@ export default function AdminAnalyticsPage() {
             <li>+ Añadir usuarios → pega el email de arriba → Rol <strong>Lector</strong></li>
             <li>Guardar → espera 1 min → pulsa Actualizar aquí</li>
           </ol>
+        </div>
+      )}
+
+      {diagnostics && (
+        <div className="bg-gray-900 rounded-xl border border-amber-700/40 p-5 mb-6 text-sm">
+          <h2 className="text-white font-bold mb-3">Diagnóstico GA4</h2>
+          <div className="grid sm:grid-cols-2 gap-2 text-xs mb-4">
+            <p className={diagnostics.jsonValid ? 'text-green-400' : 'text-red-400'}>
+              JSON cuenta de servicio: {diagnostics.jsonValid ? '✓ Válido' : '✗ Inválido o incompleto'}
+            </p>
+            <p className={diagnostics.configuredPropertyAccessible ? 'text-green-400' : 'text-amber-400'}>
+              Property ID en Railway: {diagnostics.configuredPropertyId || '—'}
+              {diagnostics.configuredPropertyAccessible ? ' ✓' : ' ✗ no accesible'}
+            </p>
+            <p className="text-gray-400 col-span-full break-all">
+              Email: <span className="text-yellow-300">{diagnostics.serviceAccountEmail || '—'}</span>
+            </p>
+            <p className={diagnostics.realtimeTest.ok ? 'text-green-400' : 'text-red-400'} col-span-full>
+              Test en vivo: {diagnostics.realtimeTest.ok
+                ? `✓ OK (${diagnostics.realtimeTest.activeUsers ?? 0} usuarios ahora)`
+                : `✗ ${diagnostics.realtimeTest.error || 'Error'}`}
+            </p>
+          </div>
+
+          {diagnostics.accessibleProperties.length > 0 ? (
+            <div>
+              <p className="text-gray-300 font-semibold mb-2">Propiedades a las que SÍ tiene acceso:</p>
+              <ul className="space-y-1">
+                {diagnostics.accessibleProperties.map((p) => (
+                  <li key={p.propertyId} className="text-xs font-mono bg-black/30 rounded px-3 py-2">
+                    <span className="text-green-400 font-bold">{p.propertyId}</span>
+                    <span className="text-gray-400"> — {p.displayName}</span>
+                    {p.propertyId === diagnostics.suggestedPropertyId && (
+                      <span className="text-amber-300 ml-2">← usa este en GA4_PROPERTY_ID</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="text-red-300 text-xs">
+              No tiene acceso a ninguna propiedad. Añade el email de arriba en GA4 → Admin → Acceso a la propiedad → Lector.
+              También activa «Google Analytics Admin API» en Google Cloud.
+            </p>
+          )}
         </div>
       )}
 
