@@ -292,6 +292,7 @@ export default function AdminWhatsAppPage() {
 
   const activeInstance = instances.find((i) => i.name === selectedInstance);
   const connected = activeInstance?.connected ?? stats?.instance?.connected;
+  const isReconnecting = activeInstance?.state === 'reconnecting' || stats?.instance?.state === 'reconnecting';
   const isConfigured = stats?.whatsappConfigured ?? stats?.evolutionConfigured ?? true;
   const provider = stats?.provider || setupStatus?.provider || 'builtin';
   const quota = stats?.quota;
@@ -569,9 +570,9 @@ export default function AdminWhatsAppPage() {
                 placeholder="34612345678"
               />
             </div>
-            <div className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold shrink-0 ${connected ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>
-              {connected ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
-              {connected ? `Conectado +${activeInstance?.owner || senderPhone}` : 'Sin vincular'}
+            <div className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold shrink-0 ${connected ? 'bg-green-900/40 text-green-400' : isReconnecting ? 'bg-amber-900/40 text-amber-400' : 'bg-red-900/40 text-red-400'}`}>
+              {connected ? <Wifi className="w-4 h-4" /> : isReconnecting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <WifiOff className="w-4 h-4" />}
+              {connected ? `Conectado +${activeInstance?.owner || senderPhone}` : isReconnecting ? 'Reconectando…' : 'Sin vincular'}
             </div>
           </div>
 

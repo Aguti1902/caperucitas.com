@@ -44,6 +44,7 @@ import {
   WHATSAPP_DAILY_LIMIT_SAFE,
   WHATSAPP_DEFAULT_DELAY_MS,
 } from '../utils/whatsapp-safe-limits.utils';
+import { isBuiltinConnected, isBuiltinConnecting } from '../services/whatsapp-baileys.service';
 
 let whatsappStatsCache: { data: Record<string, unknown>; expiresAt: number } | null = null;
 let profilePhoneCountCache = { count: 0, expiresAt: 0 };
@@ -522,8 +523,18 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
 
     const instance = await getInstanceStatus(resolvedInstance);
     if (!instance.connected) {
-      return res.status(400).json({
-        error: `WhatsApp "${resolvedInstance}" no conectado: ${instance.error || instance.state || 'desconocido'}`,
+      const reconnecting =
+        getWhatsAppProvider() === 'builtin' && isBuiltinConnecting(resolvedInstance);
+      return res.status(reconnecting ? 503 : 400).json({
+        error: reconnecting
+          ? 'WhatsApp está reconectando. Espera 10–20 segundos e inténtalo de nuevo.'
+          : `WhatsApp "${resolvedInstance}" no conectado: ${instance.error || instance.state || 'sin socket activo en el servidor'}`,
+      });
+    }
+
+    if (getWhatsAppProvider() === 'builtin' && !isBuiltinConnected(resolvedInstance)) {
+      return res.status(503).json({
+        error: 'WhatsApp no tiene conexión activa en el servidor. Espera unos segundos tras vincular antes de lanzar la campaña.',
       });
     }
 
@@ -583,8 +594,8 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Iniciar campaña tras crear logs (evita bloquear y abrir 2ª conexión WA)
-    setTimeout(() => enqueueCampaign(campaign.id), 1500);
+    // Iniciar campaña tras crear logs (evita colisión con la conexión activa)
+    setTimeout(() => enqueueCampaign(campaign.id), 5000);
 
     const dailyQuota = await getWhatsAppDailyQuota();
     const dailyWarning =

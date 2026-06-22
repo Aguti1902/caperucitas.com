@@ -34,7 +34,7 @@ function touchStats(): void {
 export const MAX_SEND_RETRIES = 3;
 export const RETRY_BASE_MS = 3000;
 export const AUTO_RESUME_DELAY_MS = 8000;
-export const CAMPAIGN_WARMUP_MS = 4000;
+export const CAMPAIGN_WARMUP_MS = 8000;
 
 export const PAUSE_REASON_DISCONNECT =
   'WhatsApp desconectado (WhatsApp puede haber cerrado la sesión por envío masivo). Vincula de nuevo y pulsa Reanudar.';
@@ -80,11 +80,14 @@ async function isInstanceReady(instanceName: string | null | undefined): Promise
   const name = instanceName?.trim();
   if (!name) return false;
   if (isBuiltinConnected(name)) return true;
-  if (isBuiltinConnecting(name)) {
-    await sleep(2500);
-    return isBuiltinConnected(name);
+
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    if (isBuiltinConnected(name)) return true;
+    if (!isBuiltinConnecting(name)) break;
+    await sleep(1500);
   }
-  return false;
+  return isBuiltinConnected(name);
 }
 
 export async function pauseCampaign(campaignId: string, reason: string): Promise<void> {

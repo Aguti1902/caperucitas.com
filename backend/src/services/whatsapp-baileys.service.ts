@@ -23,6 +23,7 @@ const connectingLocks = new Map<string, Promise<void>>();
 const pairingModeInstances = new Set<string>();
 const pairingCodeRequested = new Set<string>();
 const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const reconnectInFlight = new Map<string, Promise<void>>();
 const pairingReconnectAttempts = new Map<string, number>();
 
 /** Mínimo entre intentos de vinculación NUEVA (no aplica a reanudar código existente) */
@@ -142,10 +143,29 @@ export function isBuiltinConnected(instanceName: string): boolean {
 
 export function isBuiltinConnecting(instanceName: string): boolean {
   const name = normalizeName(instanceName);
-  return connectingLocks.has(name);
+  return connectingLocks.has(name) || reconnectTimers.has(name) || reconnectInFlight.has(name);
 }
 
-/** Espera socket activo sin abrir otra conexión (evita desvincular el móvil). */
+/** Una sola reconexión en vuelo — nunca abrir 2 sockets (WhatsApp desvincula el móvil). */
+export function requestReconnectOnce(instanceName: string): void {
+  const name = normalizeName(instanceName);
+  if (!name) return;
+  if (activeSockets.get(name)?.user) return;
+  if (connectingLocks.has(name) || reconnectTimers.has(name) || reconnectInFlight.has(name)) return;
+
+  const job = (async () => {
+    const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
+    if (session?.status !== 'connected' || !session.phone) return;
+    if (!(await isRegisteredInDb(name))) return;
+    console.log(`[WhatsApp:${name}] Reconexión única (sesión registrada)...`);
+    await connectSocket(name);
+  })().catch((err) => console.warn(`[WhatsApp:${name}] requestReconnectOnce:`, err.message))
+    .finally(() => reconnectInFlight.delete(name));
+
+  reconnectInFlight.set(name, job);
+}
+
+/** Espera socket activo — NO abre otra conexión (evita connectionReplaced / desvincular móvil). */
 export async function waitForConnectedSocket(
   instanceName: string,
   timeoutMs = 45_000
@@ -167,21 +187,26 @@ export async function waitForConnectedSocket(
       continue;
     }
 
-    const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
-    if (session?.status !== 'connected' || !session.phone) {
-      return null;
+    const inFlight = reconnectInFlight.get(name);
+    if (inFlight) {
+      try {
+        await Promise.race([inFlight, sleep(1500)]);
+      } catch {
+        /* ignore */
+      }
+      continue;
     }
 
-    // Sesión OK en BD pero sin socket: una sola reconexión suave (sin duplicar)
-    if (!connectingLocks.has(name)) {
-      console.log(`[WhatsApp:${name}] Reconectando socket existente para envío...`);
-      connectSocket(name).catch((err) => console.warn(`[WhatsApp:${name}] reconnect:`, err.message));
+    if (reconnectTimers.has(name)) {
+      await sleep(1000);
+      continue;
     }
 
-    await sleep(800);
+    await sleep(500);
   }
 
-  return activeSockets.get(name)?.user ? activeSockets.get(name)! : null;
+  const final = activeSockets.get(name);
+  return final?.user ? final : null;
 }
 
 function notifyWhatsAppConnected(instanceName: string) {
@@ -267,6 +292,7 @@ export async function disconnectSocket(instanceName: string): Promise<void> {
     activeSockets.delete(name);
   }
   connectingLocks.delete(name);
+  reconnectInFlight.delete(name);
 }
 
 async function sleep(ms: number) {
@@ -283,10 +309,12 @@ async function waitForRegisteredInDb(instanceName: string, maxMs = 25000): Promi
 }
 
 async function scheduleReconnect(name: string, delayMs: number, options: ConnectOptions = {}) {
+  if (reconnectTimers.has(name) || reconnectInFlight.has(name)) return;
   clearReconnectTimer(name);
   const timer = setTimeout(async () => {
     reconnectTimers.delete(name);
     try {
+      if (activeSockets.get(name)?.user) return;
       connectingLocks.delete(name);
       await disconnectSocket(name);
       await sleep(1000);
@@ -632,8 +660,9 @@ export async function startBuiltinInstance(
 
   const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
   if (!force && session?.status === 'connected' && session.phone) {
-    if (!activeSockets.get(name)?.user) connectSocket(name).catch(console.error);
-    return { connected: true, phone: session.phone };
+    if (!activeSockets.get(name)?.user) requestReconnectOnce(name);
+    const live = activeSockets.get(name)?.user;
+    return { connected: Boolean(live), phone: session.phone };
   }
 
   if (force) {
@@ -674,13 +703,19 @@ export async function getBuiltinStatus(instanceName: string) {
   const name = normalizeName(instanceName);
   const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
   const sock = activeSockets.get(name);
-  const connected = (session?.status === 'connected' && !!session.phone) || !!sock?.user;
+  const liveConnected = Boolean(sock?.user);
+  const sessionRegistered = session?.status === 'connected' && !!session.phone;
+  const reconnecting = !liveConnected && sessionRegistered && isBuiltinConnecting(name);
+
+  if (sessionRegistered && !liveConnected && !isBuiltinConnecting(name)) {
+    requestReconnectOnce(name);
+  }
 
   return {
     configured: true,
-    connected,
+    connected: liveConnected,
     instanceName: name,
-    state: session?.status || 'disconnected',
+    state: liveConnected ? 'connected' : reconnecting ? 'reconnecting' : session?.status || 'disconnected',
     owner: session?.phone || extractPhone(sock) || undefined,
   };
 }
@@ -753,10 +788,16 @@ export async function sendBuiltinMessage(
   imageUrl?: string
 ) {
   const name = normalizeName(instanceName);
-  const sock = await waitForConnectedSocket(name, 35_000);
+  let sock = activeSockets.get(name);
+  if (!sock?.user) {
+    sock = (await waitForConnectedSocket(name, 35_000)) ?? undefined;
+  }
 
   if (!sock?.user) {
-    return { success: false, error: 'Sin conexión activa. Vincula de nuevo desde el panel.' };
+    return {
+      success: false,
+      error: 'Sin conexión activa en el servidor. Espera unos segundos o vincula de nuevo desde el panel.',
+    };
   }
 
   const jid = `${phone.replace(/\D/g, '')}@s.whatsapp.net`;
@@ -788,12 +829,16 @@ export async function listBuiltinInstances() {
     const defaultName = process.env.WHATSAPP_INSTANCE_NAME || 'caperucitas';
     return [{ name: defaultName, connected: false, state: 'disconnected' }];
   }
-  return sessions.map((s) => ({
-    name: s.instanceName,
-    connected: s.status === 'connected' || !!activeSockets.get(s.instanceName)?.user,
-    state: s.status,
-    owner: s.phone || undefined,
-  }));
+  return sessions.map((s) => {
+    const live = Boolean(activeSockets.get(s.instanceName)?.user);
+    const registered = s.status === 'connected' && !!s.phone;
+    return {
+      name: s.instanceName,
+      connected: live,
+      state: live ? 'connected' : registered && isBuiltinConnecting(s.instanceName) ? 'reconnecting' : s.status,
+      owner: s.phone || undefined,
+    };
+  });
 }
 
 export async function restartBuiltinInstance(instanceName: string, options: ConnectOptions = {}) {
@@ -834,8 +879,8 @@ export async function beginBuiltinPairing(
   const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
 
   if (session?.status === 'connected' && session.phone) {
-    if (!activeSockets.get(name)?.user) connectSocket(name).catch(console.error);
-    return { connected: true, phone: session.phone };
+    if (!activeSockets.get(name)?.user) requestReconnectOnce(name);
+    return { connected: Boolean(activeSockets.get(name)?.user), phone: session.phone };
   }
 
   // Reanudar vinculación en curso (mismo número, código < 2 min)
@@ -879,9 +924,7 @@ export async function restoreBuiltinSessions() {
         console.warn(`[WhatsApp:${s.instanceName}] Sesión connected sin creds válidas — ignorando restore`);
         continue;
       }
-      connectSocket(s.instanceName).catch((err) =>
-        console.warn(`WhatsApp restore ${s.instanceName}:`, err.message)
-      );
+      requestReconnectOnce(s.instanceName);
     }
   } catch (err: any) {
     console.warn('restoreBuiltinSessions:', err.message);
