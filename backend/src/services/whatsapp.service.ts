@@ -325,10 +325,11 @@ export async function restartEvolutionInstance(instanceName: string): Promise<{ 
   }
 }
 
-export async function sendTextMessage(
+export async function sendWhatsAppMessage(
   phone: string,
   text: string,
-  instanceName?: string
+  instanceName?: string,
+  imageUrl?: string
 ): Promise<{ success: boolean; error?: string }> {
   const instance = resolveInstanceName(instanceName);
   const normalized = normalizePhone(phone);
@@ -336,11 +337,17 @@ export async function sendTextMessage(
     return { success: false, error: `Número inválido: ${phone}` };
   }
 
+  const hasText = Boolean(text?.trim());
+  const hasImage = Boolean(imageUrl?.trim());
+  if (!hasText && !hasImage) {
+    return { success: false, error: 'Escribe un mensaje o adjunta una imagen' };
+  }
+
   if (getWhatsAppProvider() === 'builtin') {
     if (!instance) {
       return { success: false, error: 'Instancia no definida' };
     }
-    return baileys.sendBuiltinMessage(instance, normalized, text);
+    return baileys.sendBuiltinMessage(instance, normalized, text, imageUrl);
   }
 
   const { baseUrl, apiKey } = getEvolutionConfig();
@@ -350,6 +357,29 @@ export async function sendTextMessage(
   }
 
   try {
+    if (hasImage) {
+      const res = await fetch(`${baseUrl}/message/sendMedia/${instance}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: apiKey,
+        },
+        body: JSON.stringify({
+          number: normalized,
+          mediatype: 'image',
+          mimetype: 'image/jpeg',
+          caption: text?.trim() || '',
+          media: imageUrl!.trim(),
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.text();
+        return { success: false, error: body || `HTTP ${res.status}` };
+      }
+      return { success: true };
+    }
+
     const res = await fetch(`${baseUrl}/message/sendText/${instance}`, {
       method: 'POST',
       headers: {
@@ -367,6 +397,15 @@ export async function sendTextMessage(
   } catch (err: any) {
     return { success: false, error: err.message };
   }
+}
+
+/** @deprecated Usar sendWhatsAppMessage */
+export async function sendTextMessage(
+  phone: string,
+  text: string,
+  instanceName?: string
+): Promise<{ success: boolean; error?: string }> {
+  return sendWhatsAppMessage(phone, text, instanceName);
 }
 
 export function sleep(ms: number): Promise<void> {

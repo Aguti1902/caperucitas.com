@@ -5,7 +5,7 @@ import {
   WHATSAPP_MESSAGE_COST_EUR,
   DEFAULT_DELAY_MS,
   getInstanceStatus,
-  sendTextMessage,
+  sendWhatsAppMessage,
   normalizePhone,
   sleep,
   isWhatsAppConfigured,
@@ -17,6 +17,7 @@ import {
   restartEvolutionInstance,
   checkEvolutionHealth,
 } from '../services/whatsapp.service';
+import { buildPublicUploadUrl } from '../utils/whatsapp-image.utils';
 
 const runningCampaigns = new Set<string>();
 
@@ -70,7 +71,12 @@ async function processCampaign(campaignId: string) {
       const current = await prisma.whatsAppCampaign.findUnique({ where: { id: campaignId } });
       if (!current || current.status === 'cancelled') break;
 
-      const result = await sendTextMessage(log.phone, campaign.message, campaign.instanceName || undefined);
+      const result = await sendWhatsAppMessage(
+        log.phone,
+        campaign.message,
+        campaign.instanceName || undefined,
+        campaign.imageUrl || undefined
+      );
 
       if (result.success) {
         await prisma.whatsAppMessageLog.update({
@@ -428,12 +434,35 @@ async function resolveRecipients(source: string, manualPhones?: string): Promise
   return recipients;
 }
 
+export const uploadCampaignImage = async (req: AuthRequest, res: Response) => {
+  try {
+    const file = (req as AuthRequest & { file?: Express.Multer.File }).file;
+    if (!file) {
+      return res.status(400).json({ error: 'No se recibió ninguna imagen' });
+    }
+
+    const url = buildPublicUploadUrl(req, file.filename);
+    res.json({
+      url,
+      filename: file.filename,
+      size: file.size,
+      mimetype: file.mimetype,
+    });
+  } catch (error) {
+    console.error('Error uploadCampaignImage:', error);
+    res.status(500).json({ error: 'Error al subir imagen' });
+  }
+};
+
 export const createCampaign = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, message, source = 'contacts_db', phones, delayMs = DEFAULT_DELAY_MS, instanceName } = req.body;
+    const { name, message, imageUrl, source = 'contacts_db', phones, delayMs = DEFAULT_DELAY_MS, instanceName } = req.body;
 
-    if (!message?.trim()) {
-      return res.status(400).json({ error: 'El mensaje es obligatorio' });
+    const trimmedMessage = message?.trim() || '';
+    const trimmedImageUrl = imageUrl?.trim() || '';
+
+    if (!trimmedMessage && !trimmedImageUrl) {
+      return res.status(400).json({ error: 'Escribe un mensaje o adjunta una imagen' });
     }
     if (!isWhatsAppConfigured()) {
       return res.status(400).json({ error: 'WhatsApp no está configurado en el servidor' });
@@ -459,7 +488,8 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
     const campaign = await prisma.whatsAppCampaign.create({
       data: {
         name: name?.trim() || `Campaña ${new Date().toLocaleString('es-ES')}`,
-        message: message.trim(),
+        message: trimmedMessage,
+        imageUrl: trimmedImageUrl || null,
         source,
         instanceName: resolvedInstance,
         totalCount: recipients.length,
@@ -489,9 +519,12 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
 
 export const sendTestMessage = async (req: AuthRequest, res: Response) => {
   try {
-    const { phone, message, instanceName } = req.body;
-    if (!phone || !message?.trim()) {
-      return res.status(400).json({ error: 'Teléfono y mensaje son obligatorios' });
+    const { phone, message, imageUrl, instanceName } = req.body;
+    const trimmedMessage = message?.trim() || '';
+    const trimmedImageUrl = imageUrl?.trim() || '';
+
+    if (!phone || (!trimmedMessage && !trimmedImageUrl)) {
+      return res.status(400).json({ error: 'Teléfono y mensaje o imagen son obligatorios' });
     }
 
     const resolvedInstance = (instanceName || getDefaultInstanceName()).trim();
@@ -499,7 +532,7 @@ export const sendTestMessage = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Selecciona el móvil/instancia emisor' });
     }
 
-    const result = await sendTextMessage(phone, message.trim(), resolvedInstance);
+    const result = await sendWhatsAppMessage(phone, trimmedMessage, resolvedInstance, trimmedImageUrl || undefined);
     if (!result.success) {
       return res.status(400).json({ error: result.error });
     }

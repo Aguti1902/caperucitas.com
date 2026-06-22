@@ -15,6 +15,7 @@ import { Boom } from '@hapi/boom';
 import QRCode from 'qrcode';
 import pino from 'pino';
 import prisma from '../lib/prisma';
+import { resolveWhatsAppImagePayload } from '../utils/whatsapp-image.utils';
 
 const logger = pino({ level: 'warn' });
 const activeSockets = new Map<string, WASocket>();
@@ -327,7 +328,12 @@ export async function getBuiltinQr(instanceName: string) {
   return { success: false, error: 'No se pudo generar QR. Pulsa «Renovar QR».' };
 }
 
-export async function sendBuiltinMessage(instanceName: string, phone: string, text: string) {
+export async function sendBuiltinMessage(
+  instanceName: string,
+  phone: string,
+  text: string,
+  imageUrl?: string
+) {
   const name = normalizeName(instanceName);
   let sock = activeSockets.get(name);
 
@@ -348,8 +354,23 @@ export async function sendBuiltinMessage(instanceName: string, phone: string, te
     return { success: false, error: 'Sin conexión activa. Reconecta desde el panel.' };
   }
 
+  const jid = `${phone.replace(/\D/g, '')}@s.whatsapp.net`;
+  const caption = text?.trim() || undefined;
+
   try {
-    await sock.sendMessage(`${phone.replace(/\D/g, '')}@s.whatsapp.net`, { text });
+    if (imageUrl?.trim()) {
+      const imagePayload = await resolveWhatsAppImagePayload(imageUrl);
+      if (imagePayload.buffer) {
+        await sock.sendMessage(jid, { image: imagePayload.buffer, caption, mimetype: imagePayload.mimetype });
+      } else {
+        await sock.sendMessage(jid, { image: { url: imagePayload.url! }, caption });
+      }
+    } else {
+      if (!caption) {
+        return { success: false, error: 'El mensaje no puede estar vacío' };
+      }
+      await sock.sendMessage(jid, { text: caption });
+    }
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };

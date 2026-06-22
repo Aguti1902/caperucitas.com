@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   QrCode,
   Link2,
+  Image as ImageIcon,
 } from 'lucide-react';
 import AdminHeader from '../components/admin/AdminHeader';
 import AdminNav from '../components/admin/AdminNav';
@@ -27,6 +28,7 @@ import {
   getWhatsAppCampaigns,
   getWhatsAppCampaign,
   createWhatsAppCampaign,
+  uploadWhatsAppCampaignImage,
   importWhatsAppContacts,
   syncWhatsAppProfileContacts,
   getWhatsAppContacts,
@@ -73,6 +75,9 @@ export default function AdminWhatsAppPage() {
   const [importText, setImportText] = useState('');
   const [campaignName, setCampaignName] = useState('');
   const [campaignMessage, setCampaignMessage] = useState('');
+  const [campaignImageUrl, setCampaignImageUrl] = useState('');
+  const [campaignImagePreview, setCampaignImagePreview] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [campaignSource, setCampaignSource] = useState('contacts_db');
   const [manualPhones, setManualPhones] = useState('');
   const [delayMs, setDelayMs] = useState(2000);
@@ -304,11 +309,42 @@ export default function AdminWhatsAppPage() {
     }
   };
 
+  const handleCampaignImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError('La imagen no puede superar 10 MB');
+      return;
+    }
+
+    setCampaignImagePreview(URL.createObjectURL(file));
+    setIsUploadingImage(true);
+    setError('');
+    try {
+      const { url } = await uploadWhatsAppCampaignImage(file);
+      setCampaignImageUrl(url);
+      setSuccess('Imagen lista. El texto del mensaje se enviará como caption debajo de la imagen.');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Error al subir imagen');
+      setCampaignImagePreview('');
+      setCampaignImageUrl('');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const clearCampaignImage = () => {
+    setCampaignImageUrl('');
+    setCampaignImagePreview('');
+  };
+
   const handleCreateCampaign = async () => {
     setError('');
     setSuccess('');
-    if (!campaignMessage.trim()) {
-      setError('Escribe el mensaje de la campaña');
+    if (!campaignMessage.trim() && !campaignImageUrl) {
+      setError('Escribe el mensaje (caption) o adjunta una imagen');
       return;
     }
     if (!selectedInstance) {
@@ -325,6 +361,7 @@ export default function AdminWhatsAppPage() {
       const result = await createWhatsAppCampaign({
         name: campaignName,
         message: campaignMessage,
+        imageUrl: campaignImageUrl || undefined,
         source: campaignSource,
         phones: campaignSource === 'manual' ? manualPhones : undefined,
         delayMs,
@@ -333,6 +370,7 @@ export default function AdminWhatsAppPage() {
       setSuccess(`Campaña "${result.campaign.name}" iniciada desde ${selectedInstance}. Coste estimado: ${formatEur(result.estimatedCostEur)}`);
       setCampaignName('');
       setCampaignMessage('');
+      clearCampaignImage();
       setManualPhones('');
       loadAll();
     } catch (e: any) {
@@ -349,7 +387,12 @@ export default function AdminWhatsAppPage() {
       return;
     }
     try {
-      await sendWhatsAppTest(testPhone, testMessage || campaignMessage || 'Mensaje de prueba Caperucitas', selectedInstance);
+      await sendWhatsAppTest(
+        testPhone,
+        testMessage || campaignMessage || 'Mensaje de prueba Caperucitas',
+        selectedInstance,
+        campaignImageUrl || undefined
+      );
       setSuccess(`Prueba enviada a ${testPhone} desde ${selectedInstance} (${formatEur(COST_PER_MSG)})`);
     } catch (e: any) {
       setError(e.response?.data?.error || 'Error al enviar prueba');
@@ -603,10 +646,43 @@ export default function AdminWhatsAppPage() {
             <textarea
               value={campaignMessage}
               onChange={(e) => setCampaignMessage(e.target.value)}
-              rows={4}
-              placeholder="Mensaje a enviar por WhatsApp..."
+              rows={6}
+              placeholder="Texto del mensaje (caption). Se envía debajo de la imagen si adjuntas una..."
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm mb-3"
             />
+            <div className="mb-3">
+              <label className="text-gray-400 text-xs block mb-2 flex items-center gap-1">
+                <ImageIcon className="w-3.5 h-3.5" />
+                Imagen adjunta (opcional) — el texto de arriba será el caption
+              </label>
+              {(campaignImagePreview || campaignImageUrl) && (
+                <div className="relative mb-2 inline-block max-w-full">
+                  <img
+                    src={campaignImagePreview || campaignImageUrl}
+                    alt="Vista previa campaña"
+                    className="max-h-48 max-w-full rounded-lg border border-gray-700 object-contain"
+                  />
+                  <button
+                    type="button"
+                    onClick={clearCampaignImage}
+                    className="absolute top-2 right-2 bg-black/80 hover:bg-red-900/90 text-white rounded px-2 py-1 text-xs"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              )}
+              <label className={`flex items-center gap-2 cursor-pointer bg-gray-800 border border-dashed rounded-lg px-3 py-3 text-sm transition-colors ${isUploadingImage ? 'border-gray-600 text-gray-500 cursor-wait' : 'border-gray-700 text-gray-400 hover:border-green-600 hover:text-green-400'}`}>
+                <Upload className="w-4 h-4 shrink-0" />
+                <span>{isUploadingImage ? 'Subiendo imagen...' : 'Seleccionar imagen (JPG, PNG, WEBP · máx. 10 MB)'}</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={handleCampaignImageSelect}
+                  disabled={isUploadingImage || isSending}
+                />
+              </label>
+            </div>
             <select
               value={campaignSource}
               onChange={(e) => setCampaignSource(e.target.value)}
@@ -728,7 +804,13 @@ export default function AdminWhatsAppPage() {
                 <button onClick={() => setSelectedCampaign(null)} className="text-gray-400 hover:text-white">✕</button>
               </div>
               <div className="p-5 overflow-y-auto max-h-[60vh]">
-                <p className="text-gray-400 text-sm mb-2">Mensaje: <span className="text-white">{selectedCampaign.message}</span></p>
+                <p className="text-gray-400 text-sm mb-2">Mensaje: <span className="text-white whitespace-pre-wrap">{selectedCampaign.message || '—'}</span></p>
+                {selectedCampaign.imageUrl && (
+                  <div className="mb-3">
+                    <p className="text-gray-500 text-xs mb-1">Imagen adjunta:</p>
+                    <img src={selectedCampaign.imageUrl} alt="Campaña" className="max-h-40 rounded-lg border border-gray-700" />
+                  </div>
+                )}
                 <p className="text-emerald-400 text-sm mb-4">Gasto: {formatEur(selectedCampaign.totalCostEur)} · {selectedCampaign.sentCount} enviados · {selectedCampaign.failedCount} fallidos</p>
                 <div className="space-y-1">
                   {(selectedCampaign.messages || []).map((m: any) => (

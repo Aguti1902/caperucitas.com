@@ -349,6 +349,7 @@ model WhatsAppCampaign {
   id           String    @id @default(uuid())
   name         String
   message      String    @db.Text
+  imageUrl     String?   // imagen opcional (URL pública) enviada como adjunto con caption
   instanceName String?   // instancia Evolution API / móvil emisor
   status       String    @default("pending") // pending | running | completed | failed | cancelled
   source       String    // contacts_db | profiles | manual | mixed

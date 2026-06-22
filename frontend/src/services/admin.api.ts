@@ -120,9 +120,19 @@ export const getWhatsAppCampaign = async (id: string) => {
   return response.data;
 };
 
+export const uploadWhatsAppCampaignImage = async (file: File) => {
+  const fd = new FormData();
+  fd.append('image', file);
+  const response = await adminApi.post('/whatsapp/campaigns/upload-image', fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data as { url: string; filename: string; size: number; mimetype: string };
+};
+
 export const createWhatsAppCampaign = async (data: {
   name?: string;
   message: string;
+  imageUrl?: string;
   source: string;
   phones?: string;
   delayMs?: number;
@@ -167,8 +177,13 @@ export const deleteWhatsAppContact = async (id: string) => {
   return response.data;
 };
 
-export const sendWhatsAppTest = async (phone: string, message: string, instanceName?: string) => {
-  const response = await adminApi.post('/whatsapp/test', { phone, message, instanceName });
+export const sendWhatsAppTest = async (
+  phone: string,
+  message: string,
+  instanceName?: string,
+  imageUrl?: string
+) => {
+  const response = await adminApi.post('/whatsapp/test', { phone, message, instanceName, imageUrl });
   return response.data;
 };
 

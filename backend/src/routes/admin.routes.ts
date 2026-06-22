@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticateAdminToken } from '../middleware/auth.middleware';
 import * as adminController from '../controllers/admin.controller';
 import * as whatsappController from '../controllers/whatsapp.controller';
+import { whatsappImageUpload } from '../config/whatsapp-upload';
 const router = Router();
 
 // Login de admin (sin autenticación)
@@ -23,6 +24,7 @@ router.get('/whatsapp/recipient-count', authenticateAdminToken, whatsappControll
 router.delete('/whatsapp/contacts/:id', authenticateAdminToken, whatsappController.deleteContact);
 router.get('/whatsapp/campaigns', authenticateAdminToken, whatsappController.getCampaigns);
 router.get('/whatsapp/campaigns/:id', authenticateAdminToken, whatsappController.getCampaignById);
+router.post('/whatsapp/campaigns/upload-image', authenticateAdminToken, whatsappImageUpload.single('image'), whatsappController.uploadCampaignImage);
 router.post('/whatsapp/campaigns', authenticateAdminToken, whatsappController.createCampaign);
 router.post('/whatsapp/campaigns/:id/cancel', authenticateAdminToken, whatsappController.cancelCampaign);
 router.post('/whatsapp/test', authenticateAdminToken, whatsappController.sendTestMessage);
