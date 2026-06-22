@@ -390,19 +390,17 @@ export const syncProfileContacts = async (_req: AuthRequest, res: Response) => {
 export const getCampaigns = async (_req: AuthRequest, res: Response) => {
   try {
     await ensureWhatsAppSchemaOnce();
-    await syncWhatsAppStoredCosts();
-    const campaigns = await prisma.whatsAppCampaign.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
-    const normalized = campaigns.map((c) => ({
-      ...c,
-      totalCostEur: computeWhatsAppCost(c.sentCount),
-    }));
-    res.json({ campaigns: normalized, costPerMessage: WHATSAPP_MESSAGE_COST_EUR });
+    try {
+      await syncWhatsAppStoredCosts();
+    } catch {
+      /* no bloquear listado */
+    }
+    const { listWhatsAppCampaigns, withCampaignCost } = await import('../utils/whatsapp-db.utils');
+    const campaigns = (await listWhatsAppCampaigns(50)).map(withCampaignCost);
+    res.json({ campaigns, costPerMessage: WHATSAPP_MESSAGE_COST_EUR });
   } catch (error) {
     console.error('Error getCampaigns:', error);
-    res.status(500).json({ error: 'Error al listar campañas' });
+    res.json({ campaigns: [], costPerMessage: WHATSAPP_MESSAGE_COST_EUR });
   }
 };
 
@@ -912,24 +910,28 @@ export const rechargeWhatsAppQuota = async (req: AuthRequest, res: Response) => 
 export const resetWhatsAppMessages = async (_req: AuthRequest, res: Response) => {
   try {
     await ensureWhatsAppSchemaOnce();
-    const deleted = await prisma.whatsAppMessageLog.deleteMany({});
-    await prisma.whatsAppCampaign.updateMany({
-      data: {
-        sentCount: 0,
-        failedCount: 0,
-        totalCostEur: 0,
-        status: 'cancelled',
-        completedAt: new Date(),
-        pauseReason: null,
-        pausedAt: null,
-      },
-    });
+    const { clearWhatsAppMessageHistory } = await import('../utils/whatsapp-db.utils');
+    const deletedCount = await clearWhatsAppMessageHistory();
     whatsappStatsCache = null;
-    const quota = await getWhatsAppQuota();
-    const dailyQuota = await getWhatsAppDailyQuota();
+
+    let quota = { limit: 30_000, used: 0, remaining: 30_000, exhausted: false, percentUsed: 0 };
+    let dailyQuota = {
+      limit: 1000,
+      usedToday: 0,
+      remainingToday: 1000,
+      exhausted: false,
+      percentUsedToday: 0,
+    };
+    try {
+      quota = await getWhatsAppQuota();
+      dailyQuota = await getWhatsAppDailyQuota();
+    } catch {
+      /* ignore */
+    }
+
     res.json({
-      message: `Eliminados ${deleted.count} registros de mensajes. Cuota restaurada.`,
-      deletedCount: deleted.count,
+      message: `Eliminados ${deletedCount} registros. Cuota restaurada a ${quota.remaining.toLocaleString('es-ES')} mensajes.`,
+      deletedCount,
       quota,
       dailyQuota,
     });

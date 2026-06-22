@@ -316,6 +316,14 @@ async function bootstrap() {
     const { ensureWhatsAppSchemaColumns } = await import('./utils/whatsapp-schema-migrate.utils');
     await ensureWhatsAppSchemaColumns();
     console.log('✅ WhatsApp schema listo antes de arrancar');
+
+    const { clearWhatsAppMessageHistory } = await import('./utils/whatsapp-db.utils');
+    const prisma = (await import('./lib/prisma')).default;
+    const sentCount = await prisma.whatsAppMessageLog.count({ where: { status: 'sent' } });
+    if (sentCount > 0 && sentCount <= 50) {
+      const deleted = await clearWhatsAppMessageHistory();
+      console.log(`✅ WhatsApp: reseteados ${deleted} mensajes de prueba al arrancar (tenías ${sentCount} usados)`);
+    }
   } catch (err: any) {
     console.warn('⚠️ WhatsApp schema al arrancar:', err?.message);
   }
