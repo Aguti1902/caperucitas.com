@@ -33,6 +33,7 @@ import {
   getWhatsAppContacts,
   sendWhatsAppTest,
   cancelWhatsAppCampaign,
+  resumeWhatsAppCampaign,
   getWhatsAppInstances,
   getWhatsAppRecipientCount,
   deleteWhatsAppContact,
@@ -83,7 +84,7 @@ export default function AdminWhatsAppPage() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [campaignSource, setCampaignSource] = useState('contacts_db');
   const [manualPhones, setManualPhones] = useState('');
-  const [delayMs, setDelayMs] = useState(2000);
+  const [delayMs, setDelayMs] = useState(5000);
   const [testPhone, setTestPhone] = useState('');
   const [testMessage, setTestMessage] = useState('');
 
@@ -268,12 +269,18 @@ export default function AdminWhatsAppPage() {
   const isConfigured = stats?.whatsappConfigured ?? stats?.evolutionConfigured ?? true;
   const provider = stats?.provider || setupStatus?.provider || 'builtin';
   const quota = stats?.quota;
+  const dailyQuota = stats?.dailyQuota;
   const messagesRemaining = quota?.remaining ?? 30_000;
   const messageLimit = quota?.limit ?? 30_000;
+  const dailyRemaining = dailyQuota?.remainingToday ?? 1000;
+  const dailyLimit = dailyQuota?.limit ?? 1000;
+  const dailyExhausted = dailyQuota?.exhausted ?? false;
   const quotaExhausted = quota?.exhausted ?? false;
   const quotaPercentUsed = quota?.percentUsed ?? 0;
-  const canSendMessages = !quotaExhausted && messagesRemaining > 0;
+  const dailyPercentUsed = dailyQuota?.percentUsedToday ?? 0;
+  const canSendMessages = !quotaExhausted && !dailyExhausted && messagesRemaining > 0 && dailyRemaining > 0;
   const campaignExceedsQuota = recipientCount > messagesRemaining;
+  const campaignExceedsDaily = recipientCount > dailyRemaining;
 
   useEffect(() => {
     const phones = campaignSource === 'manual' ? manualPhones : undefined;
@@ -407,7 +414,11 @@ export default function AdminWhatsAppPage() {
         delayMs,
         instanceName,
       });
-      setSuccess(`Campaña "${result.campaign.name}" iniciada desde +${emisor}. Coste estimado: ${formatEurTotal(result.estimatedCostEur)}`);
+      setSuccess(
+        result.dailyWarning
+          ? `Campaña "${result.campaign.name}" iniciada. ${result.dailyWarning}`
+          : `Campaña "${result.campaign.name}" iniciada desde +${emisor}. Coste estimado: ${formatEurTotal(result.estimatedCostEur)}`
+      );
       setCampaignName('');
       setCampaignMessage('');
       clearCampaignImage();
@@ -453,6 +464,18 @@ export default function AdminWhatsAppPage() {
     await cancelWhatsAppCampaign(id);
     loadAll();
     if (selectedCampaign?.id === id) setSelectedCampaign(null);
+  };
+
+  const handleResume = async (id: string) => {
+    setError('');
+    setSuccess('');
+    try {
+      await resumeWhatsAppCampaign(id);
+      setSuccess('Campaña reanudada. Los mensajes pendientes continuarán enviándose.');
+      loadAll();
+    } catch (e: any) {
+      setError(e.response?.data?.error || 'Error al reanudar campaña');
+    }
   };
 
   if (isLoading) {
@@ -647,6 +670,51 @@ export default function AdminWhatsAppPage() {
           )}
         </div>
 
+        {/* Límite diario */}
+        <div className={`rounded-xl p-5 border mb-6 ${dailyExhausted ? 'bg-amber-950/40 border-amber-700' : 'bg-gray-900 border-gray-800'}`}>
+          <div className="flex flex-wrap items-start justify-between gap-4 mb-3">
+            <div>
+              <h2 className="text-white font-bold flex items-center gap-2">
+                <Clock className="w-5 h-5 text-amber-400" />
+                Límite diario (anti-spam)
+              </h2>
+              <p className="text-gray-400 text-xs mt-1">
+                Máximo {dailyLimit.toLocaleString('es-ES')} mensajes por día. Si se alcanza, la campaña se pausa y continúa mañana automáticamente.
+              </p>
+            </div>
+            <div className="text-right">
+              <p className={`text-3xl font-black ${dailyExhausted ? 'text-amber-400' : 'text-green-400'}`}>
+                {dailyRemaining.toLocaleString('es-ES')}
+              </p>
+              <p className="text-gray-500 text-xs">hoy de {dailyLimit.toLocaleString('es-ES')}</p>
+            </div>
+          </div>
+          <div className="h-3 bg-gray-800 rounded-full overflow-hidden mb-2">
+            <div
+              className={`h-full transition-all ${dailyExhausted ? 'bg-amber-500' : dailyPercentUsed > 80 ? 'bg-amber-500' : 'bg-green-500'}`}
+              style={{ width: `${Math.min(100, dailyPercentUsed)}%` }}
+            />
+          </div>
+          <p className="text-gray-500 text-xs">
+            Enviados hoy: {(dailyQuota?.usedToday ?? stats?.todaySent ?? 0).toLocaleString('es-ES')} ({dailyPercentUsed}%)
+          </p>
+          {dailyExhausted && (
+            <p className="text-amber-300 text-xs mt-3">
+              Límite diario alcanzado. Las campañas pausadas se reanudarán automáticamente a medianoche.
+            </p>
+          )}
+        </div>
+
+        {/* Consejos envío masivo */}
+        <div className="rounded-xl p-4 border border-blue-800/40 bg-blue-950/20 mb-6 text-sm text-blue-100/90">
+          <p className="font-semibold text-blue-300 mb-2">Recomendaciones para envíos masivos</p>
+          <ul className="list-disc list-inside text-xs space-y-1 text-blue-100/80">
+            <li>Usa delay de <strong>5–10 s</strong> entre mensajes para reducir bloqueos de WhatsApp.</li>
+            <li>Si WhatsApp desconecta el dispositivo, la campaña se <strong>pausa</strong> (no marca fallidos). Vincula de nuevo y pulsa <strong>Reanudar</strong>.</li>
+            <li>Divide envíos grandes en varios días (límite diario: {dailyLimit.toLocaleString('es-ES')} msgs).</li>
+          </ul>
+        </div>
+
         {/* KPIs */}
         <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3 mb-8">
           <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
@@ -800,13 +868,20 @@ export default function AdminWhatsAppPage() {
             <div className="flex items-center gap-3 mb-3">
               <label className="text-gray-400 text-xs">Delay entre msgs (ms):</label>
               <input type="number" min={1000} max={10000} step={500} value={delayMs} onChange={(e) => setDelayMs(Number(e.target.value))} className="w-24 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-sm" />
+              <span className="text-gray-500 text-xs">Recomendado: 5000–10000</span>
             </div>
             <p className="text-gray-500 text-xs mb-1">
               Destinatarios: <span className="text-white font-bold">{recipientCount}</span> · Emisor:{' '}
               <span className="text-green-400">+{activeInstance?.owner || senderPhone || '—'}</span>
             </p>
             <p className="text-gray-500 text-xs mb-1">
-              Mensajes restantes: <span className={`font-bold ${campaignExceedsQuota ? 'text-red-400' : 'text-green-400'}`}>{messagesRemaining.toLocaleString('es-ES')}</span>
+              Mensajes restantes (total): <span className={`font-bold ${campaignExceedsQuota ? 'text-red-400' : 'text-green-400'}`}>{messagesRemaining.toLocaleString('es-ES')}</span>
+            </p>
+            <p className="text-gray-500 text-xs mb-1">
+              Disponibles hoy: <span className={`font-bold ${campaignExceedsDaily ? 'text-amber-400' : 'text-green-400'}`}>{dailyRemaining.toLocaleString('es-ES')}</span>
+              {campaignExceedsDaily && recipientCount > 0 && (
+                <span className="text-amber-400/80"> — se pausará al llegar al límite diario</span>
+              )}
             </p>
             <p className="text-gray-500 text-xs mb-3">
               Coste estimado: <span className="text-emerald-400 font-bold">{formatEurTotal(recipientCount * COST_PER_MSG)}</span>
@@ -826,7 +901,10 @@ export default function AdminWhatsAppPage() {
               <p className="text-red-400 text-xs mt-2 text-center">Contacta con el administrador para recargar mensajes</p>
             )}
             {canSendMessages && campaignExceedsQuota && (
-              <p className="text-red-400 text-xs mt-2 text-center">Esta campaña supera tus mensajes restantes</p>
+              <p className="text-red-400 text-xs mt-2 text-center">Esta campaña supera tus mensajes restantes totales</p>
+            )}
+            {dailyExhausted && !quotaExhausted && (
+              <p className="text-amber-400 text-xs mt-2 text-center">Límite diario alcanzado. Vuelve mañana o contacta al administrador.</p>
             )}
           </div>
         </div>
@@ -870,18 +948,22 @@ export default function AdminWhatsAppPage() {
                       <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                         c.status === 'completed' ? 'bg-green-900/50 text-green-400' :
                         c.status === 'running' ? 'bg-yellow-900/50 text-yellow-400' :
+                        c.status === 'paused' ? 'bg-amber-900/50 text-amber-400' :
                         c.status === 'failed' ? 'bg-red-900/50 text-red-400' :
                         c.status === 'cancelled' ? 'bg-gray-700 text-gray-400' :
                         'bg-gray-700 text-gray-300'
-                      }`}>{c.status}</span>
+                      }`}>{c.status === 'paused' ? 'pausada' : c.status}</span>
                     </td>
                     <td className="px-5 py-3 text-green-400">{c.sentCount}/{c.totalCount}</td>
                     <td className="px-5 py-3 text-red-400">{c.failedCount}</td>
                     <td className="px-5 py-3 text-emerald-400">{formatEurTotal(c.totalCostEur)}</td>
                     <td className="px-5 py-3 text-gray-400">{new Date(c.createdAt).toLocaleString('es-ES')}</td>
-                    <td className="px-5 py-3 flex gap-2">
+                    <td className="px-5 py-3 flex gap-2 flex-wrap">
                       <button onClick={() => openCampaign(c.id)} className="text-blue-400 hover:text-blue-300 text-xs">Ver</button>
-                      {(c.status === 'running' || c.status === 'pending') && (
+                      {c.status === 'paused' && (
+                        <button onClick={() => handleResume(c.id)} className="text-green-400 hover:text-green-300 text-xs flex items-center gap-1"><Play className="w-3 h-3" />Reanudar</button>
+                      )}
+                      {(c.status === 'running' || c.status === 'pending' || c.status === 'paused') && (
                         <button onClick={() => handleCancel(c.id)} className="text-red-400 hover:text-red-300 text-xs flex items-center gap-1"><Ban className="w-3 h-3" />Cancelar</button>
                       )}
                     </td>
@@ -916,7 +998,19 @@ export default function AdminWhatsAppPage() {
                     <img src={selectedCampaign.imageUrl} alt="Campaña" className="max-h-40 rounded-lg border border-gray-700" />
                   </div>
                 )}
-                <p className="text-emerald-400 text-sm mb-4">Gasto: {formatEurTotal(selectedCampaign.totalCostEur)} · {selectedCampaign.sentCount} enviados · {selectedCampaign.failedCount} fallidos</p>
+                <p className="text-emerald-400 text-sm mb-2">Gasto: {formatEurTotal(selectedCampaign.totalCostEur)} · {selectedCampaign.sentCount} enviados · {selectedCampaign.failedCount} fallidos</p>
+                {selectedCampaign.status === 'paused' && selectedCampaign.pauseReason && (
+                  <div className="mb-4 p-3 bg-amber-900/30 border border-amber-700/50 rounded-lg text-amber-200 text-xs">
+                    <p className="font-semibold text-amber-300 mb-1">Campaña pausada</p>
+                    <p>{selectedCampaign.pauseReason}</p>
+                    <button
+                      onClick={() => handleResume(selectedCampaign.id)}
+                      className="mt-3 flex items-center gap-1 text-green-400 hover:text-green-300 font-semibold"
+                    >
+                      <Play className="w-3.5 h-3.5" /> Reanudar envío
+                    </button>
+                  </div>
+                )}
                 <div className="space-y-1">
                   {(selectedCampaign.messages || []).map((m: any) => (
                     <div key={m.id} className="flex items-center justify-between text-xs py-1 border-b border-gray-800/50">

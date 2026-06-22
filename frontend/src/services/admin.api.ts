@@ -159,6 +159,11 @@ export const cancelWhatsAppCampaign = async (id: string) => {
   return response.data;
 };
 
+export const resumeWhatsAppCampaign = async (id: string) => {
+  const response = await adminApi.post(`/whatsapp/campaigns/${id}/resume`);
+  return response.data;
+};
+
 export const importWhatsAppContacts = async (phones: string) => {
   const response = await adminApi.post('/whatsapp/contacts/import', { phones });
   return response.data;

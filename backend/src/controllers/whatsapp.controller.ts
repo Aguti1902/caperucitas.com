@@ -7,7 +7,6 @@ import {
   getInstanceStatus,
   sendWhatsAppMessage,
   normalizePhone,
-  sleep,
   isWhatsAppConfigured,
   getWhatsAppProvider,
   listInstances,
@@ -23,17 +22,26 @@ import {
 import { buildPublicUploadUrl } from '../utils/whatsapp-image.utils';
 import {
   assertQuotaForSend,
+  assertDailyQuotaForSend,
   getWhatsAppQuota,
+  getWhatsAppDailyQuota,
   QUOTA_EXHAUSTED_MESSAGE,
 } from '../utils/whatsapp-quota.utils';
 import { parseContactsFromSpreadsheet } from '../utils/whatsapp-excel.utils';
 import { syncWhatsAppStoredCosts, computeWhatsAppCost } from '../utils/whatsapp-cost.utils';
 import { upsertWhatsAppContactsBatch } from '../utils/whatsapp-contacts.utils';
-
-const runningCampaigns = new Set<string>();
+import {
+  enqueueCampaign,
+  resumeCampaign,
+  setCampaignStatsHook,
+} from '../services/whatsapp-campaign.service';
 
 let whatsappStatsCache: { data: Record<string, unknown>; expiresAt: number } | null = null;
 let profilePhoneCountCache = { count: 0, expiresAt: 0 };
+
+setCampaignStatsHook(() => {
+  whatsappStatsCache = null;
+});
 
 async function countProfilePhones(): Promise<number> {
   if (Date.now() < profilePhoneCountCache.expiresAt) {
@@ -57,105 +65,6 @@ async function countProfilePhones(): Promise<number> {
   } catch (err) {
     console.warn('countProfilePhones:', err);
     return profilePhoneCountCache.count;
-  }
-}
-
-async function processCampaign(campaignId: string) {
-  if (runningCampaigns.has(campaignId)) return;
-  runningCampaigns.add(campaignId);
-
-  try {
-    const campaign = await prisma.whatsAppCampaign.findUnique({ where: { id: campaignId } });
-    if (!campaign || campaign.status === 'cancelled') return;
-
-    await prisma.whatsAppCampaign.update({
-      where: { id: campaignId },
-      data: { status: 'running', startedAt: campaign.startedAt || new Date() },
-    });
-
-    const pending = await prisma.whatsAppMessageLog.findMany({
-      where: { campaignId, status: 'pending' },
-      orderBy: { createdAt: 'asc' },
-    });
-
-    for (const log of pending) {
-      const current = await prisma.whatsAppCampaign.findUnique({ where: { id: campaignId } });
-      if (!current || current.status === 'cancelled') break;
-
-      const quotaCheck = await assertQuotaForSend(1);
-      if (quotaCheck.ok === false) {
-        const remainingPending = await prisma.whatsAppMessageLog.count({
-          where: { campaignId, status: 'pending' },
-        });
-        await prisma.whatsAppMessageLog.updateMany({
-          where: { campaignId, status: 'pending' },
-          data: { status: 'failed', error: QUOTA_EXHAUSTED_MESSAGE.slice(0, 500) },
-        });
-        await prisma.whatsAppCampaign.update({
-          where: { id: campaignId },
-          data: {
-            status: 'completed',
-            completedAt: new Date(),
-            failedCount: { increment: remainingPending },
-          },
-        });
-        whatsappStatsCache = null;
-        break;
-      }
-
-      const result = await sendWhatsAppMessage(
-        log.phone,
-        campaign.message,
-        campaign.instanceName || undefined,
-        campaign.imageUrl || undefined
-      );
-
-      if (result.success) {
-        await prisma.whatsAppMessageLog.update({
-          where: { id: log.id },
-          data: {
-            status: 'sent',
-            sentAt: new Date(),
-            costEur: WHATSAPP_MESSAGE_COST_EUR,
-          },
-        });
-        await prisma.whatsAppCampaign.update({
-          where: { id: campaignId },
-          data: {
-            sentCount: { increment: 1 },
-            totalCostEur: { increment: WHATSAPP_MESSAGE_COST_EUR },
-          },
-        });
-        whatsappStatsCache = null;
-      } else {
-        await prisma.whatsAppMessageLog.update({
-          where: { id: log.id },
-          data: { status: 'failed', error: result.error?.slice(0, 500) },
-        });
-        await prisma.whatsAppCampaign.update({
-          where: { id: campaignId },
-          data: { failedCount: { increment: 1 } },
-        });
-      }
-
-      await sleep(campaign.delayMs || DEFAULT_DELAY_MS);
-    }
-
-    const final = await prisma.whatsAppCampaign.findUnique({ where: { id: campaignId } });
-    if (final && final.status !== 'cancelled') {
-      await prisma.whatsAppCampaign.update({
-        where: { id: campaignId },
-        data: { status: 'completed', completedAt: new Date() },
-      });
-    }
-  } catch (err) {
-    console.error('Error procesando campaña WhatsApp:', err);
-    await prisma.whatsAppCampaign.update({
-      where: { id: campaignId },
-      data: { status: 'failed', completedAt: new Date() },
-    });
-  } finally {
-    runningCampaigns.delete(campaignId);
   }
 }
 
@@ -285,6 +194,7 @@ export const getWhatsAppStats = async (_req: AuthRequest, res: Response) => {
     const payload = {
       costPerMessage: WHATSAPP_MESSAGE_COST_EUR,
       quota: await getWhatsAppQuota(),
+      dailyQuota: await getWhatsAppDailyQuota(),
       totals: {
         sent,
         failed,
@@ -565,6 +475,11 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: quotaCheck.error, quota: quotaCheck.quota });
     }
 
+    const dailyCheck = await assertDailyQuotaForSend(Math.min(recipients.length, 1));
+    if (dailyCheck.ok === false) {
+      return res.status(403).json({ error: dailyCheck.error, dailyQuota: dailyCheck.dailyQuota });
+    }
+
     const campaign = await prisma.whatsAppCampaign.create({
       data: {
         name: name?.trim() || `Campaña ${new Date().toLocaleString('es-ES')}`,
@@ -584,12 +499,20 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    setImmediate(() => processCampaign(campaign.id));
+    enqueueCampaign(campaign.id);
+
+    const dailyQuota = await getWhatsAppDailyQuota();
+    const dailyWarning =
+      recipients.length > dailyQuota.remainingToday
+        ? `La campaña tiene ${recipients.length.toLocaleString('es-ES')} destinatarios pero hoy solo puedes enviar ${dailyQuota.remainingToday.toLocaleString('es-ES')} más. Se pausará al alcanzar el límite diario (${dailyQuota.limit.toLocaleString('es-ES')}/día) y continuará mañana.`
+        : undefined;
 
     res.status(201).json({
       campaign,
       estimatedCostEur: recipients.length * WHATSAPP_MESSAGE_COST_EUR,
       costPerMessage: WHATSAPP_MESSAGE_COST_EUR,
+      dailyQuota,
+      dailyWarning,
     });
   } catch (error) {
     console.error('Error createCampaign:', error);
@@ -648,11 +571,26 @@ export const cancelCampaign = async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     await prisma.whatsAppCampaign.update({
       where: { id },
-      data: { status: 'cancelled', completedAt: new Date() },
+      data: { status: 'cancelled', completedAt: new Date(), pauseReason: null },
     });
     res.json({ message: 'Campaña cancelada' });
   } catch (error) {
     res.status(500).json({ error: 'Error al cancelar campaña' });
+  }
+};
+
+export const resumeCampaignHandler = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const result = await resumeCampaign(id);
+    if (!result.ok) {
+      return res.status(400).json({ error: result.error });
+    }
+    whatsappStatsCache = null;
+    res.json({ message: 'Campaña reanudada', campaignId: id });
+  } catch (error) {
+    console.error('Error resumeCampaign:', error);
+    res.status(500).json({ error: 'Error al reanudar campaña' });
   }
 };
 
@@ -879,21 +817,44 @@ export const getWhatsAppQuotaHandler = async (_req: AuthRequest, res: Response) 
 
 export const rechargeWhatsAppQuota = async (req: AuthRequest, res: Response) => {
   try {
-    const { messageLimit } = req.body as { messageLimit?: number };
-    const limit = Number(messageLimit);
-    if (!Number.isFinite(limit) || limit < 1) {
-      return res.status(400).json({ error: 'Indica un límite válido (número entero mayor que 0)' });
+    const { messageLimit, dailyMessageLimit } = req.body as {
+      messageLimit?: number;
+      dailyMessageLimit?: number;
+    };
+
+    const update: { messageLimit?: number; dailyMessageLimit?: number } = {};
+    if (messageLimit !== undefined) {
+      const limit = Number(messageLimit);
+      if (!Number.isFinite(limit) || limit < 1) {
+        return res.status(400).json({ error: 'Indica un límite total válido (entero > 0)' });
+      }
+      update.messageLimit = Math.floor(limit);
+    }
+    if (dailyMessageLimit !== undefined) {
+      const daily = Number(dailyMessageLimit);
+      if (!Number.isFinite(daily) || daily < 1) {
+        return res.status(400).json({ error: 'Indica un límite diario válido (entero > 0)' });
+      }
+      update.dailyMessageLimit = Math.floor(daily);
+    }
+    if (Object.keys(update).length === 0) {
+      return res.status(400).json({ error: 'Indica messageLimit y/o dailyMessageLimit' });
     }
 
     await prisma.whatsAppSettings.upsert({
       where: { id: 'default' },
-      create: { id: 'default', messageLimit: Math.floor(limit) },
-      update: { messageLimit: Math.floor(limit) },
+      create: { id: 'default', messageLimit: update.messageLimit ?? 30_000, dailyMessageLimit: update.dailyMessageLimit ?? 1000 },
+      update,
     });
     whatsappStatsCache = null;
 
     const quota = await getWhatsAppQuota();
-    res.json({ message: `Cuota actualizada a ${quota.limit.toLocaleString('es-ES')} mensajes`, quota });
+    const dailyQuota = await getWhatsAppDailyQuota();
+    res.json({
+      message: 'Cuota actualizada',
+      quota,
+      dailyQuota,
+    });
   } catch (error) {
     console.error('Error rechargeWhatsAppQuota:', error);
     res.status(500).json({ error: 'Error al recargar cuota' });

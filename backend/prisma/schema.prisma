@@ -351,7 +351,7 @@ model WhatsAppCampaign {
   message      String    @db.Text
   imageUrl     String?   // imagen opcional (URL pública) enviada como adjunto con caption
   instanceName String?   // instancia Evolution API / móvil emisor
-  status       String    @default("pending") // pending | running | completed | failed | cancelled
+  status       String    @default("pending") // pending | running | paused | completed | failed | cancelled
   source       String    // contacts_db | profiles | manual | mixed
   totalCount   Int       @default(0)
   sentCount    Int       @default(0)
@@ -359,6 +359,8 @@ model WhatsAppCampaign {
   skippedCount Int       @default(0)
   totalCostEur Float     @default(0)
   delayMs      Int       @default(2000)
+  pauseReason  String?   @db.Text
+  pausedAt     DateTime?
   createdAt    DateTime  @default(now())
   startedAt    DateTime?
   completedAt  DateTime?
@@ -404,9 +406,10 @@ model WhatsAppSession {
 }
 
 model WhatsAppSettings {
-  id           String   @id @default("default")
-  messageLimit Int      @default(30000)
-  updatedAt    DateTime @updatedAt
+  id                String   @id @default("default")
+  messageLimit      Int      @default(30000)
+  dailyMessageLimit Int      @default(1000)
+  updatedAt         DateTime @updatedAt
 
   @@map("whatsapp_settings")
 }

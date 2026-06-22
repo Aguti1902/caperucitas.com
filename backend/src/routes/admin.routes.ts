@@ -36,6 +36,7 @@ router.get('/whatsapp/campaigns/:id', authenticateAdminToken, whatsappController
 router.post('/whatsapp/campaigns/upload-image', authenticateAdminToken, whatsappImageUpload.single('image'), whatsappController.uploadCampaignImage);
 router.post('/whatsapp/campaigns', authenticateAdminToken, whatsappController.createCampaign);
 router.post('/whatsapp/campaigns/:id/cancel', authenticateAdminToken, whatsappController.cancelCampaign);
+router.post('/whatsapp/campaigns/:id/resume', authenticateAdminToken, whatsappController.resumeCampaignHandler);
 router.post('/whatsapp/test', authenticateAdminToken, whatsappController.sendTestMessage);
 router.get('/whatsapp/setup/status', authenticateAdminToken, whatsappController.getSetupStatus);
 router.post('/whatsapp/setup/create-instance', authenticateAdminToken, whatsappController.setupCreateInstance);

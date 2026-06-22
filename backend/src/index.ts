@@ -287,6 +287,17 @@ cron.schedule('0 9 * * *', async () => {
   }
 });
 
+// Cron: reanudar campañas pausadas por límite diario (00:05 UTC)
+cron.schedule('5 0 * * *', async () => {
+  console.log('⏰ Cron: reanudando campañas WhatsApp pausadas por límite diario...');
+  try {
+    const { resumeDailyPausedCampaigns } = await import('./services/whatsapp-campaign.service');
+    await resumeDailyPausedCampaigns();
+  } catch (err) {
+    console.error('❌ Error cron WhatsApp daily resume:', err);
+  }
+});
+
 // Manejo de errores global — siempre con headers CORS
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Error:', err);
@@ -325,6 +336,12 @@ httpServer.listen(PORT, () => {
     import('./services/whatsapp-baileys.service')
       .then(({ restoreBuiltinSessions }) => restoreBuiltinSessions())
       .catch((err) => console.warn('WhatsApp restore:', err?.message));
+
+    setTimeout(() => {
+      import('./services/whatsapp-campaign.service')
+        .then(({ recoverInterruptedCampaigns }) => recoverInterruptedCampaigns())
+        .catch((err) => console.warn('WhatsApp campaigns recover:', err?.message));
+    }, 12000);
   }, 5000);
 });
 

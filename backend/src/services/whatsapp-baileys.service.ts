@@ -135,6 +135,23 @@ function normalizeName(instanceName: string): string {
   return instanceName.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
 }
 
+export function isBuiltinConnected(instanceName: string): boolean {
+  const name = normalizeName(instanceName);
+  return Boolean(activeSockets.get(name)?.user);
+}
+
+function notifyWhatsAppConnected(instanceName: string) {
+  import('./whatsapp-campaign.service')
+    .then((m) => m.onWhatsAppConnected(instanceName))
+    .catch(() => {});
+}
+
+function notifyWhatsAppDisconnected(instanceName: string, reason?: string) {
+  import('./whatsapp-campaign.service')
+    .then((m) => m.onWhatsAppDisconnected(instanceName, reason))
+    .catch(() => {});
+}
+
 function extractPhone(sock?: WASocket | null): string | undefined {
   return sock?.user?.id?.split(':')[0]?.split('@')[0];
 }
@@ -446,6 +463,7 @@ async function connectSocket(instanceName: string, force = false, options: Conne
           pairingPhone: null,
         });
         console.log(`[WhatsApp:${name}] ✓ Conectado +${phone}${isNewLogin ? ' (nuevo login)' : ''}`);
+        notifyWhatsAppConnected(name);
       }
 
       if (connection === 'close') {
@@ -456,6 +474,15 @@ async function connectSocket(instanceName: string, force = false, options: Conne
         const restartRequired = code === DisconnectReason.restartRequired;
         const replaced = code === DisconnectReason.connectionReplaced;
         console.log(`[WhatsApp:${name}] Cerrado código=${code} ${errMsg}`);
+
+        notifyWhatsAppDisconnected(
+          name,
+          loggedOut
+            ? 'WhatsApp cerró la sesión (posible bloqueo por envío masivo). Vincula de nuevo y reanuda la campaña.'
+            : replaced
+              ? 'Otra sesión reemplazó esta conexión.'
+              : undefined
+        );
 
         if (loggedOut || replaced) {
           clearReconnectTimer(name);
