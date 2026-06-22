@@ -27,6 +27,7 @@ import {
   QUOTA_EXHAUSTED_MESSAGE,
 } from '../utils/whatsapp-quota.utils';
 import { parseContactsFromSpreadsheet } from '../utils/whatsapp-excel.utils';
+import { syncWhatsAppStoredCosts, computeWhatsAppCost } from '../utils/whatsapp-cost.utils';
 
 const runningCampaigns = new Set<string>();
 
@@ -228,6 +229,8 @@ export const getWhatsAppStats = async (_req: AuthRequest, res: Response) => {
       return res.json(whatsappStatsCache.data);
     }
 
+    await syncWhatsAppStoredCosts();
+
     const profilePhoneCount = await countProfilePhones();
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -269,6 +272,7 @@ export const getWhatsAppStats = async (_req: AuthRequest, res: Response) => {
         todaySent = Number(waRows.todaySent || 0);
         contactCount = Number(waRows.contactCount || 0);
         campaigns = Number(waRows.campaigns || 0);
+        totalCostEur = computeWhatsAppCost(sent);
       }
     } catch (dbErr) {
       console.warn('Tablas WhatsApp no disponibles aún:', dbErr);
@@ -308,7 +312,7 @@ export const getWhatsAppStats = async (_req: AuthRequest, res: Response) => {
         reachableTotal: contactCount + profilePhoneCount,
       },
       todaySent,
-      todayCostEur: todaySent * WHATSAPP_MESSAGE_COST_EUR,
+      todayCostEur: computeWhatsAppCost(todaySent),
       instance,
       instances,
       evolutionConfigured: isWhatsAppConfigured(),
@@ -446,11 +450,16 @@ export const syncProfileContacts = async (_req: AuthRequest, res: Response) => {
 
 export const getCampaigns = async (_req: AuthRequest, res: Response) => {
   try {
+    await syncWhatsAppStoredCosts();
     const campaigns = await prisma.whatsAppCampaign.findMany({
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
-    res.json({ campaigns, costPerMessage: WHATSAPP_MESSAGE_COST_EUR });
+    const normalized = campaigns.map((c) => ({
+      ...c,
+      totalCostEur: computeWhatsAppCost(c.sentCount),
+    }));
+    res.json({ campaigns: normalized, costPerMessage: WHATSAPP_MESSAGE_COST_EUR });
   } catch (error) {
     res.status(500).json({ error: 'Error al listar campañas' });
   }
@@ -469,7 +478,10 @@ export const getCampaignById = async (req: AuthRequest, res: Response) => {
       },
     });
     if (!campaign) return res.status(404).json({ error: 'Campaña no encontrada' });
-    res.json({ campaign, costPerMessage: WHATSAPP_MESSAGE_COST_EUR });
+    res.json({
+      campaign: { ...campaign, totalCostEur: computeWhatsAppCost(campaign.sentCount) },
+      costPerMessage: WHATSAPP_MESSAGE_COST_EUR,
+    });
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener campaña' });
   }

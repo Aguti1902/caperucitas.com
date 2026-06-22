@@ -43,8 +43,12 @@ import {
 
 const COST_PER_MSG = 0.035;
 
-function formatEur(n: number) {
-  return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 4 }).format(n);
+function formatEurTotal(n: number) {
+  return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+}
+
+function formatEurPerMsg(n: number) {
+  return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(n);
 }
 
 interface EvolutionInstance {
@@ -388,7 +392,7 @@ export default function AdminWhatsAppPage() {
     }
 
     const emisor = activeInstance?.owner || senderPhone;
-    if (!window.confirm(`¿Enviar campaña a ${recipientCount} números desde +${emisor}? Coste estimado: ${formatEur(recipientCount * COST_PER_MSG)}`)) {
+    if (!window.confirm(`¿Enviar campaña a ${recipientCount} números desde +${emisor}? Coste estimado: ${formatEurTotal(recipientCount * COST_PER_MSG)}`)) {
       return;
     }
 
@@ -403,7 +407,7 @@ export default function AdminWhatsAppPage() {
         delayMs,
         instanceName,
       });
-      setSuccess(`Campaña "${result.campaign.name}" iniciada desde +${emisor}. Coste estimado: ${formatEur(result.estimatedCostEur)}`);
+      setSuccess(`Campaña "${result.campaign.name}" iniciada desde +${emisor}. Coste estimado: ${formatEurTotal(result.estimatedCostEur)}`);
       setCampaignName('');
       setCampaignMessage('');
       clearCampaignImage();
@@ -433,7 +437,7 @@ export default function AdminWhatsAppPage() {
         instanceName,
         campaignImageUrl || undefined
       );
-      setSuccess(`Prueba enviada a ${testPhone} desde +${activeInstance?.owner || senderPhone} (${formatEur(COST_PER_MSG)})`);
+      setSuccess(`Prueba enviada a ${testPhone} desde +${activeInstance?.owner || senderPhone} (${formatEurPerMsg(COST_PER_MSG)})`);
     } catch (e: any) {
       setError(e.response?.data?.error || 'Error al enviar prueba');
     }
@@ -462,7 +466,7 @@ export default function AdminWhatsAppPage() {
   return (
     <AdminLayout
       title="WhatsApp Masivo"
-      subtitle={`${provider === 'builtin' ? 'Integrado · Supabase' : 'Evolution API'} · ${formatEur(stats?.costPerMessage ?? COST_PER_MSG)}/mensaje`}
+      subtitle={`${provider === 'builtin' ? 'Integrado · Supabase' : 'Evolution API'} · ${formatEurPerMsg(stats?.costPerMessage ?? COST_PER_MSG)}/mensaje`}
       icon={<MessageCircle className="w-7 h-7 text-green-500" />}
       actions={
         <button onClick={() => { loadAll(); loadInstances(); }} className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm">
@@ -659,11 +663,11 @@ export default function AdminWhatsAppPage() {
           </div>
           <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
             <div className="flex items-center gap-2 text-emerald-400 mb-1"><Euro className="w-4 h-4" /><span className="text-xs text-gray-400">Gasto total</span></div>
-            <p className="text-xl font-black text-white">{formatEur(stats?.totals?.totalCostEur ?? 0)}</p>
+            <p className="text-xl font-black text-white">{formatEurTotal(stats?.totals?.totalCostEur ?? 0)}</p>
           </div>
           <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
             <div className="flex items-center gap-2 text-cyan-400 mb-1"><Euro className="w-4 h-4" /><span className="text-xs text-gray-400">Hoy</span></div>
-            <p className="text-xl font-black text-white">{formatEur(stats?.todayCostEur ?? 0)}</p>
+            <p className="text-xl font-black text-white">{formatEurTotal(stats?.todayCostEur ?? 0)}</p>
             <p className="text-xs text-gray-500">{stats?.todaySent ?? 0} msgs</p>
           </div>
           <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
@@ -805,7 +809,7 @@ export default function AdminWhatsAppPage() {
               Mensajes restantes: <span className={`font-bold ${campaignExceedsQuota ? 'text-red-400' : 'text-green-400'}`}>{messagesRemaining.toLocaleString('es-ES')}</span>
             </p>
             <p className="text-gray-500 text-xs mb-3">
-              Coste estimado: <span className="text-emerald-400 font-bold">{formatEur(recipientCount * COST_PER_MSG)}</span>
+              Coste estimado: <span className="text-emerald-400 font-bold">{formatEurTotal(recipientCount * COST_PER_MSG)}</span>
             </p>
             <button
               onClick={handleCreateCampaign}
@@ -873,7 +877,7 @@ export default function AdminWhatsAppPage() {
                     </td>
                     <td className="px-5 py-3 text-green-400">{c.sentCount}/{c.totalCount}</td>
                     <td className="px-5 py-3 text-red-400">{c.failedCount}</td>
-                    <td className="px-5 py-3 text-emerald-400">{formatEur(c.totalCostEur)}</td>
+                    <td className="px-5 py-3 text-emerald-400">{formatEurTotal(c.totalCostEur)}</td>
                     <td className="px-5 py-3 text-gray-400">{new Date(c.createdAt).toLocaleString('es-ES')}</td>
                     <td className="px-5 py-3 flex gap-2">
                       <button onClick={() => openCampaign(c.id)} className="text-blue-400 hover:text-blue-300 text-xs">Ver</button>
@@ -912,7 +916,7 @@ export default function AdminWhatsAppPage() {
                     <img src={selectedCampaign.imageUrl} alt="Campaña" className="max-h-40 rounded-lg border border-gray-700" />
                   </div>
                 )}
-                <p className="text-emerald-400 text-sm mb-4">Gasto: {formatEur(selectedCampaign.totalCostEur)} · {selectedCampaign.sentCount} enviados · {selectedCampaign.failedCount} fallidos</p>
+                <p className="text-emerald-400 text-sm mb-4">Gasto: {formatEurTotal(selectedCampaign.totalCostEur)} · {selectedCampaign.sentCount} enviados · {selectedCampaign.failedCount} fallidos</p>
                 <div className="space-y-1">
                   {(selectedCampaign.messages || []).map((m: any) => (
                     <div key={m.id} className="flex items-center justify-between text-xs py-1 border-b border-gray-800/50">
