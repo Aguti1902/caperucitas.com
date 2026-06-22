@@ -28,6 +28,7 @@ router.post('/whatsapp/contacts/import', authenticateAdminToken, whatsappControl
 router.post('/whatsapp/contacts/import-excel', authenticateAdminToken, handleWhatsAppExcelUpload, whatsappController.importContactsExcel);
 router.get('/whatsapp/quota', authenticateAdminToken, whatsappController.getWhatsAppQuotaHandler);
 router.patch('/whatsapp/quota', authenticateAdminToken, whatsappController.rechargeWhatsAppQuota);
+router.post('/whatsapp/messages/reset', authenticateAdminToken, whatsappController.resetWhatsAppMessages);
 router.post('/whatsapp/contacts/sync-profiles', authenticateAdminToken, whatsappController.syncProfileContacts);
 router.get('/whatsapp/recipient-count', authenticateAdminToken, whatsappController.getRecipientCount);
 router.delete('/whatsapp/contacts/:id', authenticateAdminToken, whatsappController.deleteContact);

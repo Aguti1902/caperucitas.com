@@ -308,46 +308,55 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
   });
 });
 
-// Iniciar servidor
+// Iniciar servidor — migrar esquema WhatsApp ANTES de aceptar peticiones
 const PORT = process.env.PORT || 4000;
-httpServer.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-  console.log(`📡 WebSocket disponible en ws://localhost:${PORT}`);
 
-  // db push en background — sin accept-data-loss para no borrar datos de producción
-  import('child_process').then(({ exec }) => {
-    import('./utils/whatsapp-schema-migrate.utils')
-      .then(({ ensureWhatsAppSchemaColumns }) => ensureWhatsAppSchemaColumns())
-      .then(() => {
-        exec(
-          'npx prisma db push --skip-generate',
-          { cwd: path.join(__dirname, '..') },
-          (err, stdout) => {
-            if (err) console.warn('⚠️ prisma db push:', err.message);
-            else console.log('✅ prisma db push OK');
-            if (stdout?.trim()) console.log(stdout.trim());
-          }
-        );
-      })
-      .catch((err) => console.warn('WhatsApp schema migrate:', err?.message));
-  }).catch(() => {});
+async function bootstrap() {
+  try {
+    const { ensureWhatsAppSchemaColumns } = await import('./utils/whatsapp-schema-migrate.utils');
+    await ensureWhatsAppSchemaColumns();
+    console.log('✅ WhatsApp schema listo antes de arrancar');
+  } catch (err: any) {
+    console.warn('⚠️ WhatsApp schema al arrancar:', err?.message);
+  }
 
-  import('./services/whatsapp.service').then(({ getWhatsAppProvider, getDefaultInstanceName, isWhatsAppConfigured }) => {
-    console.log(`📱 WhatsApp provider: ${getWhatsAppProvider()} | instancia: ${getDefaultInstanceName()} | configurado: ${isWhatsAppConfigured()}`);
-  }).catch(() => {});
+  httpServer.listen(PORT, () => {
+    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+    console.log(`📡 WebSocket disponible en ws://localhost:${PORT}`);
 
-  // Restaurar sesiones WhatsApp con delay para no bloquear el arranque
-  setTimeout(() => {
-    import('./services/whatsapp-baileys.service')
-      .then(({ restoreBuiltinSessions }) => restoreBuiltinSessions())
-      .catch((err) => console.warn('WhatsApp restore:', err?.message));
+    import('child_process').then(({ exec }) => {
+      exec(
+        'npx prisma db push --skip-generate',
+        { cwd: path.join(__dirname, '..') },
+        (err, stdout) => {
+          if (err) console.warn('⚠️ prisma db push:', err.message);
+          else console.log('✅ prisma db push OK');
+          if (stdout?.trim()) console.log(stdout.trim());
+        }
+      );
+    }).catch(() => {});
+
+    import('./services/whatsapp.service').then(({ getWhatsAppProvider, getDefaultInstanceName, isWhatsAppConfigured }) => {
+      console.log(`📱 WhatsApp provider: ${getWhatsAppProvider()} | instancia: ${getDefaultInstanceName()} | configurado: ${isWhatsAppConfigured()}`);
+    }).catch(() => {});
 
     setTimeout(() => {
-      import('./services/whatsapp-campaign.service')
-        .then(({ recoverInterruptedCampaigns }) => recoverInterruptedCampaigns())
-        .catch((err) => console.warn('WhatsApp campaigns recover:', err?.message));
-    }, 12000);
-  }, 5000);
+      import('./services/whatsapp-baileys.service')
+        .then(({ restoreBuiltinSessions }) => restoreBuiltinSessions())
+        .catch((err) => console.warn('WhatsApp restore:', err?.message));
+
+      setTimeout(() => {
+        import('./services/whatsapp-campaign.service')
+          .then(({ recoverInterruptedCampaigns }) => recoverInterruptedCampaigns())
+          .catch((err) => console.warn('WhatsApp campaigns recover:', err?.message));
+      }, 12000);
+    }, 5000);
+  });
+}
+
+bootstrap().catch((err) => {
+  console.error('Error fatal al arrancar:', err);
+  process.exit(1);
 });
 
 // Exportar io para usarlo en otros módulos si es necesario

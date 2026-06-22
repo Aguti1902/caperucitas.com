@@ -35,9 +35,17 @@ import {
   resumeCampaign,
   setCampaignStatsHook,
 } from '../services/whatsapp-campaign.service';
+import { ensureWhatsAppSchemaColumns } from '../utils/whatsapp-schema-migrate.utils';
 
 let whatsappStatsCache: { data: Record<string, unknown>; expiresAt: number } | null = null;
 let profilePhoneCountCache = { count: 0, expiresAt: 0 };
+let schemaEnsured = false;
+
+async function ensureWhatsAppSchemaOnce(): Promise<void> {
+  if (schemaEnsured) return;
+  await ensureWhatsAppSchemaColumns();
+  schemaEnsured = true;
+}
 
 setCampaignStatsHook(() => {
   whatsappStatsCache = null;
@@ -118,6 +126,7 @@ export const getWhatsAppInstances = async (_req: AuthRequest, res: Response) => 
 
 export const getWhatsAppStats = async (_req: AuthRequest, res: Response) => {
   try {
+    await ensureWhatsAppSchemaOnce();
     if (whatsappStatsCache && Date.now() < whatsappStatsCache.expiresAt) {
       return res.json(whatsappStatsCache.data);
     }
@@ -380,6 +389,7 @@ export const syncProfileContacts = async (_req: AuthRequest, res: Response) => {
 
 export const getCampaigns = async (_req: AuthRequest, res: Response) => {
   try {
+    await ensureWhatsAppSchemaOnce();
     await syncWhatsAppStoredCosts();
     const campaigns = await prisma.whatsAppCampaign.findMany({
       orderBy: { createdAt: 'desc' },
@@ -391,6 +401,7 @@ export const getCampaigns = async (_req: AuthRequest, res: Response) => {
     }));
     res.json({ campaigns: normalized, costPerMessage: WHATSAPP_MESSAGE_COST_EUR });
   } catch (error) {
+    console.error('Error getCampaigns:', error);
     res.status(500).json({ error: 'Error al listar campañas' });
   }
 };
@@ -894,5 +905,36 @@ export const rechargeWhatsAppQuota = async (req: AuthRequest, res: Response) => 
   } catch (error) {
     console.error('Error rechargeWhatsAppQuota:', error);
     res.status(500).json({ error: 'Error al recargar cuota' });
+  }
+};
+
+/** Elimina el historial de mensajes enviados (resetea contador de cuota) */
+export const resetWhatsAppMessages = async (_req: AuthRequest, res: Response) => {
+  try {
+    await ensureWhatsAppSchemaOnce();
+    const deleted = await prisma.whatsAppMessageLog.deleteMany({});
+    await prisma.whatsAppCampaign.updateMany({
+      data: {
+        sentCount: 0,
+        failedCount: 0,
+        totalCostEur: 0,
+        status: 'cancelled',
+        completedAt: new Date(),
+        pauseReason: null,
+        pausedAt: null,
+      },
+    });
+    whatsappStatsCache = null;
+    const quota = await getWhatsAppQuota();
+    const dailyQuota = await getWhatsAppDailyQuota();
+    res.json({
+      message: `Eliminados ${deleted.count} registros de mensajes. Cuota restaurada.`,
+      deletedCount: deleted.count,
+      quota,
+      dailyQuota,
+    });
+  } catch (error) {
+    console.error('Error resetWhatsAppMessages:', error);
+    res.status(500).json({ error: 'Error al resetear mensajes' });
   }
 };

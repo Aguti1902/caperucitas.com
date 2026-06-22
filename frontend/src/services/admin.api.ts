@@ -164,6 +164,11 @@ export const resumeWhatsAppCampaign = async (id: string) => {
   return response.data;
 };
 
+export const resetWhatsAppMessages = async () => {
+  const response = await adminApi.post('/whatsapp/messages/reset');
+  return response.data;
+};
+
 export const importWhatsAppContacts = async (phones: string) => {
   const response = await adminApi.post('/whatsapp/contacts/import', { phones });
   return response.data;

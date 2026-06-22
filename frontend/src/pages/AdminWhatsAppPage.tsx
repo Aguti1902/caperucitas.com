@@ -34,6 +34,7 @@ import {
   sendWhatsAppTest,
   cancelWhatsAppCampaign,
   resumeWhatsAppCampaign,
+  resetWhatsAppMessages,
   getWhatsAppInstances,
   getWhatsAppRecipientCount,
   deleteWhatsAppContact,
@@ -494,6 +495,21 @@ export default function AdminWhatsAppPage() {
     if (selectedCampaign?.id === id) setSelectedCampaign(null);
   };
 
+  const handleResetMessages = async () => {
+    if (!window.confirm('¿Eliminar el historial de mensajes enviados y resetear el contador a 30.000? Las campañas antiguas se marcarán como canceladas.')) {
+      return;
+    }
+    setError('');
+    setSuccess('');
+    try {
+      const result = await resetWhatsAppMessages();
+      setSuccess(result.message || 'Contador reseteado');
+      loadAll();
+    } catch (e: any) {
+      setError(e.response?.data?.error || 'Error al resetear mensajes');
+    }
+  };
+
   const handleResume = async (id: string) => {
     setError('');
     setSuccess('');
@@ -697,6 +713,15 @@ export default function AdminWhatsAppPage() {
           <p className="text-gray-500 text-xs">
             Usados: {(quota?.used ?? 0).toLocaleString('es-ES')} ({quotaPercentUsed}%)
           </p>
+          {statsLoaded && (quota?.used ?? 0) > 0 && (
+            <button
+              type="button"
+              onClick={handleResetMessages}
+              className="mt-3 text-xs text-red-400 hover:text-red-300 underline"
+            >
+              Resetear contador (eliminar {quota?.used ?? 0} mensajes del historial)
+            </button>
+          )}
           {quotaExhausted && (
             <div className="mt-4 p-4 bg-red-900/30 border border-red-700 rounded-lg text-red-200 text-sm flex items-start gap-2">
               <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
