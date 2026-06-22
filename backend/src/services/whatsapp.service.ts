@@ -293,13 +293,23 @@ export async function getEvolutionQrCode(instanceName: string): Promise<{
   }
 }
 
-export async function restartEvolutionInstance(instanceName: string): Promise<{ success: boolean; error?: string }> {
+export async function restartEvolutionInstance(instanceName: string): Promise<{
+  success: boolean;
+  error?: string;
+  data?: { qrBase64?: string; connected?: boolean; phone?: string };
+}> {
   const name = instanceName.trim();
 
   if (getWhatsAppProvider() === 'builtin') {
     try {
-      await baileys.restartBuiltinInstance(name);
-      return { success: true };
+      const result = await baileys.restartBuiltinInstance(name);
+      if (result.error && !result.qrBase64 && !result.connected) {
+        return { success: false, error: result.error };
+      }
+      return {
+        success: true,
+        data: { qrBase64: result.qrBase64, connected: result.connected, phone: result.phone },
+      };
     } catch (err: any) {
       return { success: false, error: err.message };
     }

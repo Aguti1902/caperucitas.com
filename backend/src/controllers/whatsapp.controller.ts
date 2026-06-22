@@ -626,15 +626,11 @@ export const setupCreateInstance = async (req: AuthRequest, res: Response) => {
     });
   }
 
-  const qr = data?.qrBase64
-    ? { success: true, base64: data.qrBase64 }
-    : await getEvolutionQrCode(instanceName);
-
   res.json({
     message: 'Escanea el QR con WhatsApp → Dispositivos vinculados. Tras escanear, espera unos segundos.',
     instanceName,
-    qr: qr.success ? { base64: qr.base64, pairingCode: qr.pairingCode, connected: qr.connected } : null,
-    qrError: qr.error,
+    qr: data?.qrBase64 ? { base64: data.qrBase64 } : null,
+    qrError: !data?.qrBase64 ? 'No se generó QR. Pulsa «Renovar QR».' : undefined,
   });
 };
 
@@ -643,22 +639,40 @@ export const setupGetQr = async (req: AuthRequest, res: Response) => {
   if (!instanceName) {
     return res.status(400).json({ error: 'Nombre de instancia requerido' });
   }
+
+  const statusOnly = req.query.statusOnly === 'true' || req.query.statusOnly === '1';
   const status = await getInstanceStatus(instanceName);
   if (status.connected) {
-    return res.json({ connected: true, instanceName, owner: status.owner });
+    return res.json({ connected: true, instanceName, owner: status.owner, state: status.state });
   }
+
+  if (statusOnly) {
+    return res.json({
+      connected: false,
+      instanceName,
+      state: status.state,
+      pairing: status.state === 'connecting',
+    });
+  }
+
   const qr = await getEvolutionQrCode(instanceName);
   if (qr.connected) {
-    return res.json({ connected: true, instanceName, owner: qr.owner });
+    return res.json({ connected: true, instanceName, owner: qr.owner, state: 'connected' });
   }
   if (!qr.success) {
-    return res.status(400).json({ error: qr.error });
+    return res.json({
+      connected: false,
+      instanceName,
+      state: status.state,
+      error: qr.error,
+    });
   }
   res.json({
     connected: false,
     instanceName,
     base64: qr.base64,
     pairingCode: qr.pairingCode,
+    state: status.state,
   });
 };
 
@@ -671,9 +685,11 @@ export const setupRestartInstance = async (req: AuthRequest, res: Response) => {
   if (!result.success) {
     return res.status(400).json({ error: result.error });
   }
-  const qr = await getEvolutionQrCode(instanceName);
+  const data = result.data;
   res.json({
     message: 'Instancia reiniciada',
-    qr: qr.success ? { base64: qr.base64, pairingCode: qr.pairingCode } : null,
+    connected: data?.connected,
+    phone: data?.phone,
+    qr: data?.qrBase64 ? { base64: data.qrBase64 } : null,
   });
 };

@@ -202,6 +202,18 @@ export const getWhatsAppQrCode = async (instanceName: string) => {
   return response.data;
 };
 
+export const getWhatsAppConnectionStatus = async (instanceName: string) => {
+  const response = await adminApi.get('/whatsapp/setup/qrcode', {
+    params: { instanceName, statusOnly: 'true' },
+  });
+  return response.data as {
+    connected: boolean;
+    owner?: string;
+    state?: string;
+    pairing?: boolean;
+  };
+};
+
 export const restartWhatsAppInstance = async (instanceName: string) => {
   const response = await adminApi.post('/whatsapp/setup/restart', { instanceName });
   return response.data;

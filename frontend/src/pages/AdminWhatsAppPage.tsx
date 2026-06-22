@@ -39,7 +39,7 @@ import {
   deleteWhatsAppContact,
   getWhatsAppSetupStatus,
   createWhatsAppInstance,
-  getWhatsAppQrCode,
+  getWhatsAppConnectionStatus,
   restartWhatsAppInstance,
 } from '../services/admin.api';
 
@@ -100,20 +100,16 @@ export default function AdminWhatsAppPage() {
     }
   }, []);
 
-  const refreshQr = useCallback(async (instanceName: string) => {
+  const checkConnectionStatus = useCallback(async (instanceName: string) => {
     try {
-      const data = await getWhatsAppQrCode(instanceName);
+      const data = await getWhatsAppConnectionStatus(instanceName);
       if (data.connected) {
         setQrBase64(null);
         setIsWaitingConnect(false);
         setSuccess(`WhatsApp conectado: +${data.owner || instanceName}`);
         return true;
       }
-      if (data.base64) {
-        setQrBase64(data.base64);
-        setIsWaitingConnect(false);
-      } else if (qrBase64) {
-        // QR desapareció tras escaneo — Baileys está reconectando
+      if (data.pairing || data.state === 'connecting') {
         setIsWaitingConnect(true);
       }
       return false;
@@ -125,18 +121,19 @@ export default function AdminWhatsAppPage() {
   const handleStartConnection = async () => {
     setError('');
     setIsConnecting(true);
+    setIsWaitingConnect(false);
     try {
       const name = newInstanceName.trim() || 'caperucitas';
       const result = await createWhatsAppInstance(name);
       setSelectedInstance(name);
-      if (result.qr?.base64) {
+      if (result.connected) {
+        setQrBase64(null);
+        setSuccess(`WhatsApp ya conectado: +${result.phone || name}`);
+      } else if (result.qr?.base64) {
         setQrBase64(result.qr.base64);
-        setIsWaitingConnect(false);
+        setSuccess('QR listo. Escanea con WhatsApp y espera unos segundos.');
       } else {
-        const connectedOk = await refreshQr(name);
-        if (!connectedOk) {
-          setSuccess('Escanea el QR. Tras escanear, espera unos segundos sin cerrar esta página.');
-        }
+        setError(result.qrError || 'No se generó QR. Pulsa «Renovar QR».');
       }
       loadSetup();
       loadInstances();
@@ -154,19 +151,18 @@ export default function AdminWhatsAppPage() {
     setQrBase64(null);
     setIsWaitingConnect(false);
     try {
-      await restartWhatsAppInstance(name);
+      const result = await restartWhatsAppInstance(name);
       setSelectedInstance(name);
-      const data = await getWhatsAppQrCode(name);
-      if (data.connected) {
-        setSuccess(`WhatsApp conectado: +${data.owner}`);
+      if (result.connected) {
+        setSuccess(`WhatsApp conectado: +${result.phone}`);
         loadAll();
         return;
       }
-      if (data.base64) {
-        setQrBase64(data.base64);
-        setSuccess('Nuevo QR generado. Escanéalo con WhatsApp.');
+      if (result.qr?.base64) {
+        setQrBase64(result.qr.base64);
+        setSuccess('Nuevo QR generado. Escanea con WhatsApp (no se renueva solo).');
       } else {
-        setError(data.error || 'No se pudo generar QR. Inténtalo de nuevo.');
+        setError('No se pudo generar QR. Inténtalo de nuevo.');
       }
     } catch (e: any) {
       setError(e.response?.data?.error || 'Error al renovar QR');
@@ -229,25 +225,24 @@ export default function AdminWhatsAppPage() {
     const interval = setInterval(() => {
       loadAll();
       loadInstances();
-      loadSetup();
-    }, 20000);
+    }, 60000);
     return () => clearInterval(interval);
   }, [loadAll, loadInstances, loadSetup]);
 
-  // Polling conexión cada 4s mientras hay QR o esperando conectar
+  // Tras escanear QR: solo comprobar si ya conectó (sin regenerar QR)
   useEffect(() => {
     if (!qrBase64 && !isWaitingConnect) return;
     const name = selectedInstance || newInstanceName;
     const t = setInterval(async () => {
-      const ok = await refreshQr(name);
+      const ok = await checkConnectionStatus(name);
       if (ok) {
         loadAll();
         loadInstances();
         loadSetup();
       }
-    }, 4000);
+    }, 5000);
     return () => clearInterval(t);
-  }, [qrBase64, isWaitingConnect, selectedInstance, newInstanceName, refreshQr, loadAll, loadInstances, loadSetup]);
+  }, [qrBase64, isWaitingConnect, selectedInstance, newInstanceName, checkConnectionStatus, loadAll, loadInstances, loadSetup]);
 
   // Auto-sincronizar teléfonos de perfiles la primera vez
   useEffect(() => {
@@ -507,11 +502,20 @@ export default function AdminWhatsAppPage() {
                 <div className="text-gray-300 text-sm space-y-2">
                   <p className="font-semibold text-white">2. Escanea con tu móvil:</p>
                   <p>WhatsApp → ⚙️ Ajustes → Dispositivos vinculados → Vincular dispositivo</p>
-                  <p className="text-yellow-400 animate-pulse">
+                  <p className="text-yellow-400">
                     {isWaitingConnect
-                      ? 'QR escaneado — conectando (puede tardar 10-30 s)...'
-                      : 'Escanea el QR — se renovará automáticamente cada ~20 s'}
+                      ? 'QR escaneado — conectando (puede tardar 10-30 s). No cierres esta página.'
+                      : 'Escanea el QR. Si caduca, pulsa «Renovar QR» (no se renueva solo).'}
                   </p>
+                  {(qrBase64 || isWaitingConnect) && (
+                    <button
+                      type="button"
+                      onClick={() => checkConnectionStatus(selectedInstance || newInstanceName)}
+                      className="mt-2 text-green-400 hover:text-green-300 text-xs underline"
+                    >
+                      Ya escaneé — comprobar conexión
+                    </button>
+                  )}
                 </div>
               </div>
             )}

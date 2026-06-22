@@ -92,8 +92,8 @@ function normalizeName(instanceName: string): string {
   return instanceName.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
 }
 
-function extractPhone(sock: WASocket): string | undefined {
-  return sock.user?.id?.split(':')[0]?.split('@')[0];
+function extractPhone(sock?: WASocket | null): string | undefined {
+  return sock?.user?.id?.split(':')[0]?.split('@')[0];
 }
 
 async function updateSession(
@@ -175,18 +175,20 @@ async function connectSocket(instanceName: string, force = false): Promise<void>
   const existing = activeSockets.get(name);
   if (existing?.user) return;
 
-  if (existing && !existing.user) {
-    await disconnectSocket(name);
+  // No matar socket en pairing (sin user aún) — eso invalida el QR escaneado
+  if (existing && !force) {
+    return;
   }
 
   const lock = connectingLocks.get(name);
   if (lock) {
     await lock;
     if (activeSockets.get(name)?.user) return;
+    if (activeSockets.get(name) && !force) return;
   }
 
   const connectPromise = (async () => {
-    await updateSession(name, { status: 'connecting', lastQr: null });
+    await updateSession(name, { status: 'connecting' });
 
     const version = await getBaileysVersion();
     const { state, saveCreds } = await readAuthState(name);
@@ -198,18 +200,19 @@ async function connectSocket(instanceName: string, force = false): Promise<void>
       printQRInTerminal: false,
       syncFullHistory: false,
       markOnlineOnConnect: false,
-      browser: Browsers.macOS('Chrome'),
+      browser: Browsers.macOS('Desktop'),
       generateHighQualityLinkPreview: false,
       getMessage: async () => undefined,
       connectTimeoutMs: 60000,
       defaultQueryTimeoutMs: 60000,
+      retryRequestDelayMs: 500,
     });
 
     activeSockets.set(name, sock);
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async (update) => {
-      const { connection, lastDisconnect, qr } = update;
+      const { connection, lastDisconnect, qr, isNewLogin } = update;
 
       if (qr) {
         try {
@@ -225,16 +228,18 @@ async function connectSocket(instanceName: string, force = false): Promise<void>
       if (connection === 'open') {
         const phone = extractPhone(sock);
         await updateSession(name, { status: 'connected', phone: phone || null, lastQr: null });
-        console.log(`[WhatsApp:${name}] Conectado +${phone}`);
+        console.log(`[WhatsApp:${name}] Conectado +${phone}${isNewLogin ? ' (nuevo login)' : ''}`);
       }
 
       if (connection === 'close') {
         activeSockets.delete(name);
         const code = (lastDisconnect?.error as Boom)?.output?.statusCode;
         const loggedOut = code === DisconnectReason.loggedOut;
+        const restartRequired = code === DisconnectReason.restartRequired;
+        const replaced = code === DisconnectReason.connectionReplaced;
         console.log(`[WhatsApp:${name}] Cerrado código=${code}`);
 
-        if (loggedOut) {
+        if (loggedOut || replaced) {
           await updateSession(name, {
             status: 'disconnected',
             phone: null,
@@ -244,12 +249,13 @@ async function connectSocket(instanceName: string, force = false): Promise<void>
           return;
         }
 
+        // Tras escanear QR, Baileys cierra y reconecta — normal
         await updateSession(name, { status: 'connecting', lastQr: null });
         setTimeout(() => {
           connectSocket(name, false).catch((e) =>
             console.error(`[WhatsApp:${name}] Reconexión:`, e.message)
           );
-        }, 1500);
+        }, restartRequired ? 800 : 2000);
       }
     });
   })();
@@ -307,25 +313,39 @@ export async function getBuiltinStatus(instanceName: string) {
     connected,
     instanceName: name,
     state: session?.status || 'disconnected',
-    owner: session?.phone || extractPhone(sock!) || undefined,
+    owner: session?.phone || extractPhone(sock) || undefined,
+  };
+}
+
+/** Solo lectura: no inicia sockets ni regenera QR */
+export async function getBuiltinSessionView(instanceName: string) {
+  const name = normalizeName(instanceName);
+  const status = await getBuiltinStatus(name);
+  if (status.connected) {
+    return { success: true, connected: true, owner: status.owner, state: status.state };
+  }
+
+  const session = await prisma.whatsAppSession.findUnique({ where: { instanceName: name } });
+  if (session?.lastQr && (session.status === 'qr' || session.status === 'connecting')) {
+    return {
+      success: true,
+      connected: false,
+      base64: session.lastQr,
+      state: session.status,
+      pairing: session.status === 'connecting' && !session.phone,
+    };
+  }
+
+  return {
+    success: false,
+    connected: false,
+    state: session?.status || 'disconnected',
+    error: 'No hay QR activo. Pulsa «Conectar» o «Renovar QR».',
   };
 }
 
 export async function getBuiltinQr(instanceName: string) {
-  const name = normalizeName(instanceName);
-  const status = await getBuiltinStatus(name);
-  if (status.connected) return { success: true, connected: true, owner: status.owner };
-
-  const sock = activeSockets.get(name);
-  if (!sock || !sock.user) {
-    await connectSocket(name, false);
-  }
-
-  const result = await waitForQrOrConnected(name, 35000);
-  if (result?.connected) return { success: true, connected: true, owner: result.phone };
-  if (result?.qrBase64) return { success: true, base64: result.qrBase64 };
-
-  return { success: false, error: 'No se pudo generar QR. Pulsa «Renovar QR».' };
+  return getBuiltinSessionView(instanceName);
 }
 
 export async function sendBuiltinMessage(
