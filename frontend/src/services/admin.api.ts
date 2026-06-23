@@ -155,6 +155,8 @@ export const createWhatsAppCampaign = async (data: {
   phones?: string;
   delayMs?: number;
   instanceName?: string;
+  instanceNames?: string[];
+  messageVariants?: string[];
 }) => {
   const response = await adminApi.post('/whatsapp/campaigns', data);
   return response.data;

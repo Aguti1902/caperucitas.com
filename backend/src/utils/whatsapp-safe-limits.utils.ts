@@ -12,11 +12,20 @@ export const WHATSAPP_DEFAULT_DELAY_MS = 12_000;
 /** Máximo destinatarios por campaña a contactos fríos. */
 export const WHATSAPP_MAX_CAMPAIGN_RECIPIENTS = 200;
 
-/** Mensajes seguidos antes de pausa obligatoria (cuentas personales / con historial de spam). */
-export const WHATSAPP_BURST_SIZE = 10;
+/** Mensajes seguidos por móvil antes de pausa corta al rotar pool. */
+export const WHATSAPP_PER_INSTANCE_BURST_SIZE = 5;
 
-/** Pausa entre lotes (ms) — simula uso humano y evita logout ~15–20 msgs. */
-export const WHATSAPP_BURST_PAUSE_MS = 45 * 60 * 1000;
+/** Pausa por móvil tras ráfaga (ms) — más corta que la pausa global de campaña. */
+export const WHATSAPP_INSTANCE_BURST_PAUSE_MS = 20 * 60 * 1000;
+
+/** Delay extra al cambiar de móvil emisor (simula cambio humano). */
+export const WHATSAPP_INSTANCE_SWITCH_DELAY_MS = 10_000;
+
+/** Máximo mensajes/día por cada móvil del pool (contactos fríos). */
+export const WHATSAPP_PER_INSTANCE_DAILY_LIMIT = 15;
+
+/** Mensajes seguidos antes de pausa obligatoria global de campaña (cuenta única). */
+export const WHATSAPP_BURST_SIZE = 10;
 
 export const WHATSAPP_BURST_PAUSE_MESSAGE =
   'Pausa anti-spam automática tras un lote de mensajes. La campaña continuará sola cuando termine la espera.';
@@ -40,6 +49,35 @@ export function getMaxCampaignRecipients(): number {
   const env = parseInt(process.env.WHATSAPP_MAX_CAMPAIGN_RECIPIENTS || '', 10);
   if (Number.isFinite(env) && env > 0) return env;
   return WHATSAPP_MAX_CAMPAIGN_RECIPIENTS;
+}
+
+/** Pausa entre lotes (ms) — simula uso humano y evita logout ~15–20 msgs. */
+export const WHATSAPP_BURST_PAUSE_MS = 45 * 60 * 1000;
+
+export function getPerInstanceDailyLimit(): number {
+  const env = parseInt(process.env.WHATSAPP_PER_INSTANCE_DAILY_LIMIT || '', 10);
+  if (Number.isFinite(env) && env > 0) return env;
+  return WHATSAPP_PER_INSTANCE_DAILY_LIMIT;
+}
+
+export function getPerInstanceBurstSize(poolSize = 1): number {
+  const env = parseInt(process.env.WHATSAPP_PER_INSTANCE_BURST_SIZE || '', 10);
+  const base =
+    Number.isFinite(env) && env >= 2 && env <= 20 ? env : WHATSAPP_PER_INSTANCE_BURST_SIZE;
+  if (poolSize <= 1) return getBurstSize();
+  return Math.max(3, Math.min(base, Math.floor(getBurstSize() / poolSize) + 2));
+}
+
+export function getInstanceBurstPauseMs(): number {
+  const env = parseInt(process.env.WHATSAPP_INSTANCE_BURST_PAUSE_MS || '', 10);
+  if (Number.isFinite(env) && env >= 60_000) return env;
+  return WHATSAPP_INSTANCE_BURST_PAUSE_MS;
+}
+
+export function getInstanceSwitchDelayMs(): number {
+  const env = parseInt(process.env.WHATSAPP_INSTANCE_SWITCH_DELAY_MS || '', 10);
+  if (Number.isFinite(env) && env >= 0) return env;
+  return WHATSAPP_INSTANCE_SWITCH_DELAY_MS;
 }
 
 export function getBurstSize(): number {

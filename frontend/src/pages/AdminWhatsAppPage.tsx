@@ -100,7 +100,22 @@ export default function AdminWhatsAppPage() {
   const [isWaitingConnect, setIsWaitingConnect] = useState(false);
   const [autoSynced, setAutoSynced] = useState(false);
 
-  const instanceName = 'caperucitas';
+  const [pairingInstance, setPairingInstance] = useState('caperucitas');
+  const [campaignPoolInstances, setCampaignPoolInstances] = useState<string[]>(['caperucitas']);
+  const [newInstanceId, setNewInstanceId] = useState('');
+  const [newInstancePhone, setNewInstancePhone] = useState('');
+
+  const slugifyInstanceId = (value: string) =>
+    value.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-').replace(/-+/g, '-');
+
+  const togglePoolInstance = (name: string) => {
+    setCampaignPoolInstances((prev) => {
+      if (prev.includes(name)) {
+        return prev.length > 1 ? prev.filter((n) => n !== name) : prev;
+      }
+      return [...prev, name];
+    });
+  };
 
   const loadSetup = useCallback(async () => {
     try {
@@ -120,7 +135,7 @@ export default function AdminWhatsAppPage() {
 
   const checkConnectionStatus = useCallback(async () => {
     try {
-      const data = await getWhatsAppConnectionStatus(instanceName);
+      const data = await getWhatsAppConnectionStatus(pairingInstance);
       if (data.connected) {
         setPairingCode(null);
         setQrBase64(null);
@@ -139,7 +154,7 @@ export default function AdminWhatsAppPage() {
     } catch {
       return false;
     }
-  }, [senderPhone, instanceName]);
+  }, [senderPhone, pairingInstance]);
 
   const handleConnectSender = async (options?: { forceReset?: boolean; useQr?: boolean }) => {
     setError('');
@@ -156,8 +171,8 @@ export default function AdminWhatsAppPage() {
     }
     setIsWaitingConnect(false);
     try {
-      setSelectedInstance(instanceName);
-      const result = await connectWhatsAppSender(phone || '0000000000', instanceName, options);
+      setSelectedInstance(pairingInstance);
+      const result = await connectWhatsAppSender(phone || '0000000000', pairingInstance, options);
       if (result.connected) {
         setPairingCode(null);
         setQrBase64(null);
@@ -189,11 +204,19 @@ export default function AdminWhatsAppPage() {
       const data = await getWhatsAppInstances();
       const list: EvolutionInstance[] = data.instances || [];
       setInstances(list);
-      setSelectedInstance(instanceName);
+      if (list.length > 0) {
+        setCampaignPoolInstances((prev) => {
+          const connected = list.filter((i) => i.connected).map((i) => i.name);
+          if (connected.length === 0) return prev.length ? prev : [list[0].name];
+          const merged = [...new Set([...prev.filter((n) => list.some((i) => i.name === n)), ...connected])];
+          return merged.length > 0 ? merged : [list[0].name];
+        });
+      }
+      setSelectedInstance((cur) => cur || pairingInstance);
     } catch (e) {
       console.error(e);
     }
-  }, []);
+  }, [pairingInstance]);
 
   const loadRecipientCount = useCallback(async (source: string, phones?: string) => {
     try {
@@ -294,8 +317,7 @@ export default function AdminWhatsAppPage() {
     }
   }, [stats, isLoading, autoSynced, loadAll]);
 
-  const activeInstance = instances.find((i) => i.name === selectedInstance);
-  const connected = activeInstance?.connected ?? stats?.instance?.connected;
+  const activeInstance = instances.find((i) => i.name === (selectedInstance || pairingInstance));
   const isReconnecting = activeInstance?.state === 'reconnecting' || stats?.instance?.state === 'reconnecting';
   const sendWarmupMs = stats?.instance?.sendReady?.waitMs ?? 0;
   const canSendAfterWarmup = sendWarmupMs <= 0;
@@ -313,10 +335,26 @@ export default function AdminWhatsAppPage() {
   const quotaExhausted = statsLoaded ? (quota?.exhausted ?? false) : false;
   const quotaPercentUsed = statsLoaded ? (quota?.percentUsed ?? 0) : 0;
   const dailyPercentUsed = statsLoaded ? (dailyQuota?.percentUsedToday ?? 0) : 0;
-  const canSendMessages = statsLoaded && !quotaExhausted && !dailyExhausted && messagesRemaining > 0 && dailyRemaining > 0;
-  const campaignExceedsQuota = recipientCount > messagesRemaining;
-  const campaignExceedsDaily = recipientCount > dailyRemaining;
   const safeLimits = stats?.safeLimits;
+  const poolForCampaign = campaignPoolInstances.length > 0 ? campaignPoolInstances : [pairingInstance];
+  const connectedPoolInstances = poolForCampaign.filter((name) =>
+    instances.some((i) => i.name === name && i.connected)
+  );
+  const perInstanceDailyLimit = safeLimits?.perInstanceDailyLimit ?? 15;
+  const poolDailyCapacity =
+    poolForCampaign.length > 1
+      ? perInstanceDailyLimit * Math.max(1, connectedPoolInstances.length)
+      : dailyRemaining;
+  const connected =
+    connectedPoolInstances.length > 0 || (activeInstance?.connected ?? stats?.instance?.connected);
+  const canSendMessages =
+    statsLoaded &&
+    !quotaExhausted &&
+    messagesRemaining > 0 &&
+    (poolForCampaign.length > 1 ? connectedPoolInstances.length > 0 : !dailyExhausted && dailyRemaining > 0);
+  const campaignExceedsQuota = recipientCount > messagesRemaining;
+  const campaignExceedsDaily =
+    poolForCampaign.length > 1 ? recipientCount > poolDailyCapacity : recipientCount > dailyRemaining;
   const maxRecipientsPerCampaign = safeLimits?.maxRecipientsPerCampaign ?? 200;
   const minDelayMs = safeLimits?.minDelayMs ?? 8000;
   const campaignExceedsMaxRecipients = recipientCount > maxRecipientsPerCampaign;
@@ -428,7 +466,7 @@ export default function AdminWhatsAppPage() {
     setError('');
     setIsReconnectingSession(true);
     try {
-      const result = await reconnectWhatsAppSession(instanceName);
+      const result = await reconnectWhatsAppSession(pairingInstance);
       setSuccess(result.message || 'Reconectando WhatsApp…');
       loadAll();
       loadInstances();
@@ -463,8 +501,8 @@ export default function AdminWhatsAppPage() {
       setError('Escribe el mensaje (caption) o adjunta una imagen');
       return;
     }
-    if (!connected) {
-      setError('Vincula tu número de WhatsApp antes de enviar');
+    if (!connected || connectedPoolInstances.length === 0) {
+      setError('Vincula al menos un móvil del pool antes de enviar');
       return;
     }
     if (!canSendMessages) {
@@ -476,26 +514,37 @@ export default function AdminWhatsAppPage() {
       return;
     }
 
-    const emisor = activeInstance?.owner || senderPhone;
-    if (!window.confirm(`¿Enviar campaña a ${recipientCount} números desde +${emisor}? Coste estimado: ${formatEurTotal(recipientCount * COST_PER_MSG)}`)) {
+    const emisorLabel =
+      poolForCampaign.length > 1
+        ? `${poolForCampaign.length} móviles (${connectedPoolInstances.length} conectados)`
+        : `+${activeInstance?.owner || senderPhone}`;
+
+    if (!window.confirm(`¿Enviar campaña a ${recipientCount} números desde ${emisorLabel}? Coste estimado: ${formatEurTotal(recipientCount * COST_PER_MSG)}`)) {
       return;
     }
+
+    const messageVariants = campaignMessage
+      .split(/\n---+\n/)
+      .map((m) => m.trim())
+      .filter(Boolean);
 
     setIsSending(true);
     try {
       const result = await createWhatsAppCampaign({
         name: campaignName,
-        message: campaignMessage,
+        message: messageVariants[0] || campaignMessage,
+        messageVariants: messageVariants.length > 1 ? messageVariants : undefined,
         imageUrl: campaignImageUrl || undefined,
         source: campaignSource,
         phones: campaignSource === 'manual' ? manualPhones : undefined,
         delayMs,
-        instanceName,
+        instanceName: poolForCampaign[0],
+        instanceNames: poolForCampaign.length > 1 ? poolForCampaign : undefined,
       });
       setSuccess(
         result.dailyWarning
           ? `Campaña "${result.campaign.name}" iniciada. ${result.dailyWarning}`
-          : `Campaña "${result.campaign.name}" iniciada desde +${emisor}. Coste estimado: ${formatEurTotal(result.estimatedCostEur)}`
+          : `Campaña "${result.campaign.name}" iniciada (${emisorLabel}). Coste estimado: ${formatEurTotal(result.estimatedCostEur)}`
       );
       setCampaignName('');
       setCampaignMessage('');
@@ -523,7 +572,7 @@ export default function AdminWhatsAppPage() {
       await sendWhatsAppTest(
         testPhone,
         testMessage || campaignMessage || 'Mensaje de prueba Caperucitas',
-        instanceName,
+        pairingInstance,
         campaignImageUrl || undefined
       );
       setSuccess(`Prueba enviada a ${testPhone} desde +${activeInstance?.owner || senderPhone} (${formatEurPerMsg(COST_PER_MSG)})`);
@@ -599,6 +648,18 @@ export default function AdminWhatsAppPage() {
           </p>
 
           <div className="flex flex-wrap gap-3 items-end mb-4">
+            <div className="flex-1 min-w-[180px]">
+              <label className="text-gray-400 text-xs block mb-1">Instancia / alias del móvil</label>
+              <select
+                value={pairingInstance}
+                onChange={(e) => setPairingInstance(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white text-sm"
+              >
+                {[...new Set([pairingInstance, ...instances.map((i) => i.name), 'caperucitas'])].map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+            </div>
             <div className="flex-1 min-w-[240px]">
               <label className="text-gray-400 text-xs block mb-1">Número desde el que enviar (sin +)</label>
               <input
@@ -712,9 +773,89 @@ export default function AdminWhatsAppPage() {
 
           {connected && (
             <p className="text-green-400 text-sm">
-              Listo para enviar campañas desde +{activeInstance?.owner || senderPhone}. La sesión se guarda en el servidor.
+              Listo para enviar campañas desde +{activeInstance?.owner || senderPhone} ({pairingInstance}). La sesión se guarda en el servidor.
             </p>
           )}
+
+          {/* Añadir otro móvil al pool */}
+          <div className="mt-5 pt-5 border-t border-gray-800">
+            <h3 className="text-white font-semibold text-sm mb-3 flex items-center gap-2">
+              <Smartphone className="w-4 h-4 text-green-500" />
+              Pool de móviles emisores
+            </h3>
+            <p className="text-gray-500 text-xs mb-3">
+              Vincula cada SIM con un alias distinto. En campañas se alternan los envíos entre los marcados.
+            </p>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {instances.length === 0 && (
+                <span className="text-gray-500 text-xs">Sin instancias aún — vincula la primera arriba.</span>
+              )}
+              {instances.map((inst) => (
+                <label
+                  key={inst.name}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs cursor-pointer ${
+                    campaignPoolInstances.includes(inst.name)
+                      ? 'border-green-600 bg-green-900/30 text-green-300'
+                      : 'border-gray-700 bg-gray-800 text-gray-400'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={campaignPoolInstances.includes(inst.name)}
+                    onChange={() => togglePoolInstance(inst.name)}
+                    className="rounded"
+                  />
+                  <span className="font-mono">{inst.name}</span>
+                  {inst.connected ? (
+                    <span className="text-green-400">+{inst.owner || '?'}</span>
+                  ) : (
+                    <span className="text-red-400">off</span>
+                  )}
+                </label>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2 items-end">
+              <div className="flex-1 min-w-[140px]">
+                <label className="text-gray-500 text-xs block mb-1">Alias nuevo móvil</label>
+                <input
+                  value={newInstanceId}
+                  onChange={(e) => setNewInstanceId(e.target.value)}
+                  placeholder="movil2"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                />
+              </div>
+              <div className="flex-1 min-w-[180px]">
+                <label className="text-gray-500 text-xs block mb-1">Teléfono (opcional)</label>
+                <input
+                  value={newInstancePhone}
+                  onChange={(e) => setNewInstancePhone(e.target.value.replace(/\D/g, ''))}
+                  placeholder="34600111222"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const id = slugifyInstanceId(newInstanceId);
+                  if (!id) {
+                    setError('Escribe un alias (ej. movil2, sim-b)');
+                    return;
+                  }
+                  setPairingInstance(id);
+                  if (newInstancePhone) setSenderPhone(newInstancePhone);
+                  setSuccess(`Alias "${id}" seleccionado. Pulsa «Vincular WhatsApp» arriba con ese móvil.`);
+                }}
+                className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm"
+              >
+                Preparar vinculación
+              </button>
+            </div>
+            {poolForCampaign.length > 1 && (
+              <p className="text-green-400/90 text-xs mt-3">
+                Modo pool: {poolForCampaign.length} móviles · ~{poolDailyCapacity} msgs/día · rotación automática.
+              </p>
+            )}
+          </div>
         </div>
 
         {provider === 'evolution' && isConfigured && !setupStatus?.evolutionReachable && !loadError && (
@@ -830,18 +971,21 @@ export default function AdminWhatsAppPage() {
             <li><strong>WhatsApp detecta spam</strong> si envías el mismo mensaje a muchos números que no te conocen.</li>
             <li>El panel ya <strong>no abre dos conexiones</strong> (eso desvinculaba al instante). Si sigue cayendo, es <strong>bloqueo de Meta</strong>.</li>
             <li>Tras desvincular: pulsa <strong>Reconectar sesión</strong> o vincula de nuevo; luego <strong>Reanudar</strong> la campaña manualmente.</li>
-            <li>Máximo <strong>{maxRecipientsPerCampaign} por campaña</strong> · <strong>{safeLimits?.burstSize ?? 10} msgs</strong> → pausa <strong>{safeLimits?.burstPauseMinutes ?? 45} min</strong>.</li>
+            <li>Máximo <strong>{maxRecipientsPerCampaign} por campaña</strong> · rotación multi-móvil: <strong>{perInstanceDailyLimit}/móvil/día</strong>.</li>
+            <li>Pool activo: alterna envíos entre móviles + pausa <strong>{safeLimits?.instanceSwitchDelaySeconds ?? 10} s</strong> al cambiar.</li>
+            <li>Usa <strong>variantes de mensaje</strong> (separadas con <code className="text-red-200">---</code>) y <code className="text-red-200">{'{nombre}'}</code>.</li>
             <li>Delay mínimo <strong>{minDelayMs / 1000} s</strong> (recomendado 20–30 s).</li>
           </ul>
         </div>
 
         {/* Consejos envío masivo */}
         <div className="rounded-xl p-4 border border-blue-800/40 bg-blue-950/20 mb-6 text-sm text-blue-100/90">
-          <p className="font-semibold text-blue-300 mb-2">Plan seguro para tus 10.000 contactos</p>
+          <p className="font-semibold text-blue-300 mb-2">Plan seguro con pool de móviles</p>
           <ul className="list-disc list-inside text-xs space-y-1 text-blue-100/80">
-            <li>Divide en campañas de <strong>{maxRecipientsPerCampaign}/día</strong> → ~50 días sin riesgo alto.</li>
-            <li>La campaña se <strong>pausa sola</strong> al llegar al límite diario y continúa mañana.</li>
-            <li>Si WhatsApp desconecta el dispositivo, vincula de nuevo y pulsa <strong>Reanudar</strong>.</li>
+            <li>Vincula <strong>varios números</strong> (SIM distintas) y marca cuáles usar en la campaña.</li>
+            <li>Con {poolForCampaign.length} móvil(es): ~<strong>{poolDailyCapacity} msgs/día</strong> ({perInstanceDailyLimit}/móvil).</li>
+            <li>10.000 contactos ≈ {Math.ceil(10000 / Math.max(1, poolDailyCapacity))} días con este ritmo — más lento = más seguro.</li>
+            <li>Escribe 3–5 textos distintos separados por una línea <strong>---</strong> para rotar variantes.</li>
           </ul>
         </div>
 
@@ -939,10 +1083,13 @@ export default function AdminWhatsAppPage() {
             <textarea
               value={campaignMessage}
               onChange={(e) => setCampaignMessage(e.target.value)}
-              rows={6}
-              placeholder="Texto del mensaje (caption). Se envía debajo de la imagen si adjuntas una..."
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm mb-3"
+              rows={8}
+              placeholder={`Variante 1 — Hola {nombre}, te invitamos a registrarte en caperucitas.com...\n---\nVariante 2 — Buenas {nombre}, somos Caperucitas y buscamos...\n---\nVariante 3 — Hi {nombre}, publica tu perfil gratis en...`}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm mb-1"
             />
+            <p className="text-gray-500 text-xs mb-3">
+              Separa variantes con una línea <strong>---</strong>. Usa <strong>{'{nombre}'}</strong> para personalizar. Se rotan automáticamente.
+            </p>
             <div className="mb-3">
               <label className="text-gray-400 text-xs block mb-2 flex items-center gap-1">
                 <ImageIcon className="w-3.5 h-3.5" />
@@ -1120,7 +1267,11 @@ export default function AdminWhatsAppPage() {
                 <div>
                   <h3 className="text-white font-bold">{selectedCampaign.name}</h3>
                   {selectedCampaign.instanceName && (
-                    <p className="text-gray-500 text-xs">Emisor: {selectedCampaign.instanceName}</p>
+                    <p className="text-gray-500 text-xs">
+                      Emisor: {Array.isArray(selectedCampaign.instanceNames) && selectedCampaign.instanceNames.length > 1
+                        ? `pool (${selectedCampaign.instanceNames.join(', ')})`
+                        : selectedCampaign.instanceName}
+                    </p>
                   )}
                 </div>
                 <button onClick={() => setSelectedCampaign(null)} className="text-gray-400 hover:text-white">✕</button>

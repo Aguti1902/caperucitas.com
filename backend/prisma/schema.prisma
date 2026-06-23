@@ -350,7 +350,9 @@ model WhatsAppCampaign {
   name         String
   message      String    @db.Text
   imageUrl     String?   // imagen opcional (URL pública) enviada como adjunto con caption
-  instanceName String?   // instancia Evolution API / móvil emisor
+  instanceName String?   // instancia Evolution API / móvil emisor (legacy, primer móvil)
+  instanceNames Json?    // pool de móviles emisores ["caperucitas","movil2"]
+  messageVariants Json?  // variantes de texto ["Hola {nombre}...", "Buenas {nombre}..."]
   status       String    @default("pending") // pending | running | paused | completed | failed | cancelled
   source       String    // contacts_db | profiles | manual | mixed
   totalCount   Int       @default(0)
@@ -378,6 +380,8 @@ model WhatsAppMessageLog {
   campaign   WhatsAppCampaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   phone      String
   name       String?
+  instanceName String?  // móvil que envió (pool)
+  messageText  String? @db.Text // texto final enviado (variante)
   status     String           @default("pending") // pending | sent | failed | skipped
   error      String?
   costEur    Float            @default(0)

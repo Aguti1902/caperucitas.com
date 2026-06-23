@@ -1,4 +1,5 @@
 import prisma from '../lib/prisma';
+import { getPerInstanceDailyLimit } from './whatsapp-safe-limits.utils';
 
 export const WHATSAPP_MESSAGE_LIMIT_DEFAULT = 30_000;
 export const WHATSAPP_DAILY_LIMIT_DEFAULT = 150;
@@ -97,6 +98,58 @@ export async function getMessagesUsedCount(): Promise<number> {
   } catch {
     return 0;
   }
+}
+
+export async function getMessagesSentTodayByInstance(instanceName: string): Promise<number> {
+  try {
+    const name = instanceName.trim().toLowerCase();
+    return await prisma.whatsAppMessageLog.count({
+      where: {
+        status: 'sent',
+        instanceName: name,
+        sentAt: { gte: getDayStart() },
+      },
+    });
+  } catch {
+    return 0;
+  }
+}
+
+export async function getInstanceDailyQuota(instanceName: string): Promise<WhatsAppDailyQuotaInfo> {
+  const limit = getPerInstanceDailyLimit();
+  const usedToday = await getMessagesSentTodayByInstance(instanceName);
+  const remainingToday = Math.max(0, limit - usedToday);
+  return {
+    limit,
+    usedToday,
+    remainingToday,
+    exhausted: remainingToday <= 0,
+    percentUsedToday: limit > 0 ? Math.min(100, Math.round((usedToday / limit) * 100)) : 100,
+  };
+}
+
+export async function assertInstanceDailyQuota(
+  instanceName: string,
+  count = 1
+): Promise<
+  { ok: true; dailyQuota: WhatsAppDailyQuotaInfo } | { ok: false; dailyQuota: WhatsAppDailyQuotaInfo; error: string }
+> {
+  const dailyQuota = await getInstanceDailyQuota(instanceName);
+  if (dailyQuota.remainingToday <= 0) {
+    return {
+      ok: false,
+      dailyQuota,
+      error: `El móvil ${instanceName} alcanzó su límite diario (${dailyQuota.limit} msgs).`,
+    };
+  }
+  if (count > dailyQuota.remainingToday) {
+    return {
+      ok: false,
+      dailyQuota,
+      error: `El móvil ${instanceName} solo puede enviar ${dailyQuota.remainingToday} mensajes más hoy.`,
+    };
+  }
+  return { ok: true, dailyQuota };
 }
 
 export async function getMessagesSentTodayCount(): Promise<number> {

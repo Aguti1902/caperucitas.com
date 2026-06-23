@@ -106,6 +106,21 @@ export async function ensureWhatsAppSchema(): Promise<void> {
   await prisma.$executeRawUnsafe(`
     ALTER TABLE whatsapp_settings ADD COLUMN IF NOT EXISTS "dailyMessageLimit" INTEGER NOT NULL DEFAULT 1000;
   `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE whatsapp_campaigns ADD COLUMN IF NOT EXISTS "instanceNames" JSONB;
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE whatsapp_campaigns ADD COLUMN IF NOT EXISTS "messageVariants" JSONB;
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE whatsapp_message_logs ADD COLUMN IF NOT EXISTS "instanceName" TEXT;
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE whatsapp_message_logs ADD COLUMN IF NOT EXISTS "messageText" TEXT;
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS whatsapp_message_logs_instanceName_idx ON whatsapp_message_logs("instanceName");
+  `);
 
   // Fila default de settings
   await prisma.$executeRawUnsafe(`

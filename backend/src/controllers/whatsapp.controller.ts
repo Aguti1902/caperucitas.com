@@ -27,6 +27,11 @@ import {
   normalizeStoredCampaignImageUrl,
 } from '../utils/whatsapp-image.utils';
 import {
+  parseInstancePool,
+  parseMessageVariants,
+} from '../utils/whatsapp-pool.utils';
+import { isPoolReadyForSend } from '../services/whatsapp-instance-pool.service';
+import {
   assertQuotaForSend,
   assertDailyQuotaForSend,
   getWhatsAppQuota,
@@ -51,6 +56,9 @@ import {
   WHATSAPP_DEFAULT_DELAY_MS,
   getBurstSize,
   getBurstPauseMs,
+  getPerInstanceDailyLimit,
+  getPerInstanceBurstSize,
+  getInstanceSwitchDelayMs,
 } from '../utils/whatsapp-safe-limits.utils';
 import { isBuiltinConnected, isBuiltinConnecting } from '../services/whatsapp-baileys.service';
 
@@ -283,6 +291,10 @@ export const getWhatsAppStats = async (_req: AuthRequest, res: Response) => {
         defaultDelayMs: WHATSAPP_DEFAULT_DELAY_MS,
         burstSize: getBurstSize(),
         burstPauseMinutes: Math.ceil(getBurstPauseMs() / 60_000),
+        perInstanceDailyLimit: getPerInstanceDailyLimit(),
+        perInstanceBurstSize: getPerInstanceBurstSize(3),
+        instanceSwitchDelaySeconds: Math.ceil(getInstanceSwitchDelayMs() / 1000),
+        poolModeSupported: true,
       },
     };
 
@@ -519,48 +531,81 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
   try {
     await ensureWhatsAppSchemaOnce();
 
-    const { name, message, imageUrl, source = 'contacts_db', phones, delayMs = DEFAULT_DELAY_MS, instanceName } = req.body;
+    const {
+      name,
+      message,
+      imageUrl,
+      source = 'contacts_db',
+      phones,
+      delayMs = DEFAULT_DELAY_MS,
+      instanceName,
+      instanceNames,
+      messageVariants,
+    } = req.body;
 
     const trimmedMessage = message?.trim() || '';
     const trimmedImageUrl = imageUrl?.trim() || '';
+    const variants = parseMessageVariants(trimmedMessage, messageVariants);
+    const primaryMessage = variants[0] || trimmedMessage;
 
-    if (!trimmedMessage && !trimmedImageUrl) {
+    if (variants.length === 0 && !trimmedImageUrl) {
       return res.status(400).json({ error: 'Escribe un mensaje o adjunta una imagen' });
     }
     if (!isWhatsAppConfigured()) {
       return res.status(400).json({ error: 'WhatsApp no está configurado en el servidor' });
     }
 
-    const resolvedInstance = (instanceName || getDefaultInstanceName()).trim();
-    if (!resolvedInstance) {
-      return res.status(400).json({ error: 'Selecciona el móvil/instancia desde el que enviar' });
-    }
-
-    const instance = await getInstanceStatus(resolvedInstance);
-    if (!instance.connected) {
-      const reconnecting =
-        getWhatsAppProvider() === 'builtin' && isBuiltinConnecting(resolvedInstance);
-      return res.status(reconnecting ? 503 : 400).json({
-        error: reconnecting
-          ? 'WhatsApp está reconectando. Espera 10–20 segundos e inténtalo de nuevo.'
-          : `WhatsApp "${resolvedInstance}" no conectado: ${instance.error || instance.state || 'sin socket activo en el servidor'}`,
-      });
-    }
-
-    if (getWhatsAppProvider() === 'builtin' && !isBuiltinConnected(resolvedInstance)) {
-      return res.status(503).json({
-        error: 'WhatsApp no tiene conexión activa en el servidor. Espera unos segundos tras vincular antes de lanzar la campaña.',
-      });
+    const pool = parseInstancePool(instanceNames, instanceName || getDefaultInstanceName());
+    if (pool.length === 0) {
+      return res.status(400).json({ error: 'Selecciona al menos un móvil/instancia desde el que enviar' });
     }
 
     const { isWhatsAppSendReady } = await import('../services/whatsapp-baileys.service');
-    const sendReady = isWhatsAppSendReady(resolvedInstance);
-    if (!sendReady.ready && sendReady.waitMs > 0) {
-      return res.status(503).json({
-        error: sendReady.reason || `Espera ${Math.ceil(sendReady.waitMs / 1000)} segundos tras conectar antes de enviar.`,
-        waitMs: sendReady.waitMs,
+    const disconnected: string[] = [];
+    const warming: { name: string; waitMs: number }[] = [];
+
+    for (const inst of pool) {
+      const status = await getInstanceStatus(inst);
+      if (!status.connected) {
+        const reconnecting = getWhatsAppProvider() === 'builtin' && isBuiltinConnecting(inst);
+        if (reconnecting) {
+          warming.push({ name: inst, waitMs: 15_000 });
+        } else {
+          disconnected.push(inst);
+        }
+        continue;
+      }
+      if (getWhatsAppProvider() === 'builtin' && !isBuiltinConnected(inst)) {
+        warming.push({ name: inst, waitMs: 10_000 });
+        continue;
+      }
+      const sendReady = isWhatsAppSendReady(inst);
+      if (!sendReady.ready && sendReady.waitMs > 0) {
+        warming.push({ name: inst, waitMs: sendReady.waitMs });
+      }
+    }
+
+    if (disconnected.length === pool.length) {
+      return res.status(400).json({
+        error: `Ningún móvil conectado: ${disconnected.join(', ')}. Vincula al menos uno.`,
       });
     }
+
+    if (warming.length === pool.length) {
+      const maxWait = Math.max(...warming.map((w) => w.waitMs));
+      return res.status(503).json({
+        error: `Espera ${Math.ceil(maxWait / 1000)} s — los móviles están sincronizando tras conectar.`,
+        waitMs: maxWait,
+      });
+    }
+
+    if (!(await isPoolReadyForSend(pool))) {
+      return res.status(503).json({
+        error: 'Ningún móvil del pool está listo para enviar ahora. Espera la sincronización o revisa la conexión.',
+      });
+    }
+
+    const resolvedInstance = pool[0];
 
     const recipients = await resolveRecipients(source, phones);
     if (recipients.length === 0) {
@@ -588,7 +633,10 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: quotaCheck.error, quota: quotaCheck.quota });
     }
 
-    const dailyCheck = await assertDailyQuotaForSend(Math.min(recipients.length, 1));
+    const dailyCheck =
+      pool.length === 1
+        ? await assertDailyQuotaForSend(Math.min(recipients.length, 1))
+        : { ok: true as const };
     if (dailyCheck.ok === false) {
       return res.status(403).json({ error: dailyCheck.error, dailyQuota: dailyCheck.dailyQuota });
     }
@@ -596,10 +644,12 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
     const campaign = await prisma.whatsAppCampaign.create({
       data: {
         name: name?.trim() || `Campaña ${new Date().toLocaleString('es-ES')}`,
-        message: trimmedMessage,
+        message: primaryMessage,
+        messageVariants: variants.length > 1 ? variants : undefined,
         imageUrl: trimmedImageUrl ? normalizeStoredCampaignImageUrl(trimmedImageUrl) : null,
         source,
         instanceName: resolvedInstance,
+        instanceNames: pool.length > 1 ? pool : undefined,
         totalCount: recipients.length,
         delayMs: safeDelayMs,
       },
@@ -622,10 +672,16 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
     setTimeout(() => enqueueCampaign(campaign.id), 5000);
 
     const dailyQuota = await getWhatsAppDailyQuota();
+    const poolDailyCapacity =
+      pool.length > 1 ? getPerInstanceDailyLimit() * pool.length : dailyQuota.remainingToday;
     const dailyWarning =
-      recipients.length > dailyQuota.remainingToday
-        ? `La campaña tiene ${recipients.length.toLocaleString('es-ES')} destinatarios pero hoy solo puedes enviar ${dailyQuota.remainingToday.toLocaleString('es-ES')} más. Se pausará al alcanzar el límite diario (${dailyQuota.limit.toLocaleString('es-ES')}/día) y continuará mañana.`
-        : undefined;
+      pool.length > 1
+        ? recipients.length > poolDailyCapacity
+          ? `Pool de ${pool.length} móviles ≈ ${poolDailyCapacity} msgs/día (${getPerInstanceDailyLimit()}/móvil). Se pausará al agotar cupo.`
+          : undefined
+        : recipients.length > dailyQuota.remainingToday
+          ? `La campaña tiene ${recipients.length.toLocaleString('es-ES')} destinatarios pero hoy solo puedes enviar ${dailyQuota.remainingToday.toLocaleString('es-ES')} más. Se pausará al alcanzar el límite diario (${dailyQuota.limit.toLocaleString('es-ES')}/día) y continuará mañana.`
+          : undefined;
 
     res.status(201).json({
       campaign,

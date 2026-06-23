@@ -8,6 +8,7 @@ import {
 import {
   assertQuotaForSend,
   assertDailyQuotaForSend,
+  assertInstanceDailyQuota,
   DAILY_QUOTA_EXHAUSTED_MESSAGE,
   QUOTA_EXHAUSTED_MESSAGE,
 } from '../utils/whatsapp-quota.utils';
@@ -22,7 +23,20 @@ import {
   isBurstPauseReason,
   burstPauseRemainingMs,
   allowAutoResumeCampaigns,
+  getInstanceBurstPauseMs,
 } from '../utils/whatsapp-safe-limits.utils';
+import {
+  parseCampaignPool,
+  parseMessageVariants,
+  pickMessageVariant,
+  campaignUsesInstance,
+} from '../utils/whatsapp-pool.utils';
+import {
+  selectInstanceForSend,
+  recordInstanceSend,
+  isPoolReadyForSend,
+  resetCampaignPoolState,
+} from './whatsapp-instance-pool.service';
 
 const runningCampaigns = new Set<string>();
 const resumeTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -57,8 +71,7 @@ function scheduleBurstResume(campaignId: string, delayMs: number): void {
   burstResumeTimers.set(campaignId, timer);
 }
 
-async function pauseForBurst(campaignId: string): Promise<void> {
-  const pauseMs = getBurstPauseMs();
+async function pauseForBurst(campaignId: string, pauseMs = getBurstPauseMs()): Promise<void> {
   const mins = Math.ceil(pauseMs / 60_000);
   await pauseCampaign(
     campaignId,
@@ -79,11 +92,14 @@ export const PAUSE_REASON_TEMP_DISCONNECT =
 export const PAUSE_REASON_DAILY = DAILY_QUOTA_EXHAUSTED_MESSAGE;
 export const PAUSE_REASON_RESTRICTION = WHATSAPP_RESTRICTION_PAUSE_MESSAGE;
 export const PAUSE_REASON_BURST = WHATSAPP_BURST_PAUSE_MESSAGE;
+export const PAUSE_REASON_POOL_EXHAUSTED =
+  'Ningún móvil del pool está disponible ahora. La campaña continuará sola cuando haya móviles listos.';
 
 /** Solo estas pausas pueden reanudarse solas tras reconectar. Nunca spam/disconnect/logout. */
 export function canAutoResumePause(pauseReason?: string | null): boolean {
   if (!pauseReason) return false;
   if (pauseReason === PAUSE_REASON_DAILY) return true;
+  if (pauseReason === PAUSE_REASON_POOL_EXHAUSTED) return true;
   if (isBurstPauseReason(pauseReason)) return true;
   if (pauseReason.startsWith(PAUSE_REASON_TEMP_DISCONNECT)) return true;
   return false;
@@ -151,14 +167,12 @@ export async function pauseCampaign(campaignId: string, reason: string): Promise
 
 export async function pauseActiveCampaignsForInstance(instanceName: string, reason: string): Promise<void> {
   const name = instanceName.trim().toLowerCase();
-  const campaigns = await prisma.whatsAppCampaign.findMany({
-    where: {
-      status: 'running',
-      OR: [{ instanceName: name }, { instanceName: instanceName.trim() }],
-    },
-    select: { id: true },
+  const running = await prisma.whatsAppCampaign.findMany({
+    where: { status: 'running' },
+    select: { id: true, instanceName: true, instanceNames: true },
   });
 
+  const campaigns = running.filter((c) => campaignUsesInstance(c, name));
   if (campaigns.length === 0) return;
 
   await prisma.whatsAppCampaign.updateMany({
@@ -238,6 +252,7 @@ async function finalizeCampaignIfDone(campaignId: string): Promise<void> {
     where: { id: campaignId, status: { in: ['running', 'paused'] } },
     data: { status: 'completed', completedAt: new Date(), pauseReason: null },
   });
+  resetCampaignPoolState(campaignId);
 }
 
 export async function processCampaign(campaignId: string): Promise<void> {
@@ -248,8 +263,16 @@ export async function processCampaign(campaignId: string): Promise<void> {
     const campaign = await prisma.whatsAppCampaign.findUnique({ where: { id: campaignId } });
     if (!campaign || campaign.status === 'cancelled' || campaign.status === 'completed') return;
 
-    if (!(await isInstanceReady(campaign.instanceName))) {
-      await pauseCampaign(campaignId, PAUSE_REASON_DISCONNECT);
+    const pool = parseCampaignPool(campaign);
+    const variants = parseMessageVariants(campaign.message, campaign.messageVariants);
+    const multiPool = pool.length > 1;
+
+    const poolReady = multiPool ? await isPoolReadyForSend(pool) : await isInstanceReady(pool[0]);
+    if (!poolReady) {
+      await pauseCampaign(campaignId, multiPool ? PAUSE_REASON_POOL_EXHAUSTED : PAUSE_REASON_DISCONNECT);
+      if (multiPool) {
+        scheduleBurstResume(campaignId, getInstanceBurstPauseMs());
+      }
       return;
     }
 
@@ -263,7 +286,6 @@ export async function processCampaign(campaignId: string): Promise<void> {
       },
     });
 
-    // Pequeña pausa antes del primer envío para no chocar con la conexión activa
     await sleep(CAMPAIGN_WARMUP_MS);
 
     const pending = await prisma.whatsAppMessageLog.findMany({
@@ -273,12 +295,33 @@ export async function processCampaign(campaignId: string): Promise<void> {
 
     let burstCount = 0;
     const burstLimit = getBurstSize();
+    let variantIndex = 0;
 
-    for (const log of pending) {
+    for (let i = 0; i < pending.length; i++) {
+      const log = pending[i];
       const current = await prisma.whatsAppCampaign.findUnique({ where: { id: campaignId } });
       if (!current || current.status === 'cancelled' || current.status === 'paused') break;
 
-      if (!(await isInstanceReady(campaign.instanceName))) {
+      const selection = await selectInstanceForSend(campaignId, pool);
+      if (selection.ok === false) {
+        if (selection.allDailyExhausted) {
+          await pauseCampaign(campaignId, PAUSE_REASON_DAILY);
+        } else if (selection.allDisconnected) {
+          await pauseCampaign(campaignId, PAUSE_REASON_DISCONNECT);
+        } else {
+          await pauseCampaign(campaignId, PAUSE_REASON_POOL_EXHAUSTED);
+          scheduleBurstResume(campaignId, getInstanceBurstPauseMs());
+        }
+        break;
+      }
+
+      const { instanceName: sendInstance, switchDelayMs } = selection;
+
+      if (switchDelayMs > 0) {
+        await sleep(switchDelayMs);
+      }
+
+      if (!(await isInstanceReady(sendInstance))) {
         await pauseCampaign(campaignId, PAUSE_REASON_DISCONNECT);
         break;
       }
@@ -303,16 +346,23 @@ export async function processCampaign(campaignId: string): Promise<void> {
         break;
       }
 
-      const dailyCheck = await assertDailyQuotaForSend(1);
-      if (dailyCheck.ok === false) {
-        await pauseCampaign(campaignId, PAUSE_REASON_DAILY);
-        break;
+      if (!multiPool) {
+        const dailyCheck = await assertDailyQuotaForSend(1);
+        if (dailyCheck.ok === false) {
+          await pauseCampaign(campaignId, PAUSE_REASON_DAILY);
+          break;
+        }
       }
 
+      const messageText = pickMessageVariant(variants, variantIndex++, {
+        name: log.name,
+        phone: log.phone,
+      });
+
       const outcome = await sendWithRetry(
-        campaign.instanceName || undefined,
+        sendInstance,
         log.phone,
-        campaign.message,
+        messageText,
         campaign.imageUrl
       );
 
@@ -324,14 +374,20 @@ export async function processCampaign(campaignId: string): Promise<void> {
             sentAt: new Date(),
             costEur: WHATSAPP_MESSAGE_COST_EUR,
             error: null,
+            instanceName: sendInstance,
+            messageText: messageText.slice(0, 4000),
           },
         });
         await syncCampaignCountsFromLogs(campaignId);
         touchStats();
-        burstCount += 1;
-        if (burstCount >= burstLimit) {
-          await pauseForBurst(campaignId);
-          break;
+        recordInstanceSend(sendInstance, pool.length);
+
+        if (!multiPool) {
+          burstCount += 1;
+          if (burstCount >= burstLimit) {
+            await pauseForBurst(campaignId);
+            break;
+          }
         }
       } else if (outcome.type === 'pause') {
         await pauseCampaign(campaignId, outcome.reason);
@@ -383,8 +439,10 @@ export async function resumeCampaign(campaignId: string): Promise<{ ok: boolean;
     return { ok: false, error: 'No hay mensajes pendientes' };
   }
 
-  if (!(await isInstanceReady(campaign.instanceName))) {
-    return { ok: false, error: 'WhatsApp no conectado. Vincula tu número antes de reanudar.' };
+  const pool = parseCampaignPool(campaign);
+  const poolReady = pool.length > 1 ? await isPoolReadyForSend(pool) : await isInstanceReady(pool[0]);
+  if (!poolReady) {
+    return { ok: false, error: 'Ningún móvil del pool está conectado. Vincula al menos uno antes de reanudar.' };
   }
 
   const quotaCheck = await assertQuotaForSend(pending);
@@ -392,9 +450,11 @@ export async function resumeCampaign(campaignId: string): Promise<{ ok: boolean;
     return { ok: false, error: quotaCheck.error };
   }
 
-  const dailyCheck = await assertDailyQuotaForSend(1);
-  if (dailyCheck.ok === false) {
-    return { ok: false, error: dailyCheck.error };
+  if (pool.length === 1) {
+    const dailyCheck = await assertDailyQuotaForSend(1);
+    if (dailyCheck.ok === false) {
+      return { ok: false, error: dailyCheck.error };
+    }
   }
 
   enqueueCampaign(campaignId);
@@ -416,17 +476,14 @@ export async function resumePausedCampaignsForInstance(instanceName: string): Pr
   const timer = setTimeout(async () => {
     resumeTimers.delete(name);
     try {
-      if (!(await isInstanceReady(name))) return;
-
       const campaigns = await prisma.whatsAppCampaign.findMany({
-        where: {
-          status: 'paused',
-          OR: [{ instanceName: name.toLowerCase() }, { instanceName: name }],
-        },
+        where: { status: 'paused' },
         orderBy: { pausedAt: 'asc' },
       });
 
-      for (const c of campaigns) {
+      const matched = campaigns.filter((c) => campaignUsesInstance(c, name));
+
+      for (const c of matched) {
         const pending = await prisma.whatsAppMessageLog.count({
           where: { campaignId: c.id, status: 'pending' },
         });
@@ -436,9 +493,17 @@ export async function resumePausedCampaignsForInstance(instanceName: string): Pr
           continue;
         }
 
+        const pool = parseCampaignPool(c);
+        const poolReady = pool.length > 1 ? await isPoolReadyForSend(pool) : await isInstanceReady(pool[0]);
+        if (!poolReady) continue;
+
         if (c.pauseReason === PAUSE_REASON_DAILY) {
-          const daily = await assertDailyQuotaForSend(1);
-          if (daily.ok === false) continue;
+          if (pool.length === 1) {
+            const daily = await assertDailyQuotaForSend(1);
+            if (daily.ok === false) continue;
+          } else if (!(await isPoolReadyForSend(pool))) {
+            continue;
+          }
         }
 
         if (isBurstPauseReason(c.pauseReason)) {
@@ -448,6 +513,11 @@ export async function resumePausedCampaignsForInstance(instanceName: string): Pr
           } else {
             enqueueCampaign(c.id);
           }
+          continue;
+        }
+
+        if (c.pauseReason === PAUSE_REASON_POOL_EXHAUSTED) {
+          scheduleBurstResume(c.id, getInstanceBurstPauseMs());
           continue;
         }
 
@@ -469,12 +539,18 @@ export async function resumeDailyPausedCampaigns(): Promise<void> {
   });
 
   for (const c of campaigns) {
-    if (!(await isInstanceReady(c.instanceName))) continue;
+    const pool = parseCampaignPool(c);
+    const poolReady = pool.length > 1 ? await isPoolReadyForSend(pool) : await isInstanceReady(pool[0]);
+    if (!poolReady) continue;
+
     const { isWhatsAppSendReady } = await import('./whatsapp-baileys.service');
-    const ready = isWhatsAppSendReady(c.instanceName || '');
-    if (!ready.ready) continue;
-    const daily = await assertDailyQuotaForSend(1);
-    if (daily.ok === false) continue;
+    if (pool.length === 1) {
+      const ready = isWhatsAppSendReady(pool[0] || '');
+      if (!ready.ready) continue;
+      const daily = await assertDailyQuotaForSend(1);
+      if (daily.ok === false) continue;
+    }
+
     enqueueCampaign(c.id);
   }
 }
@@ -507,14 +583,15 @@ export async function recoverInterruptedCampaigns(): Promise<void> {
       continue;
     }
 
-    if (canAutoResumePause(c.pauseReason) && (await isInstanceReady(c.instanceName))) {
+    const pool = parseCampaignPool(c);
+    const poolReady = pool.length > 1 ? await isPoolReadyForSend(pool) : await isInstanceReady(pool[0]);
+    if (canAutoResumePause(c.pauseReason) && poolReady) {
       enqueueCampaign(c.id);
     }
   }
 }
 
 export function onWhatsAppConnected(instanceName: string): void {
-  // Esperar a que el socket se estabilice antes de reanudar lotes programados
   setTimeout(() => {
     resumePausedCampaignsForInstance(instanceName).catch(console.warn);
   }, 15_000);
