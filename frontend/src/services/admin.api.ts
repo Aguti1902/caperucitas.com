@@ -138,7 +138,13 @@ export const uploadWhatsAppCampaignImage = async (file: File) => {
   const fd = new FormData();
   fd.append('image', file);
   const response = await adminApi.post('/whatsapp/campaigns/upload-image', fd);
-  return response.data as { url: string; filename: string; size: number; mimetype: string };
+  return response.data as {
+    url: string;
+    storagePath?: string;
+    filename: string;
+    size: number;
+    mimetype: string;
+  };
 };
 
 export const createWhatsAppCampaign = async (data: {

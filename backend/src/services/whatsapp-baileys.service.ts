@@ -940,15 +940,11 @@ export async function sendBuiltinMessage(
     let sent: WAMessage | undefined;
     if (imageUrl?.trim()) {
       const imagePayload = await resolveWhatsAppImagePayload(imageUrl);
-      if (imagePayload.buffer) {
-        sent = await sock.sendMessage(jid, {
-          image: imagePayload.buffer,
-          caption,
-          mimetype: imagePayload.mimetype,
-        });
-      } else {
-        sent = await sock.sendMessage(jid, { image: { url: imagePayload.url! }, caption });
-      }
+      sent = await sock.sendMessage(jid, {
+        image: imagePayload.buffer,
+        caption,
+        mimetype: imagePayload.mimetype,
+      });
     } else {
       if (!caption) {
         return { success: false, error: 'El mensaje no puede estar vacío' };

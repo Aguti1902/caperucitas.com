@@ -20,7 +20,12 @@ import {
   beginWhatsAppPairing,
   sleep,
 } from '../services/whatsapp.service';
-import { buildPublicUploadUrl } from '../utils/whatsapp-image.utils';
+import {
+  buildCampaignImageStoragePath,
+  buildPublicUploadUrl,
+  normalizeCampaignImageUrl,
+  normalizeStoredCampaignImageUrl,
+} from '../utils/whatsapp-image.utils';
 import {
   assertQuotaForSend,
   assertDailyQuotaForSend,
@@ -439,7 +444,11 @@ export const getCampaignById = async (req: AuthRequest, res: Response) => {
     });
     if (!campaign) return res.status(404).json({ error: 'Campaña no encontrada' });
     res.json({
-      campaign: { ...campaign, totalCostEur: computeWhatsAppCost(campaign.sentCount) },
+      campaign: {
+        ...campaign,
+        imageUrl: normalizeCampaignImageUrl(campaign.imageUrl),
+        totalCostEur: computeWhatsAppCost(campaign.sentCount),
+      },
       costPerMessage: WHATSAPP_MESSAGE_COST_EUR,
     });
   } catch (error) {
@@ -492,9 +501,10 @@ export const uploadCampaignImage = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'No se recibió ninguna imagen' });
     }
 
-    const url = buildPublicUploadUrl(req, file.filename);
+    const storagePath = buildCampaignImageStoragePath(file.filename);
     res.json({
-      url,
+      url: buildPublicUploadUrl(req, file.filename),
+      storagePath,
       filename: file.filename,
       size: file.size,
       mimetype: file.mimetype,
@@ -587,7 +597,7 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
       data: {
         name: name?.trim() || `Campaña ${new Date().toLocaleString('es-ES')}`,
         message: trimmedMessage,
-        imageUrl: trimmedImageUrl || null,
+        imageUrl: trimmedImageUrl ? normalizeStoredCampaignImageUrl(trimmedImageUrl) : null,
         source,
         instanceName: resolvedInstance,
         totalCount: recipients.length,

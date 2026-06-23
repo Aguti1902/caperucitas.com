@@ -407,8 +407,8 @@ export default function AdminWhatsAppPage() {
     setIsUploadingImage(true);
     setError('');
     try {
-      const { url } = await uploadWhatsAppCampaignImage(file);
-      setCampaignImageUrl(url);
+      const { url, storagePath } = await uploadWhatsAppCampaignImage(file);
+      setCampaignImageUrl(storagePath || url);
       setSuccess('Imagen lista. El texto del mensaje se enviará como caption debajo de la imagen.');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Error al subir imagen');
