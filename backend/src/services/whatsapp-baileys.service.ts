@@ -28,6 +28,30 @@ const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const reconnectInFlight = new Map<string, Promise<void>>();
 const pairingReconnectAttempts = new Map<string, number>();
 const lastDisconnectInfo = new Map<string, { code?: number; message: string; at: string }>();
+/** Tras vincular/reconectar, WhatsApp necesita sincronizar claves Signal antes de enviar */
+const sendBlockedUntil = new Map<string, number>();
+
+export function isWhatsAppSendReady(instanceName: string): { ready: boolean; waitMs: number; reason?: string } {
+  const name = normalizeName(instanceName);
+  const until = sendBlockedUntil.get(name) || 0;
+  const waitMs = until - Date.now();
+  if (waitMs > 0) {
+    return {
+      ready: false,
+      waitMs,
+      reason: `WhatsApp sincronizando claves (${Math.ceil(waitMs / 1000)} s). No envíes hasta que termine.`,
+    };
+  }
+  if (!isBuiltinConnected(name)) {
+    return { ready: false, waitMs: 0, reason: 'WhatsApp no conectado' };
+  }
+  return { ready: true, waitMs: 0 };
+}
+
+function blockSendsFor(name: string, ms: number, reason: string) {
+  sendBlockedUntil.set(name, Date.now() + ms);
+  console.log(`[WhatsApp:${name}] Envíos bloqueados ${Math.ceil(ms / 1000)}s — ${reason}`);
+}
 
 /** Mínimo entre intentos de vinculación NUEVA (no aplica a reanudar código existente) */
 const LINK_COOLDOWN_MS = 30 * 1000;
@@ -557,6 +581,15 @@ async function connectSocket(instanceName: string, force = false, options: Conne
         pairingModeInstances.delete(name);
         pairingCodeRequested.delete(name);
         pairingReconnectAttempts.delete(name);
+        try {
+          await saveCreds();
+        } catch (err: any) {
+          console.warn(`[WhatsApp:${name}] saveCreds tras open:`, err.message);
+        }
+
+        const warmupMs = isNewLogin ? 90_000 : 45_000;
+        blockSendsFor(name, warmupMs, isNewLogin ? 'cuenta recién vinculada' : 'reconexión');
+
         const phone = extractPhone(sock);
         await updateSession(name, {
           status: 'connected',
@@ -565,8 +598,15 @@ async function connectSocket(instanceName: string, force = false, options: Conne
           lastPairingCode: null,
           pairingPhone: null,
         });
-        console.log(`[WhatsApp:${name}] ✓ Conectado +${phone}${isNewLogin ? ' (nuevo login)' : ''}`);
-        notifyWhatsAppConnected(name);
+        console.log(
+          `[WhatsApp:${name}] ✓ Conectado +${phone}${isNewLogin ? ' (nuevo login)' : ''} — espera ${warmupMs / 1000}s antes de enviar`
+        );
+
+        setTimeout(() => {
+          if (activeSockets.get(name)?.user) {
+            notifyWhatsAppConnected(name);
+          }
+        }, warmupMs);
       }
 
       if (connection === 'close') {
@@ -633,15 +673,16 @@ async function connectSocket(instanceName: string, force = false, options: Conne
         if (restartRequired) {
           pairingModeInstances.delete(name);
           pairingCodeRequested.delete(name);
+          blockSendsFor(name, 60_000, 'reinicio 515');
           await updateSession(name, { status: 'connecting' });
           try {
             await saveCreds();
-            await sleep(2500);
+            await sleep(4000);
           } catch {
             /* ignore */
           }
-          console.log(`[WhatsApp:${name}] Reinicio requerido (515) — reconectando en 4s...`);
-          scheduleReconnect(name, 4000);
+          console.log(`[WhatsApp:${name}] Reinicio requerido (515) — reconectando en 10s...`);
+          scheduleReconnect(name, 10_000);
           return;
         }
 
@@ -755,6 +796,7 @@ export async function getBuiltinStatus(instanceName: string) {
     state: liveConnected ? 'connected' : reconnecting ? 'reconnecting' : session?.status || 'disconnected',
     owner: session?.phone || extractPhone(sock) || undefined,
     lastDisconnect: getLastDisconnectInfo(name),
+    sendReady: isWhatsAppSendReady(name),
   };
 }
 
@@ -883,6 +925,14 @@ export async function sendBuiltinMessage(
     });
 
   try {
+    const sendReady = isWhatsAppSendReady(name);
+    if (!sendReady.ready) {
+      return {
+        success: false,
+        error: sendReady.reason || 'WhatsApp no listo para enviar',
+      };
+    }
+
     if (!isBuiltinConnected(name)) {
       return { success: false, error: 'WhatsApp se desconectó antes de enviar' };
     }

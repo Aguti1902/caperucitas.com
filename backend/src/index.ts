@@ -91,6 +91,8 @@ import { setupSocketHandlers } from './services/socket.service';
 import { setIO } from './services/socket.io';
 
 const app = express();
+/** Railway/Vercel envían X-Forwarded-For; obligatorio para rate-limit y IPs reales */
+app.set('trust proxy', 1);
 const httpServer = createServer(app);
 
 // ============================================================
@@ -315,16 +317,21 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
 // Iniciar servidor — migrar esquema WhatsApp ANTES de aceptar peticiones
 const PORT = process.env.PORT || 4000;
 
-async function runPrismaDbPush(): Promise<void> {
-  try {
-    const backendDir = path.join(__dirname, '..');
-    await execFileAsync('npx', ['prisma', 'db', 'push', '--skip-generate'], {
-      cwd: backendDir,
-      timeout: 120_000,
-    });
-    console.log('✅ prisma db push OK');
-  } catch (err: any) {
-    console.warn('⚠️ prisma db push:', err?.stderr || err?.message || err);
+async function runPrismaDbPush(retries = 3): Promise<void> {
+  const backendDir = path.join(__dirname, '..');
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      await execFileAsync('npx', ['prisma', 'db', 'push', '--skip-generate'], {
+        cwd: backendDir,
+        timeout: 120_000,
+      });
+      console.log('✅ prisma db push OK');
+      return;
+    } catch (err: any) {
+      const msg = err?.stderr || err?.message || err;
+      console.warn(`⚠️ prisma db push intento ${attempt}/${retries}:`, msg);
+      if (attempt < retries) await new Promise((r) => setTimeout(r, 5000 * attempt));
+    }
   }
 }
 

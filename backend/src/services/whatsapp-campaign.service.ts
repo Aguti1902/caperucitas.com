@@ -470,6 +470,9 @@ export async function resumeDailyPausedCampaigns(): Promise<void> {
 
   for (const c of campaigns) {
     if (!(await isInstanceReady(c.instanceName))) continue;
+    const { isWhatsAppSendReady } = await import('./whatsapp-baileys.service');
+    const ready = isWhatsAppSendReady(c.instanceName || '');
+    if (!ready.ready) continue;
     const daily = await assertDailyQuotaForSend(1);
     if (daily.ok === false) continue;
     enqueueCampaign(c.id);

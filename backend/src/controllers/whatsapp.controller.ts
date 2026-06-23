@@ -543,6 +543,15 @@ export const createCampaign = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    const { isWhatsAppSendReady } = await import('../services/whatsapp-baileys.service');
+    const sendReady = isWhatsAppSendReady(resolvedInstance);
+    if (!sendReady.ready && sendReady.waitMs > 0) {
+      return res.status(503).json({
+        error: sendReady.reason || `Espera ${Math.ceil(sendReady.waitMs / 1000)} segundos tras conectar antes de enviar.`,
+        waitMs: sendReady.waitMs,
+      });
+    }
+
     const recipients = await resolveRecipients(source, phones);
     if (recipients.length === 0) {
       return res.status(400).json({ error: 'No hay destinatarios válidos para esta campaña' });
