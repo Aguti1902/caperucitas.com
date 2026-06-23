@@ -18,6 +18,7 @@ import {
   checkEvolutionHealth,
   getWhatsAppDiagnostics,
   beginWhatsAppPairing,
+  sleep,
 } from '../services/whatsapp.service';
 import { buildPublicUploadUrl } from '../utils/whatsapp-image.utils';
 import {
@@ -891,6 +892,41 @@ export const setupPairingCode = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Error setupPairingCode:', error);
     res.status(500).json({ error: 'Error al vincular WhatsApp' });
+  }
+};
+
+/** Reconecta sesión guardada sin borrar credenciales (no abre segunda vinculación). */
+export const reconnectWhatsAppSession = async (req: AuthRequest, res: Response) => {
+  try {
+    const instanceName = (req.body.instanceName || getDefaultInstanceName() || '').trim();
+    if (!instanceName) {
+      return res.status(400).json({ error: 'Instancia no definida' });
+    }
+
+    const { requestReconnectOnce, isBuiltinConnected, isBuiltinConnecting, getLastDisconnectInfo } =
+      await import('../services/whatsapp-baileys.service');
+
+    requestReconnectOnce(instanceName);
+
+    for (let i = 0; i < 12; i++) {
+      await sleep(2000);
+      if (isBuiltinConnected(instanceName)) break;
+      if (!isBuiltinConnecting(instanceName) && i > 2) break;
+    }
+
+    const status = await getInstanceStatus(instanceName);
+    whatsappStatsCache = null;
+
+    res.json({
+      ...status,
+      lastDisconnect: getLastDisconnectInfo(instanceName),
+      message: status.connected
+        ? 'WhatsApp reconectado'
+        : 'Reconectando… Espera 10–20 s y pulsa Actualizar. Si sigue rojo, vincula de nuevo.',
+    });
+  } catch (error) {
+    console.error('reconnectWhatsAppSession:', error);
+    res.status(500).json({ error: 'Error al reconectar WhatsApp' });
   }
 };
 

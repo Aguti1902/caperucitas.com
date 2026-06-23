@@ -27,6 +27,7 @@ const pairingCodeRequested = new Set<string>();
 const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const reconnectInFlight = new Map<string, Promise<void>>();
 const pairingReconnectAttempts = new Map<string, number>();
+const lastDisconnectInfo = new Map<string, { code?: number; message: string; at: string }>();
 
 /** Mínimo entre intentos de vinculación NUEVA (no aplica a reanudar código existente) */
 const LINK_COOLDOWN_MS = 30 * 1000;
@@ -215,6 +216,32 @@ function notifyWhatsAppConnected(instanceName: string) {
   import('./whatsapp-campaign.service')
     .then((m) => m.onWhatsAppConnected(instanceName))
     .catch(() => {});
+}
+
+function notifyWhatsAppTempDisconnect(instanceName: string) {
+  import('./whatsapp-campaign.service')
+    .then(async (m) => {
+      await m.pauseActiveCampaignsForInstance(instanceName, m.PAUSE_REASON_TEMP_DISCONNECT);
+    })
+    .catch(() => {});
+}
+
+export function getLastDisconnectInfo(instanceName: string) {
+  return lastDisconnectInfo.get(normalizeName(instanceName)) || null;
+}
+
+function isForceRelink(code?: number, errMsg = ''): boolean {
+  const lower = errMsg.toLowerCase();
+  return (
+    code === DisconnectReason.loggedOut ||
+    code === DisconnectReason.connectionReplaced ||
+    code === 403 ||
+    code === 401 ||
+    lower.includes('logged out') ||
+    lower.includes('conflict') ||
+    lower.includes('device_removed') ||
+    lower.includes('integrity')
+  );
 }
 
 function notifyWhatsAppDisconnected(instanceName: string, reason?: string) {
@@ -549,14 +576,22 @@ async function connectSocket(instanceName: string, force = false, options: Conne
         const loggedOut = code === DisconnectReason.loggedOut;
         const restartRequired = code === DisconnectReason.restartRequired;
         const replaced = code === DisconnectReason.connectionReplaced;
+        const forceRelink = isForceRelink(code, errMsg);
+
+        lastDisconnectInfo.set(name, {
+          code,
+          message: errMsg || `disconnect code ${code}`,
+          at: new Date().toISOString(),
+        });
+
         console.log(`[WhatsApp:${name}] Cerrado código=${code} ${errMsg}`);
 
-        if (loggedOut || replaced) {
+        if (loggedOut || replaced || forceRelink) {
           notifyWhatsAppDisconnected(
             name,
-            loggedOut
-              ? 'WhatsApp cerró la sesión (posible bloqueo por envío masivo). Vincula de nuevo y reanuda la campaña.'
-              : 'Otra sesión reemplazó esta conexión.'
+            loggedOut || forceRelink
+              ? 'WhatsApp cerró la sesión (bloqueo/spam). Vincula de nuevo en el móvil y pulsa Reanudar en la campaña.'
+              : 'Otra sesión reemplazó esta conexión. Cierra WhatsApp Web en otros sitios y vincula de nuevo.'
           );
           clearReconnectTimer(name);
           pairingModeInstances.delete(name);
@@ -613,8 +648,9 @@ async function connectSocket(instanceName: string, force = false, options: Conne
         if (registered) {
           pairingModeInstances.delete(name);
           pairingCodeRequested.delete(name);
+          notifyWhatsAppTempDisconnect(name);
           await updateSession(name, { status: 'connecting' });
-          scheduleReconnect(name, 5000);
+          scheduleReconnect(name, 8000);
           return;
         }
 
@@ -709,9 +745,8 @@ export async function getBuiltinStatus(instanceName: string) {
   const sessionRegistered = session?.status === 'connected' && !!session.phone;
   const reconnecting = !liveConnected && sessionRegistered && isBuiltinConnecting(name);
 
-  if (sessionRegistered && !liveConnected && !isBuiltinConnecting(name)) {
-    requestReconnectOnce(name);
-  }
+  // NO reconectar aquí: cada poll del admin abría sockets duplicados → desvinculaba el móvil.
+  // La reconexión solo ocurre en restoreBuiltinSessions() al arrancar y al pulsar Vincular.
 
   return {
     configured: true,
@@ -719,6 +754,7 @@ export async function getBuiltinStatus(instanceName: string) {
     instanceName: name,
     state: liveConnected ? 'connected' : reconnecting ? 'reconnecting' : session?.status || 'disconnected',
     owner: session?.phone || extractPhone(sock) || undefined,
+    lastDisconnect: getLastDisconnectInfo(name),
   };
 }
 
@@ -780,6 +816,7 @@ export async function getBuiltinDiagnostics(instanceName: string) {
     lastLinkAttemptAt: session?.lastLinkAttemptAt,
     browser: WHATSAPP_BROWSER.join(' / '),
     waVersion: cachedWaVersion?.join('.') || 'unknown',
+    lastDisconnect: getLastDisconnectInfo(name),
   };
 }
 

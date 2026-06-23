@@ -41,6 +41,7 @@ import {
   getWhatsAppConnectionStatus,
   connectWhatsAppSender,
   resetWhatsAppMessages,
+  reconnectWhatsAppSession,
 } from '../services/admin.api';
 
 const COST_PER_MSG = 0.035;
@@ -87,6 +88,7 @@ export default function AdminWhatsAppPage() {
   const [manualPhones, setManualPhones] = useState('');
   const [delayMs, setDelayMs] = useState(12000);
   const [isResettingMessages, setIsResettingMessages] = useState(false);
+  const [isReconnectingSession, setIsReconnectingSession] = useState(false);
   const [testPhone, setTestPhone] = useState('');
   const [testMessage, setTestMessage] = useState('');
 
@@ -419,6 +421,21 @@ export default function AdminWhatsAppPage() {
     setCampaignImagePreview('');
   };
 
+  const handleReconnectSession = async () => {
+    setError('');
+    setIsReconnectingSession(true);
+    try {
+      const result = await reconnectWhatsAppSession(instanceName);
+      setSuccess(result.message || 'Reconectando WhatsApp…');
+      loadAll();
+      loadInstances();
+    } catch (e: any) {
+      setError(e.response?.data?.error || 'No se pudo reconectar');
+    } finally {
+      setIsReconnectingSession(false);
+    }
+  };
+
   const handleResetMessageCount = async () => {
     if (!window.confirm('¿Resetear contador de mensajes? Borra el historial de envíos del panel y corrige cifras infladas. Las campañas activas se cancelan.')) {
       return;
@@ -598,6 +615,17 @@ export default function AdminWhatsAppPage() {
           {!connected && isConfigured && (
             <>
               <div className="flex flex-wrap gap-2 mb-4">
+                {(activeInstance?.owner || senderPhone) && (
+                  <button
+                    type="button"
+                    onClick={handleReconnectSession}
+                    disabled={isReconnectingSession}
+                    className="bg-amber-700 hover:bg-amber-600 disabled:opacity-50 text-white font-semibold px-5 py-2.5 rounded-lg text-sm flex items-center gap-2"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isReconnectingSession ? 'animate-spin' : ''}`} />
+                    {isReconnectingSession ? 'Reconectando…' : 'Reconectar sesión'}
+                  </button>
+                )}
                 <button
                   onClick={() => handleConnectSender()}
                   disabled={isConnecting || !senderPhone.trim()}
@@ -790,12 +818,11 @@ export default function AdminWhatsAppPage() {
             Evita que WhatsApp restrinja tu cuenta
           </p>
           <ul className="list-disc list-inside text-xs space-y-1.5 text-red-100/90">
-            <li><strong>No envíes a listas frías</strong> (Excel de 10.000 números). WhatsApp lo detecta como spam.</li>
-            <li>Máximo <strong>{maxRecipientsPerCampaign} mensajes nuevos/día</strong> y <strong>{maxRecipientsPerCampaign} por campaña</strong>.</li>
-            <li>Tras <strong>{safeLimits?.burstSize ?? 15} mensajes</strong>, pausa automática de <strong>{safeLimits?.burstPauseMinutes ?? 30} min</strong> (evita corte ~15–20 msgs).</li>
-            <li>Delay mínimo <strong>{minDelayMs / 1000} s</strong> entre mensajes (recomendado 15–25 s en cuentas con aviso de spam).</li>
-            <li>Si ves «Tu cuenta está restringida», <strong>espera 6–24 h</strong> sin enviar nada.</li>
-            <li>Prioriza contactos que <strong>ya te hayan escrito</strong> o usuarios registrados en la web.</li>
+            <li><strong>WhatsApp detecta spam</strong> si envías el mismo mensaje a muchos números que no te conocen.</li>
+            <li>El panel ya <strong>no abre dos conexiones</strong> (eso desvinculaba al instante). Si sigue cayendo, es <strong>bloqueo de Meta</strong>.</li>
+            <li>Tras desvincular: pulsa <strong>Reconectar sesión</strong> o vincula de nuevo; luego <strong>Reanudar</strong> la campaña manualmente.</li>
+            <li>Máximo <strong>{maxRecipientsPerCampaign} por campaña</strong> · <strong>{safeLimits?.burstSize ?? 10} msgs</strong> → pausa <strong>{safeLimits?.burstPauseMinutes ?? 45} min</strong>.</li>
+            <li>Delay mínimo <strong>{minDelayMs / 1000} s</strong> (recomendado 20–30 s).</li>
           </ul>
         </div>
 

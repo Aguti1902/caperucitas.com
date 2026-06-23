@@ -278,5 +278,10 @@ export const connectWhatsAppSender = async (
 
 export const requestWhatsAppPairingCode = connectWhatsAppSender;
 
+export const reconnectWhatsAppSession = async (instanceName = 'caperucitas') => {
+  const response = await adminApi.post('/whatsapp/setup/reconnect', { instanceName });
+  return response.data;
+};
+
 export default adminApi;
 

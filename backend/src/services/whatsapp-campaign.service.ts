@@ -21,6 +21,7 @@ import {
   getBurstPauseMs,
   isBurstPauseReason,
   burstPauseRemainingMs,
+  allowAutoResumeCampaigns,
 } from '../utils/whatsapp-safe-limits.utils';
 
 const runningCampaigns = new Set<string>();
@@ -73,9 +74,20 @@ export const CAMPAIGN_WARMUP_MS = 8000;
 
 export const PAUSE_REASON_DISCONNECT =
   'WhatsApp desconectado (WhatsApp puede haber cerrado la sesión por envío masivo). Vincula de nuevo y pulsa Reanudar.';
+export const PAUSE_REASON_TEMP_DISCONNECT =
+  'Conexión WhatsApp interrumpida. Reconectando… Si no continúa sola, pulsa Reanudar.';
 export const PAUSE_REASON_DAILY = DAILY_QUOTA_EXHAUSTED_MESSAGE;
 export const PAUSE_REASON_RESTRICTION = WHATSAPP_RESTRICTION_PAUSE_MESSAGE;
 export const PAUSE_REASON_BURST = WHATSAPP_BURST_PAUSE_MESSAGE;
+
+/** Solo estas pausas pueden reanudarse solas tras reconectar. Nunca spam/disconnect/logout. */
+export function canAutoResumePause(pauseReason?: string | null): boolean {
+  if (!pauseReason) return false;
+  if (pauseReason === PAUSE_REASON_DAILY) return true;
+  if (isBurstPauseReason(pauseReason)) return true;
+  if (pauseReason.startsWith(PAUSE_REASON_TEMP_DISCONNECT)) return true;
+  return false;
+}
 
 type SendOutcome =
   | { type: 'sent' }
@@ -420,13 +432,15 @@ export async function resumePausedCampaignsForInstance(instanceName: string): Pr
         });
         if (pending === 0) continue;
 
+        if (!canAutoResumePause(c.pauseReason)) {
+          continue;
+        }
+
         if (c.pauseReason === PAUSE_REASON_DAILY) {
           const daily = await assertDailyQuotaForSend(1);
           if (daily.ok === false) continue;
         }
-        if (c.pauseReason === PAUSE_REASON_RESTRICTION) {
-          continue;
-        }
+
         if (isBurstPauseReason(c.pauseReason)) {
           const remaining = burstPauseRemainingMs(c.pausedAt);
           if (remaining > 0) {
@@ -437,7 +451,7 @@ export async function resumePausedCampaignsForInstance(instanceName: string): Pr
           continue;
         }
 
-        console.log(`[WhatsApp] Reanudando campaña ${c.id} (${c.name})`);
+        console.log(`[WhatsApp] Reanudando campaña ${c.id} (${c.name}) tras reconexión`);
         enqueueCampaign(c.id);
         break;
       }
@@ -482,18 +496,25 @@ export async function recoverInterruptedCampaigns(): Promise<void> {
     if (c.status === 'running') {
       await pauseCampaign(
         c.id,
-        'El servidor se reinició durante el envío. Reanudando automáticamente si WhatsApp está conectado.'
+        'El servidor se reinició. Pulsa Reanudar cuando WhatsApp esté conectado (verde).'
       );
     }
 
-    if (await isInstanceReady(c.instanceName)) {
+    if (!allowAutoResumeCampaigns()) {
+      continue;
+    }
+
+    if (canAutoResumePause(c.pauseReason) && (await isInstanceReady(c.instanceName))) {
       enqueueCampaign(c.id);
     }
   }
 }
 
 export function onWhatsAppConnected(instanceName: string): void {
-  resumePausedCampaignsForInstance(instanceName).catch(console.warn);
+  // Esperar a que el socket se estabilice antes de reanudar lotes programados
+  setTimeout(() => {
+    resumePausedCampaignsForInstance(instanceName).catch(console.warn);
+  }, 15_000);
 }
 
 export function onWhatsAppDisconnected(instanceName: string, reason?: string): void {

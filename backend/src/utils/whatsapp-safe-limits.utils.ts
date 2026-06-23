@@ -13,10 +13,10 @@ export const WHATSAPP_DEFAULT_DELAY_MS = 12_000;
 export const WHATSAPP_MAX_CAMPAIGN_RECIPIENTS = 200;
 
 /** Mensajes seguidos antes de pausa obligatoria (cuentas personales / con historial de spam). */
-export const WHATSAPP_BURST_SIZE = 15;
+export const WHATSAPP_BURST_SIZE = 10;
 
 /** Pausa entre lotes (ms) — simula uso humano y evita logout ~15–20 msgs. */
-export const WHATSAPP_BURST_PAUSE_MS = 30 * 60 * 1000;
+export const WHATSAPP_BURST_PAUSE_MS = 45 * 60 * 1000;
 
 export const WHATSAPP_BURST_PAUSE_MESSAGE =
   'Pausa anti-spam automática tras un lote de mensajes. La campaña continuará sola cuando termine la espera.';
@@ -94,4 +94,8 @@ export function isWhatsAppRestrictionError(error?: string): boolean {
 
 export function allowLargeCampaigns(): boolean {
   return process.env.WHATSAPP_ALLOW_LARGE_CAMPAIGNS === 'true';
+}
+
+export function allowAutoResumeCampaigns(): boolean {
+  return process.env.WHATSAPP_AUTO_RESUME_CAMPAIGNS === 'true';
 }
