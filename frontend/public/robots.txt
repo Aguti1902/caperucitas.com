@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /putas/
+Allow: /sexo-gratis/
+Allow: /ciudades
+Disallow: /admin/
+Disallow: /app/
+Disallow: /create-profile
+Disallow: /edit-profile
+
+Sitemap: https://www.caperucitas.com/sitemap.xml

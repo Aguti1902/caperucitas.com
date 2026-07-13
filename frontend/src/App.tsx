@@ -33,6 +33,7 @@ import PublicInfoPage from './pages/PublicInfoPage'
 import PrivacyPage from './pages/PrivacyPage'
 import TermsPage from './pages/TermsPage'
 import CookiesPage from './pages/CookiesPage'
+import CitiesDirectoryPage from './pages/CitiesDirectoryPage'
 import NormasPage from './pages/NormasPage'
 import { initGA, trackPageView } from './utils/analytics'
 
@@ -88,6 +89,9 @@ function App() {
         {/* Rutas públicas - accesibles sin login */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/perfiles" element={<IndexPage />} />
+        <Route path="/putas/:citySlug" element={<IndexPage />} />
+        <Route path="/sexo-gratis/:citySlug" element={<IndexPage />} />
+        <Route path="/ciudades" element={<CitiesDirectoryPage />} />
         <Route path="/profile/:id" element={<PublicProfileDetailPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />

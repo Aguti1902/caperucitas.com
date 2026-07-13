@@ -1,5 +1,7 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
+import SeoHead from '@/components/common/SeoHead'
+import { SITE_URL } from '@/utils/citySeo'
 
 export default function LandingPage() {
   const navigate = useNavigate()
@@ -7,8 +9,9 @@ export default function LandingPage() {
   const handleEnter = () => navigate('/perfiles')
   const handleSexoGratis = () => {
     localStorage.setItem('cap_profileSection', 'sexo_gratis')
-    navigate('/perfiles')
+    navigate('/sexo-gratis/barcelona')
   }
+  const handleEscortsCity = () => navigate('/putas/barcelona')
   const handleNotAdult = () => { window.location.href = 'https://www.google.com' }
 
   const handleShare = () => {
@@ -22,6 +25,12 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-black flex flex-col">
+      <SeoHead
+        title="Putas y escorts cerca de ti en España | Caperucitas.com"
+        description="Encuentra putas y escorts en tu ciudad. Madrid, Barcelona, Valencia y más de 100 ciudades. Contacto directo, discreto y sin rodeos."
+        canonical={SITE_URL}
+        keywords="putas, escorts, putas cerca, escorts españa, sexo gratis"
+      />
       <main className="flex-1 max-w-2xl mx-auto w-full px-0 flex flex-col">
 
         {/* Banner logo - ancho completo */}
@@ -64,11 +73,17 @@ export default function LandingPage() {
                 Ver Sexo gratis
               </button>
               <button
-                onClick={handleEnter}
+                onClick={handleEscortsCity}
                 className="w-full bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-base py-3.5 rounded-xl transition-all"
               >
                 Ver escorts
               </button>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-3 justify-center">
+              <Link to="/putas/madrid" className="text-xs text-gray-400 hover:text-white underline">Putas Madrid</Link>
+              <Link to="/putas/barcelona" className="text-xs text-gray-400 hover:text-white underline">Putas Barcelona</Link>
+              <Link to="/putas/valencia" className="text-xs text-gray-400 hover:text-white underline">Putas Valencia</Link>
+              <Link to="/ciudades" className="text-xs text-emerald-400 hover:text-emerald-300 underline">Todas las ciudades</Link>
             </div>
           </div>
 

@@ -1,12 +1,24 @@
-import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import Logo from '@/components/common/Logo'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
+import SeoHead from '@/components/common/SeoHead'
 import { fetchAllPublicProfiles } from '@/services/profile.api'
 import { useAuthStore } from '@/store/authStore'
 import { MapPin, Search, Phone, MessageCircle, Zap, Share2, Info, Home, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { SPANISH_CITIES } from '@/data/spanishCities'
 import { getProfileCoverPhoto } from '@/utils/profileUtils'
+import {
+  getCityBySlug,
+  getCityCanonical,
+  getCityPath,
+  getCitySeoMeta,
+  getNearbyMunicipalities,
+  findMunicipalityByName,
+  cityToSlug,
+  type SeoSection,
+} from '@/utils/citySeo'
+import { resolveCityFromCoords } from '@/utils/geoCityRedirect'
 
 const GENDER_LABELS: Record<string, { label: string; color: string }> = {
   chica: { label: 'Chica', color: 'bg-pink-600' },
@@ -43,28 +55,45 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 
 export default function IndexPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { citySlug } = useParams<{ citySlug?: string }>()
   const { isAuthenticated, hasProfile } = useAuthStore()
+
+  const routeSection: SeoSection | null = location.pathname.startsWith('/sexo-gratis/')
+    ? 'sexo_gratis'
+    : location.pathname.startsWith('/putas/')
+      ? 'escort'
+      : null
+
+  const seoCity = useMemo(
+    () => (citySlug ? getCityBySlug(citySlug) : undefined),
+    [citySlug]
+  )
+
   const [profiles, setProfiles] = useState<any[]>([])
   const [roamProfiles, setRoamProfiles] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedGender, setSelectedGender] = useState('all')
   const [selectedSection, setSelectedSection] = useState<ProfileSection>(() => {
+    if (routeSection) return routeSection
     const saved = localStorage.getItem('cap_profileSection')
     return saved === 'sexo_gratis' ? 'sexo_gratis' : 'escort'
   })
-  // Persistir ciudad y ubicación en localStorage para que sobrevivan la navegación
-  const [citySearch, setCitySearch] = useState<string>(() => localStorage.getItem('cap_citySearch') || '')
+  const [citySearch, setCitySearch] = useState<string>(() => {
+    if (seoCity) return seoCity.name
+    return localStorage.getItem('cap_citySearch') || ''
+  })
   const [showCityModal, setShowCityModal] = useState(false)
   const [modalSearch, setModalSearch] = useState('')
   const [isDetectingModal, setIsDetectingModal] = useState(false)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(() => {
+    if (seoCity) return { lat: seoCity.lat, lng: seoCity.lng }
     try {
       const saved = localStorage.getItem('cap_userLocation')
       return saved ? JSON.parse(saved) : null
     } catch { return null }
   })
-  // Si ya hay ubicación guardada, no volver a preguntar. Si no, mostrar popup.
-  const [showGeoPopup, setShowGeoPopup] = useState(() => !localStorage.getItem('cap_userLocation'))
+  const [showGeoPopup, setShowGeoPopup] = useState(() => !seoCity && !localStorage.getItem('cap_userLocation'))
   const [geoDetecting, setGeoDetecting] = useState(false)
   const [nominatimResults, setNominatimResults] = useState<{ name: string; displayName: string; lat: number; lng: number }[]>([])
   const [isSearchingCity, setIsSearchingCity] = useState(false)
@@ -102,14 +131,56 @@ export default function IndexPage() {
     return () => clearTimeout(timer)
   }, [modalSearch])
 
-  const closeGeoPopup = (loc: { lat: number; lng: number } | null) => {
+  const goToCity = async (name: string, lat: number, lng: number) => {
+    setUserLocation({ lat, lng })
+    setShowCityModal(false)
+    setNominatimResults([])
+
+    let match = name ? findMunicipalityByName(name) : undefined
+
+    if (!match) {
+      const resolved = await resolveCityFromCoords(lat, lng, selectedSection)
+      if (resolved) {
+        setCitySearch(resolved.name)
+        navigate(resolved.path)
+        return
+      }
+    }
+
+    if (!match && name) {
+      match = getCityBySlug(cityToSlug(name))
+    }
+
+    if (!match) {
+      const resolved = await resolveCityFromCoords(lat, lng, selectedSection)
+      if (resolved) {
+        setCitySearch(resolved.name)
+        navigate(resolved.path)
+      }
+      return
+    }
+
+    setCitySearch(match.name)
+    navigate(getCityPath(selectedSection, match))
+  }
+
+  const closeGeoPopup = async (loc: { lat: number; lng: number } | null) => {
     setShowGeoPopup(false)
     setGeoDetecting(false)
-    if (loc) {
-      setUserLocation(loc)
-      // Recargar perfiles con la ubicación ya disponible (evita race condition con state)
-      loadProfiles(loc)
+    if (!loc) return
+
+    if (!seoCity && (location.pathname === '/perfiles' || location.pathname === '/')) {
+      const resolved = await resolveCityFromCoords(loc.lat, loc.lng, selectedSection)
+      if (resolved) {
+        setUserLocation(loc)
+        setCitySearch(resolved.name)
+        navigate(resolved.path)
+        return
+      }
     }
+
+    setUserLocation(loc)
+    loadProfiles(loc)
   }
 
   const handleGeoAllow = () => {
@@ -136,16 +207,8 @@ export default function IndexPage() {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords
-        setUserLocation({ lat: latitude, lng: longitude })
-        // Buscar ciudad más cercana
-        const closest = SPANISH_CITIES.reduce((prev, city) => {
-          const d = Math.hypot(city.lat - latitude, city.lng - longitude)
-          const pd = Math.hypot(prev.lat - latitude, prev.lng - longitude)
-          return d < pd ? city : prev
-        })
-        setCitySearch(closest.name)
+        goToCity('', latitude, longitude)
         setIsDetectingModal(false)
-        setShowCityModal(false)
       },
       async () => {
         try {
@@ -184,12 +247,39 @@ export default function IndexPage() {
   const [headerHeight, setHeaderHeight] = useState(0)
 
   useEffect(() => {
-    localStorage.setItem('cap_profileSection', selectedSection)
-  }, [selectedSection])
+    if (!routeSection) localStorage.setItem('cap_profileSection', selectedSection)
+  }, [selectedSection, routeSection])
+
+  useEffect(() => {
+    if (routeSection) setSelectedSection(routeSection)
+  }, [routeSection])
+
+  useEffect(() => {
+    if (seoCity) {
+      setCitySearch(seoCity.name)
+      if (seoCity.lat != null && seoCity.lng != null) {
+        setUserLocation({ lat: seoCity.lat, lng: seoCity.lng })
+      }
+      setShowGeoPopup(false)
+    }
+  }, [seoCity?.slug])
+
+  const changeSection = (section: ProfileSection) => {
+    setSelectedSection(section)
+    if (seoCity) {
+      navigate(getCityPath(section, seoCity))
+    }
+  }
+
+  const seoMeta = seoCity ? getCitySeoMeta(seoCity, selectedSection) : null
+  const nearbyCities = useMemo(
+    () => (seoCity ? getNearbyMunicipalities(seoCity, 8) : []),
+    [seoCity]
+  )
 
   useEffect(() => {
     loadProfiles()
-  }, [selectedGender, selectedSection])
+  }, [selectedGender, selectedSection, seoCity?.name])
 
   // citySearch es solo referencia visual — no filtra el backend
 
@@ -224,6 +314,7 @@ export default function IndexPage() {
       // No filtramos por ciudad en backend — siempre cargamos todos y ordenamos por distancia
       const params: Record<string, string> = { profileType: selectedSection }
       if (selectedGender !== 'all') params.gender = selectedGender
+      if (seoCity) params.city = seoCity.name
 
       const all = await fetchAllPublicProfiles(params)
       const unique = all.filter(
@@ -288,6 +379,35 @@ export default function IndexPage() {
 
   return (
     <div className="min-h-screen bg-gray-950">
+      {seoMeta && seoCity && (
+        <SeoHead
+          title={seoMeta.title}
+          description={seoMeta.description}
+          canonical={getCityCanonical(selectedSection, seoCity)}
+          keywords={seoMeta.keywords}
+          jsonLd={{
+            '@context': 'https://schema.org',
+            '@type': 'WebPage',
+            name: seoMeta.title,
+            description: seoMeta.description,
+            url: getCityCanonical(selectedSection, seoCity),
+            inLanguage: 'es-ES',
+            about: {
+              '@type': 'Place',
+              name: seoCity.name,
+              ...(seoCity.lat != null && seoCity.lng != null
+                ? {
+                    geo: {
+                      '@type': 'GeoCoordinates',
+                      latitude: seoCity.lat,
+                      longitude: seoCity.lng,
+                    },
+                  }
+                : {}),
+            },
+          }}
+        />
+      )}
 
       {/* ── Popup geolocalización obligatorio ── */}
       {showGeoPopup && (
@@ -373,7 +493,7 @@ export default function IndexPage() {
           <div className="max-w-7xl mx-auto flex items-center gap-2">
             <div className="grid grid-cols-2 gap-2 p-1 bg-gray-800 rounded-xl flex-1">
               <button
-                onClick={() => setSelectedSection('escort')}
+                onClick={() => changeSection('escort')}
                 className={`relative py-2.5 rounded-lg text-sm font-black transition-all ${
                   selectedSection === 'escort'
                     ? 'bg-red-600 text-white shadow-lg shadow-red-900/40'
@@ -383,7 +503,7 @@ export default function IndexPage() {
                 ESCORTS
               </button>
               <button
-                onClick={() => setSelectedSection('sexo_gratis')}
+                onClick={() => changeSection('sexo_gratis')}
                 className={`relative py-2.5 rounded-lg text-sm font-black transition-all ${
                   selectedSection === 'sexo_gratis'
                     ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40'
@@ -666,12 +786,7 @@ export default function IndexPage() {
                     {nominatimResults.map((place, i) => (
                       <button
                         key={i}
-                        onClick={() => {
-                          setCitySearch(place.name)
-                          setUserLocation({ lat: place.lat, lng: place.lng })
-                          setShowCityModal(false)
-                          setNominatimResults([])
-                        }}
+                        onClick={() => goToCity(place.name, place.lat, place.lng)}
                         className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-800 rounded-xl transition-colors"
                       >
                         <MapPin className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
@@ -704,10 +819,22 @@ export default function IndexPage() {
 
       <main className="max-w-7xl mx-auto px-3 py-4 space-y-6">
 
+        {seoMeta && seoCity && (
+          <header className="space-y-1">
+            <h1 className="text-xl md:text-2xl font-black text-white">{seoMeta.h1}</h1>
+            <p className="text-gray-400 text-sm">{seoMeta.subtitle}</p>
+            <p className="text-gray-500 text-xs leading-relaxed">
+              {selectedSection === 'escort'
+                ? `Directorio de putas y escorts en ${seoCity.name}. Contacto directo, fotos reales y perfiles cerca de tu ubicación.`
+                : `Perfiles de sexo gratis en ${seoCity.name} sin compensación económica. Encuentros consensuados cerca de ti.`}
+            </p>
+          </header>
+        )}
+
         {/* Banner promocional Sexo gratis */}
         {selectedSection === 'escort' && (
           <button
-            onClick={() => setSelectedSection('sexo_gratis')}
+            onClick={() => changeSection('sexo_gratis')}
             className="w-full text-left relative overflow-hidden rounded-xl border border-emerald-600/40 bg-gradient-to-r from-emerald-900/60 to-gray-900 p-4 hover:border-emerald-500 transition-colors active:scale-[0.99]"
           >
             <span className="absolute top-2 right-2 bg-yellow-400 text-gray-900 text-[9px] font-black px-1.5 py-0.5 rounded-full">
@@ -811,7 +938,7 @@ export default function IndexPage() {
                 </p>
                 {selectedSection === 'sexo_gratis' && (
                   <button
-                    onClick={() => setSelectedSection('escort')}
+                    onClick={() => changeSection('escort')}
                     className="mt-4 bg-red-600 hover:bg-red-700 text-white font-bold px-5 py-2.5 rounded-xl transition-colors"
                   >
                     Ver escorts
@@ -833,6 +960,31 @@ export default function IndexPage() {
         )}
       </main>
 
+      {seoCity && nearbyCities.length > 0 && (
+        <section className="max-w-7xl mx-auto px-3 pb-6">
+          <h2 className="text-white font-bold text-sm mb-2">
+            {selectedSection === 'escort' ? 'Putas y escorts cerca de' : 'Sexo gratis cerca de'} {seoCity.name}
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {nearbyCities.map((city) => (
+              <button
+                key={city.slug}
+                onClick={() => navigate(getCityPath(selectedSection, city))}
+                className="text-xs font-semibold px-3 py-1.5 rounded-full bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+              >
+                {city.name}
+              </button>
+            ))}
+            <button
+              onClick={() => navigate('/ciudades')}
+              className="text-xs font-semibold px-3 py-1.5 rounded-full border border-gray-700 text-gray-400 hover:text-white transition-colors"
+            >
+              Todas las ciudades →
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* Texto legal - pequeño, antes del nav */}
       <div className="text-center py-4 px-4 pb-24">
         <div className="flex justify-center flex-wrap gap-3 text-xs text-gray-700">
@@ -840,6 +992,7 @@ export default function IndexPage() {
           <button onClick={() => navigate('/terminos')} className="hover:text-gray-400">Términos</button>
           <button onClick={() => navigate('/cookies')} className="hover:text-gray-400">Cookies</button>
           <button onClick={() => navigate('/normas')} className="hover:text-gray-400">Normas</button>
+          <button onClick={() => navigate('/ciudades')} className="hover:text-gray-400">Ciudades</button>
         </div>
         <p className="text-xs text-gray-800 mt-1">© {new Date().getFullYear()} Caperucitas.com</p>
       </div>
