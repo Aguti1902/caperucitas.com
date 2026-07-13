@@ -27,6 +27,8 @@ const GENDER_FILTERS = [
   { id: 'casa', label: 'Casas/Pisos' },
 ]
 
+type ProfileSection = 'escort' | 'sexo_gratis'
+
 
 /** Haversine: distancia en km entre dos puntos lat/lng */
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -46,6 +48,10 @@ export default function IndexPage() {
   const [roamProfiles, setRoamProfiles] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedGender, setSelectedGender] = useState('all')
+  const [selectedSection, setSelectedSection] = useState<ProfileSection>(() => {
+    const saved = localStorage.getItem('cap_profileSection')
+    return saved === 'sexo_gratis' ? 'sexo_gratis' : 'escort'
+  })
   // Persistir ciudad y ubicación en localStorage para que sobrevivan la navegación
   const [citySearch, setCitySearch] = useState<string>(() => localStorage.getItem('cap_citySearch') || '')
   const [showCityModal, setShowCityModal] = useState(false)
@@ -174,8 +180,12 @@ export default function IndexPage() {
   const [headerHeight, setHeaderHeight] = useState(0)
 
   useEffect(() => {
+    localStorage.setItem('cap_profileSection', selectedSection)
+  }, [selectedSection])
+
+  useEffect(() => {
     loadProfiles()
-  }, [selectedGender])
+  }, [selectedGender, selectedSection])
 
   // citySearch es solo referencia visual — no filtra el backend
 
@@ -208,7 +218,7 @@ export default function IndexPage() {
     setIsLoading(true)
     try {
       // No filtramos por ciudad en backend — siempre cargamos todos y ordenamos por distancia
-      const params: Record<string, string> = {}
+      const params: Record<string, string> = { profileType: selectedSection }
       if (selectedGender !== 'all') params.gender = selectedGender
 
       const all = await fetchAllPublicProfiles(params)
@@ -258,7 +268,11 @@ export default function IndexPage() {
   }
 
   const handleShare = () => {
-    const msg = encodeURIComponent('Hola, mira esta web brutal para adultos donde encontrarás compañía cerca de ti: https://www.caperucitas.com — discreta, directa y sin rodeos.')
+    const msg = encodeURIComponent(
+      '🔥 Novedad en Caperucitas.com: nueva sección SEXO GRATIS + escorts cerca de ti.\n\n' +
+      'Encuentros consensuados sin pagar, o compañía profesional si lo prefieres.\n\n' +
+      '👉 https://www.caperucitas.com'
+    )
     window.open(`https://wa.me/?text=${msg}`, '_blank')
   }
 
@@ -348,6 +362,42 @@ export default function IndexPage() {
               </button>
             </div>
           )}
+        </div>
+
+        {/* Selector de sección: Escorts / Sexo gratis */}
+        <div className="border-t border-gray-800 px-3 py-2.5 bg-gray-950/80">
+          <div className="max-w-7xl mx-auto">
+            <div className="grid grid-cols-2 gap-2 p-1 bg-gray-800 rounded-xl">
+              <button
+                onClick={() => setSelectedSection('escort')}
+                className={`relative py-2.5 rounded-lg text-sm font-black transition-all ${
+                  selectedSection === 'escort'
+                    ? 'bg-red-600 text-white shadow-lg shadow-red-900/40'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                ESCORTS
+              </button>
+              <button
+                onClick={() => setSelectedSection('sexo_gratis')}
+                className={`relative py-2.5 rounded-lg text-sm font-black transition-all ${
+                  selectedSection === 'sexo_gratis'
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                SEXO GRATIS
+                <span className="absolute -top-1.5 -right-1 bg-yellow-400 text-gray-900 text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                  NUEVO
+                </span>
+              </button>
+            </div>
+            {selectedSection === 'sexo_gratis' && (
+              <p className="text-emerald-300/90 text-[11px] mt-2 text-center leading-snug">
+                Encuentros consensuados sin compensación económica. Si pides o aceptas dinero, serás expulsado/a.
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Barra ciudad + edad + compartir */}
@@ -602,6 +652,21 @@ export default function IndexPage() {
 
       <main className="max-w-7xl mx-auto px-3 py-4 space-y-6">
 
+        {/* Banner promocional Sexo gratis */}
+        {selectedSection === 'escort' && (
+          <button
+            onClick={() => setSelectedSection('sexo_gratis')}
+            className="w-full text-left relative overflow-hidden rounded-xl border border-emerald-600/40 bg-gradient-to-r from-emerald-900/60 to-gray-900 p-4 hover:border-emerald-500 transition-colors active:scale-[0.99]"
+          >
+            <span className="absolute top-2 right-2 bg-yellow-400 text-gray-900 text-[9px] font-black px-1.5 py-0.5 rounded-full">
+              NUEVO
+            </span>
+            <p className="text-emerald-300 text-[10px] font-bold uppercase tracking-wide">Novedad</p>
+            <p className="text-white font-black text-sm mt-0.5">💚 Sección Sexo gratis ya disponible</p>
+            <p className="text-gray-400 text-xs mt-1">Encuentros sin pagar · Toca aquí para explorar</p>
+          </button>
+        )}
+
         {isLoading ? (
           <LoadingSpinner />
         ) : (
@@ -661,9 +726,25 @@ export default function IndexPage() {
             {/* Grid principal */}
             {filteredProfiles.length === 0 ? (
               <div className="text-center py-16">
-                <div className="text-6xl mb-4">🔍</div>
-                <p className="text-gray-400 text-lg">No hay perfiles disponibles</p>
-                <p className="text-gray-500 text-sm mt-2">Prueba a cambiar los filtros</p>
+                <div className="text-6xl mb-4">{selectedSection === 'sexo_gratis' ? '💚' : '🔍'}</div>
+                <p className="text-gray-400 text-lg">
+                  {selectedSection === 'sexo_gratis'
+                    ? 'Aún no hay perfiles en Sexo gratis'
+                    : 'No hay perfiles disponibles'}
+                </p>
+                <p className="text-gray-500 text-sm mt-2">
+                  {selectedSection === 'sexo_gratis'
+                    ? 'Sé el primero en publicar o explora la sección de escorts'
+                    : 'Prueba a cambiar los filtros'}
+                </p>
+                {selectedSection === 'sexo_gratis' && (
+                  <button
+                    onClick={() => setSelectedSection('escort')}
+                    className="mt-4 bg-red-600 hover:bg-red-700 text-white font-bold px-5 py-2.5 rounded-xl transition-colors"
+                  >
+                    Ver escorts
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 md:gap-3">

@@ -19,6 +19,11 @@ export function getProfileCoverPhoto(profile: any): { url: string; type?: string
   return firstVisible?.url ? firstVisible : null
 }
 
+export const formatProfileType = (type: string | null | undefined): string => {
+  if (type === 'sexo_gratis') return '💚 Sexo gratis';
+  return '💼 Escort';
+};
+
 export const formatRelationshipGoal = (goal: string | null | undefined): string => {
   if (!goal) return '';
   

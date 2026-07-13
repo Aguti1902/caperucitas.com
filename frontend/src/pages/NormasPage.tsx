@@ -62,6 +62,23 @@ export default function NormasPage() {
           </section>
 
           <section>
+            <h2 className="text-xl font-bold text-white mb-3">💚 Sección Sexo gratis</h2>
+            <div className="bg-emerald-900/20 border border-emerald-800 rounded-xl p-4 space-y-3">
+              <p className="text-sm">
+                Caperucitas.com incluye una sección aparte para personas que buscan u ofrecen encuentros
+                consensuados <strong className="text-white">sin compensación económica</strong>. No se mezcla con los perfiles de escorts.
+              </p>
+              <p className="text-sm">
+                Si eliges publicar en <strong className="text-white">Sexo gratis</strong>, te comprometes a no solicitar ni aceptar
+                dinero, regalos ni ningún beneficio a cambio. El incumplimiento supone <strong className="text-red-400">expulsión permanente</strong>.
+              </p>
+              <p className="text-sm text-gray-400">
+                Puedes denunciar perfiles que pidan dinero usando el botón de denuncia en el perfil.
+              </p>
+            </div>
+          </section>
+
+          <section>
             <h2 className="text-xl font-bold text-white mb-3">⚖️ Consecuencias del incumplimiento</h2>
             <ul className="space-y-2 list-disc list-inside">
               <li><strong className="text-white">Aviso:</strong> para infracciones leves y primeras incidencias</li>

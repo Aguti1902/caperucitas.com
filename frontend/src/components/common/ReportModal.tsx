@@ -14,6 +14,7 @@ const REPORT_REASONS = [
   { value: 'scam', label: '🎭 Engaño o estafa', description: 'El perfil es engañoso o intenta estafar' },
   { value: 'fake_photos', label: '🖼️ Fotos falsas', description: 'Las fotos no corresponden a la persona real' },
   { value: 'underage', label: '🔞 Es menor de edad', description: 'La persona parece ser menor de 18 años' },
+  { value: 'money_request', label: '💰 Pide dinero o regalos', description: 'Solicita compensación económica (prohibido en Sexo gratis)' },
 ];
 
 export default function ReportModal({ profileId, profileTitle, onClose, onReportSent, isAuthenticated }: ReportModalProps) {

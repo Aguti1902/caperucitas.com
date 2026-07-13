@@ -29,6 +29,7 @@ export default function CreateProfilePage() {
     lookingFor: '',
     age: '',
     gender: '',
+    profileType: 'escort' as 'escort' | 'sexo_gratis',
     city: '',
     latitude: null as number | null,
     longitude: null as number | null,
@@ -45,6 +46,7 @@ export default function CreateProfilePage() {
 
   const [languages, setLanguages] = useState<string[]>(['Español'])
   const [error, setError] = useState('')
+  const [acceptedSexoGratisRules, setAcceptedSexoGratisRules] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState<Array<{ file: File; type: 'cover' | 'public' }>>([])
   const [photoPreview, setPhotoPreview] = useState<Array<{ url: string; type: 'cover' | 'public' }>>([])
@@ -123,6 +125,10 @@ export default function CreateProfilePage() {
     const age = parseInt(formData.age)
     if (isNaN(age) || age < 18 || age > 99) { showError('⚠️ La edad debe estar entre 18 y 99 años'); return }
     if (!formData.phone && !formData.whatsapp) { showError('⚠️ Debes añadir al menos un teléfono o WhatsApp de contacto'); return }
+    if (formData.profileType === 'sexo_gratis' && !acceptedSexoGratisRules) {
+      showError('⚠️ Debes aceptar las normas de la sección Sexo gratis')
+      return
+    }
     if (selectedFiles.length === 0) { showError('⚠️ Debes subir al menos 1 foto para publicar tu perfil'); return }
 
     setIsLoading(true)
@@ -193,6 +199,57 @@ export default function CreateProfilePage() {
               {error}
             </div>
           )}
+
+          {/* Tipo de perfil */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Tipo de perfil *
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, profileType: 'escort' })}
+                className={`py-4 px-4 rounded-xl font-semibold text-base transition-all ${
+                  formData.profileType === 'escort'
+                    ? 'bg-red-600 text-white shadow-lg scale-105'
+                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border-2 border-gray-700'
+                }`}
+              >
+                💼 Escort
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, profileType: 'sexo_gratis' })}
+                className={`py-4 px-4 rounded-xl font-semibold text-base transition-all ${
+                  formData.profileType === 'sexo_gratis'
+                    ? 'bg-emerald-600 text-white shadow-lg scale-105'
+                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border-2 border-gray-700'
+                }`}
+              >
+                💚 Sexo gratis
+              </button>
+            </div>
+            <p className="text-gray-500 text-xs mt-2">Solo puedes elegir una opción. Aparecerás en la sección correspondiente.</p>
+            {formData.profileType === 'sexo_gratis' && (
+              <div className="mt-3 bg-emerald-900/20 border border-emerald-700 rounded-xl p-4 space-y-3">
+                <p className="text-emerald-200 text-sm font-semibold">⚠️ Compromiso obligatorio</p>
+                <p className="text-gray-300 text-xs leading-relaxed">
+                  Al elegir <strong className="text-white">Sexo gratis</strong>, te comprometes a no solicitar ni aceptar
+                  ningún tipo de compensación económica, regalo o beneficio a cambio. El incumplimiento supone
+                  baneo y expulsión permanente de la web.
+                </p>
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={acceptedSexoGratisRules}
+                    onChange={(e) => setAcceptedSexoGratisRules(e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-gray-300 text-xs">Acepto estas normas y publicaré sin pedir dinero ni regalos</span>
+                </label>
+              </div>
+            )}
+          </div>
 
           {/* Categoría */}
           <div>
@@ -272,12 +329,16 @@ export default function CreateProfilePage() {
           />
 
           <Textarea
-            label="Lo que ofrezco / Servicios"
+            label={formData.profileType === 'sexo_gratis' ? 'Lo que busco / ofrezco' : 'Lo que ofrezco / Servicios'}
             value={formData.lookingFor}
             onChange={(e) => setFormData({ ...formData, lookingFor: e.target.value })}
             required
             rows={4}
-            placeholder="Describe tus servicios, lo que ofreces, tus tarifas si quieres..."
+            placeholder={
+              formData.profileType === 'sexo_gratis'
+                ? 'Describe qué buscas u ofreces, sin mencionar tarifas ni compensación económica...'
+                : 'Describe tus servicios, lo que ofreces, tus tarifas si quieres...'
+            }
           />
 
           {/* Ubicación */}

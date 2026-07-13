@@ -98,6 +98,9 @@ model Profile {
   phone           String?   // Número de teléfono
   whatsapp        String?   // Número de WhatsApp
   
+  // Tipo de perfil: escort (de pago) o sexo_gratis (sin compensación económica)
+  profileType     String    @default("escort") // 'escort' | 'sexo_gratis'
+
   // Estado de visibilidad
   isPaused        Boolean   @default(false) // Perfil pausado temporalmente
   
@@ -133,6 +136,7 @@ model Profile {
   reportsReceived Report[] @relation("ReportedProfile")
   
   @@index([orientation])
+  @@index([profileType])
   @@index([city])
   @@index([isOnline])
   @@index([lastSeenAt])

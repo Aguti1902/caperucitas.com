@@ -1084,7 +1084,7 @@ export default function AdminWhatsAppPage() {
               value={campaignMessage}
               onChange={(e) => setCampaignMessage(e.target.value)}
               rows={8}
-              placeholder={`Variante 1 — Hola {nombre}, te invitamos a registrarte en caperucitas.com...\n---\nVariante 2 — Buenas {nombre}, somos Caperucitas y buscamos...\n---\nVariante 3 — Hi {nombre}, publica tu perfil gratis en...`}
+              placeholder={`Variante 1 — Hola {nombre}, novedad en caperucitas.com: nueva sección SEXO GRATIS + escorts cerca de ti. Entra gratis: https://www.caperucitas.com\n---\nVariante 2 — Buenas {nombre}, en Caperucitas ya puedes publicar en Sexo gratis (sin pagar) o como escort. Regístrate: https://www.caperucitas.com\n---\nVariante 3 — Hi {nombre}, encuentros consensuados sin compensación o compañía profesional. Todo en caperucitas.com`}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm mb-1"
             />
             <p className="text-gray-500 text-xs mb-3">

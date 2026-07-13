@@ -22,6 +22,7 @@ export default function EditProfilePage() {
   const [isPausing, setIsPausing] = useState(false)
   const [error, setError] = useState('')
   const [showPauseModal, setShowPauseModal] = useState(false)
+  const [acceptedSexoGratisRules, setAcceptedSexoGratisRules] = useState(false)
   const [profilePaused, setProfilePaused] = useState(false)
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false)
 
@@ -31,6 +32,7 @@ export default function EditProfilePage() {
     lookingFor: '',
     age: '',
     gender: '',
+    profileType: 'escort' as 'escort' | 'sexo_gratis',
     city: '',
     latitude: null as number | null,
     longitude: null as number | null,
@@ -65,6 +67,7 @@ export default function EditProfilePage() {
         lookingFor: profile.lookingFor || '',
         age: profile.age?.toString() || '',
         gender: profile.gender || profile.orientation || '',
+        profileType: profile.profileType === 'sexo_gratis' ? 'sexo_gratis' : 'escort',
         city: profile.city || '',
         latitude: profile.latitude ?? null,
         longitude: profile.longitude ?? null,
@@ -80,6 +83,7 @@ export default function EditProfilePage() {
       setHobbies(profile.hobbies || [])
       setLanguages(profile.languages?.length ? profile.languages : ['Español'])
       setExistingPhotos(profile.photos || [])
+      setAcceptedSexoGratisRules(profile.profileType === 'sexo_gratis')
     } catch {
       console.error('Error al cargar perfil')
     } finally {
@@ -182,6 +186,10 @@ export default function EditProfilePage() {
     const totalPhotosAfterSave = visiblePhotos + selectedFiles.length
     if (totalPhotosAfterSave === 0) {
       setError('⚠️ Debes tener al menos 1 foto para que tu perfil sea visible')
+      return
+    }
+    if (formData.profileType === 'sexo_gratis' && !acceptedSexoGratisRules) {
+      setError('⚠️ Debes aceptar las normas de la sección Sexo gratis')
       return
     }
 
@@ -327,6 +335,53 @@ export default function EditProfilePage() {
           min={18}
           max={99}
         />
+
+        {/* Tipo de perfil */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Tipo de perfil</label>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, profileType: 'escort' })}
+              className={`py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
+                formData.profileType === 'escort'
+                  ? 'bg-red-600 text-white shadow-lg'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'
+              }`}
+            >
+              💼 Escort
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, profileType: 'sexo_gratis' })}
+              className={`py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
+                formData.profileType === 'sexo_gratis'
+                  ? 'bg-emerald-600 text-white shadow-lg'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'
+              }`}
+            >
+              💚 Sexo gratis
+            </button>
+          </div>
+          {formData.profileType === 'sexo_gratis' && (
+            <div className="mt-3 bg-emerald-900/20 border border-emerald-700 rounded-xl p-4 space-y-3">
+              <p className="text-emerald-200 text-sm font-semibold">⚠️ Compromiso obligatorio</p>
+              <p className="text-gray-300 text-xs leading-relaxed">
+                No solicitar ni aceptar compensación económica, regalos ni beneficios a cambio.
+                El incumplimiento supone baneo permanente.
+              </p>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={acceptedSexoGratisRules}
+                  onChange={(e) => setAcceptedSexoGratisRules(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span className="text-gray-300 text-xs">Acepto estas normas</span>
+              </label>
+            </div>
+          )}
+        </div>
 
         {/* Contacto */}
         <div className="bg-gray-800 rounded-xl p-4">

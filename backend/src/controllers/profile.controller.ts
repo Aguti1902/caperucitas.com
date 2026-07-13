@@ -16,7 +16,9 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
 
     const { title, aboutMe, lookingFor, age, orientation, gender, role, city, latitude, longitude, 
           height, bodyType, relationshipStatus, relationshipGoal, occupation, education, smoking, drinking,
-          children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp } = req.body;
+          children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp, profileType } = req.body;
+
+    const validProfileType = profileType === 'sexo_gratis' ? 'sexo_gratis' : 'escort';
 
     // Verificar que no tenga ya un perfil
     const existingProfile = await prisma.profile.findUnique({
@@ -60,6 +62,7 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
         languages: languages || ['Español'],
         phone: phone || null,
         whatsapp: whatsapp || null,
+        profileType: validProfileType,
         isOnline: true,
         isPaused: true, // invisible hasta subir al menos una foto
       },
@@ -112,7 +115,10 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
 
     const { title, aboutMe, lookingFor, age, orientation, gender, role, city, latitude, longitude,
           height, bodyType, relationshipStatus, relationshipGoal, occupation, education, smoking, drinking,
-          children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp, isPaused } = req.body;
+          children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp, isPaused, profileType } = req.body;
+
+    const profileTypeUpdate =
+      profileType === 'sexo_gratis' || profileType === 'escort' ? profileType : undefined;
 
     const updatedProfile = await prisma.profile.update({
       where: { userId: req.userId },
@@ -144,6 +150,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
         phone: phone !== undefined ? phone : undefined,
         whatsapp: whatsapp !== undefined ? whatsapp : undefined,
         isPaused: isPaused !== undefined ? isPaused : undefined,
+        profileType: profileTypeUpdate,
         lastSeenAt: new Date(),
       },
     });
@@ -549,10 +556,13 @@ const PUBLIC_PROFILE_INCLUDE = {
 // Búsqueda pública de perfiles (para visitantes sin cuenta)
 export const publicSearchProfiles = async (req: Request, res: Response) => {
   try {
-    const { gender, city, page, limit, q } = req.query;
+    const { gender, city, page, limit, q, profileType } = req.query;
+
+    const sectionType = profileType === 'sexo_gratis' ? 'sexo_gratis' : 'escort';
 
     const where: any = {
       isPaused: false,
+      profileType: sectionType,
       photos: {
         some: { type: { in: ['cover', 'public'] } },
       },

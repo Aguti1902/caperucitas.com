@@ -5,10 +5,18 @@ export default function LandingPage() {
   const navigate = useNavigate()
 
   const handleEnter = () => navigate('/perfiles')
+  const handleSexoGratis = () => {
+    localStorage.setItem('cap_profileSection', 'sexo_gratis')
+    navigate('/perfiles')
+  }
   const handleNotAdult = () => { window.location.href = 'https://www.google.com' }
 
   const handleShare = () => {
-    const msg = encodeURIComponent('Hola, mira esta web brutal para adultos donde encontrarás compañía cerca de ti: https://www.caperucitas.com — discreta, directa y sin rodeos.')
+    const msg = encodeURIComponent(
+      '🔥 Novedad en Caperucitas.com: nueva sección SEXO GRATIS + escorts cerca de ti.\n\n' +
+      'Encuentros consensuados sin pagar, o compañía profesional si lo prefieres.\n\n' +
+      '👉 https://www.caperucitas.com'
+    )
     window.open(`https://wa.me/?text=${msg}`, '_blank')
   }
 
@@ -33,6 +41,35 @@ export default function LandingPage() {
             <p className="text-red-500 font-bold text-xl">
               ¡Entra y empieza la aventura!
             </p>
+          </div>
+
+          {/* Banner promocional Sexo gratis */}
+          <div className="relative overflow-hidden rounded-2xl border border-emerald-600/50 bg-gradient-to-br from-emerald-900/80 via-gray-900 to-gray-950 p-5 shadow-xl shadow-emerald-900/20">
+            <span className="absolute top-3 right-3 bg-yellow-400 text-gray-900 text-[10px] font-black px-2 py-0.5 rounded-full">
+              NUEVO
+            </span>
+            <p className="text-emerald-300 text-xs font-bold uppercase tracking-wider mb-1">Sección exclusiva</p>
+            <h2 className="text-white text-xl font-black leading-tight mb-2">
+              💚 Sexo gratis — sin pagar, sin rodeos
+            </h2>
+            <p className="text-gray-300 text-sm leading-relaxed mb-4">
+              Encuentros consensuados sin compensación económica. También tenemos escorts profesionales
+              en otra sección. Más visitas, más perfiles, más opciones cerca de ti.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                onClick={handleSexoGratis}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-base py-3.5 rounded-xl transition-all"
+              >
+                Ver Sexo gratis
+              </button>
+              <button
+                onClick={handleEnter}
+                className="w-full bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-base py-3.5 rounded-xl transition-all"
+              >
+                Ver escorts
+              </button>
+            </div>
           </div>
 
           {/* Video 1 */}

@@ -26,7 +26,7 @@ export const createPublicReport = async (req: AuthRequest, res: Response) => {
     const { reportedProfileId, reason } = req.body;
     const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
 
-    const validReasons = ['scam', 'fake_photos', 'underage'];
+    const validReasons = ['scam', 'fake_photos', 'underage', 'money_request'];
     if (!validReasons.includes(reason)) {
       return res.status(400).json({ error: 'Motivo inválido' });
     }
@@ -69,7 +69,7 @@ export const createReport = async (req: AuthRequest, res: Response) => {
     }
 
     // Validar que el motivo sea válido
-    const validReasons = ['scam', 'fake_photos', 'underage'];
+    const validReasons = ['scam', 'fake_photos', 'underage', 'money_request'];
     if (!validReasons.includes(reason)) {
       return res.status(400).json({ error: 'Motivo de denuncia inválido' });
     }
