@@ -173,6 +173,10 @@ export default function IndexPage() {
   const [showAgeFilter, setShowAgeFilter] = useState(false)
   const [maxDistance, setMaxDistance] = useState<number | null>(null)
   const [showDistFilter, setShowDistFilter] = useState(false)
+  const [showSexoGratisInfo, setShowSexoGratisInfo] = useState(false)
+  const [dismissedSexoGratisBanner, setDismissedSexoGratisBanner] = useState(
+    () => localStorage.getItem('cap_dismissedSexoGratisBanner') === '1'
+  )
 
   const DIST_OPTIONS = [5, 10, 25, 50, 100]
   const roamRef = useRef<HTMLDivElement>(null)
@@ -366,8 +370,8 @@ export default function IndexPage() {
 
         {/* Selector de sección: Escorts / Sexo gratis */}
         <div className="border-t border-gray-800 px-3 py-2.5 bg-gray-950/80">
-          <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-2 gap-2 p-1 bg-gray-800 rounded-xl">
+          <div className="max-w-7xl mx-auto flex items-center gap-2">
+            <div className="grid grid-cols-2 gap-2 p-1 bg-gray-800 rounded-xl flex-1">
               <button
                 onClick={() => setSelectedSection('escort')}
                 className={`relative py-2.5 rounded-lg text-sm font-black transition-all ${
@@ -392,11 +396,15 @@ export default function IndexPage() {
                 </span>
               </button>
             </div>
-            {selectedSection === 'sexo_gratis' && (
-              <p className="text-emerald-300/90 text-[11px] mt-2 text-center leading-snug">
-                Encuentros consensuados sin compensación económica. Si pides o aceptas dinero, serás expulsado/a.
-              </p>
-            )}
+            <button
+              type="button"
+              onClick={() => setShowSexoGratisInfo(true)}
+              className="flex-shrink-0 w-9 h-9 rounded-full bg-gray-800 hover:bg-gray-700 text-emerald-400 flex items-center justify-center transition-colors"
+              title="Información sobre Sexo gratis"
+              aria-label="Información sobre Sexo gratis"
+            >
+              <Info className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
@@ -532,6 +540,50 @@ export default function IndexPage() {
         </div>
       </header>
 
+      {/* Modal información Sexo gratis */}
+      {showSexoGratisInfo && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowSexoGratisInfo(false)} />
+          <div className="relative w-full max-w-sm bg-gray-900 rounded-2xl shadow-2xl border border-emerald-800/50 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 bg-emerald-900/20">
+              <div className="flex items-center gap-2">
+                <Info className="w-5 h-5 text-emerald-400" />
+                <h2 className="text-white font-bold text-lg">Sexo gratis</h2>
+              </div>
+              <button onClick={() => setShowSexoGratisInfo(false)} className="text-gray-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-3 text-sm text-gray-300 leading-relaxed">
+              <p>
+                Sección para personas que buscan u ofrecen encuentros consensuados{' '}
+                <strong className="text-white">sin compensación económica</strong>.
+              </p>
+              <p>
+                Si publicas aquí, te comprometes a no solicitar ni aceptar dinero, regalos ni ningún beneficio a cambio.
+              </p>
+              <p className="text-red-400 font-semibold text-xs">
+                El incumplimiento supone baneo y expulsión permanente.
+              </p>
+              <button
+                onClick={() => { setShowSexoGratisInfo(false); navigate('/normas') }}
+                className="text-emerald-400 hover:text-emerald-300 text-xs underline"
+              >
+                Ver normas completas
+              </button>
+            </div>
+            <div className="px-5 pb-4">
+              <button
+                onClick={() => setShowSexoGratisInfo(false)}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de búsqueda de ciudad */}
       {showCityModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
@@ -665,6 +717,26 @@ export default function IndexPage() {
             <p className="text-white font-black text-sm mt-0.5">💚 Sección Sexo gratis ya disponible</p>
             <p className="text-gray-400 text-xs mt-1">Encuentros sin pagar · Toca aquí para explorar</p>
           </button>
+        )}
+
+        {selectedSection === 'sexo_gratis' && !dismissedSexoGratisBanner && (
+          <div className="flex items-start gap-2.5 bg-emerald-900/20 border border-emerald-800/40 rounded-xl px-3 py-3">
+            <Info className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+            <p className="text-gray-300 text-xs flex-1 leading-relaxed">
+              Encuentros consensuados sin compensación económica. Si pides o aceptas dinero, serás expulsado/a.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setDismissedSexoGratisBanner(true)
+                localStorage.setItem('cap_dismissedSexoGratisBanner', '1')
+              }}
+              className="text-gray-500 hover:text-white flex-shrink-0 p-0.5"
+              aria-label="Cerrar aviso"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         )}
 
         {isLoading ? (
