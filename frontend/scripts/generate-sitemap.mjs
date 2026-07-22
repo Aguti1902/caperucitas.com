@@ -49,7 +49,18 @@ const cityPages = [...slugs].flatMap((slug) => [
   { loc: `/sexo-gratis/${slug}`, priority: '0.7', changefreq: 'daily' },
 ])
 
-const allPages = [...staticPages, ...cityPages]
+// Categorías SEO solo para ciudades principales (evita explotar el sitemap)
+const categories = ['chicas', 'chicos', 'gays', 'trans', 'masajes', 'casas']
+const majorCitiesFile = readFileSync(join(__dirname, '../src/data/spanishCities.ts'), 'utf8')
+const majorSlugs = [...majorCitiesFile.matchAll(/name: '([^']+)'/g)].map((m) => cityToSlug(m[1]))
+const categoryPages = majorSlugs.flatMap((slug) =>
+  categories.flatMap((cat) => [
+    { loc: `/putas/${cat}/en/${slug}`, priority: '0.75', changefreq: 'daily' },
+    { loc: `/sexo-gratis/${cat}/en/${slug}`, priority: '0.65', changefreq: 'daily' },
+  ])
+)
+
+const allPages = [...staticPages, ...cityPages, ...categoryPages]
 const today = new Date().toISOString().slice(0, 10)
 
 // Sitemap index si supera 50k URLs (no aplica aún); un solo archivo por ahora

@@ -89,7 +89,10 @@ function App() {
         {/* Rutas públicas - accesibles sin login */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/perfiles" element={<IndexPage />} />
+        {/* SEO local: /putas/barcelona y /putas/chicas/en/barcelona */}
+        <Route path="/putas/:categorySlug/en/:citySlug" element={<IndexPage />} />
         <Route path="/putas/:citySlug" element={<IndexPage />} />
+        <Route path="/sexo-gratis/:categorySlug/en/:citySlug" element={<IndexPage />} />
         <Route path="/sexo-gratis/:citySlug" element={<IndexPage />} />
         <Route path="/ciudades" element={<CitiesDirectoryPage />} />
         <Route path="/profile/:id" element={<PublicProfileDetailPage />} />

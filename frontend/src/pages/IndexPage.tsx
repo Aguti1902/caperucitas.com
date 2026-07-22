@@ -13,8 +13,11 @@ import {
   getCityCanonical,
   getCityPath,
   getCitySeoMeta,
+  getCitySeoBody,
   getNearbyMunicipalities,
   findMunicipalityByName,
+  getCategoryBySlug,
+  getCategoryByGenderId,
   cityToSlug,
   type SeoSection,
 } from '@/utils/citySeo'
@@ -56,7 +59,10 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 export default function IndexPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { citySlug } = useParams<{ citySlug?: string }>()
+  const { citySlug, categorySlug: routeCategorySlug } = useParams<{
+    citySlug?: string
+    categorySlug?: string
+  }>()
   const { isAuthenticated, hasProfile } = useAuthStore()
 
   const routeSection: SeoSection | null = location.pathname.startsWith('/sexo-gratis/')
@@ -65,15 +71,21 @@ export default function IndexPage() {
       ? 'escort'
       : null
 
+  const routeCategory = useMemo(
+    () => getCategoryBySlug(routeCategorySlug),
+    [routeCategorySlug]
+  )
+
   const seoCity = useMemo(
     () => (citySlug ? getCityBySlug(citySlug) : undefined),
     [citySlug]
   )
 
   const [profiles, setProfiles] = useState<any[]>([])
+  const [nearbyProfiles, setNearbyProfiles] = useState<any[]>([])
   const [roamProfiles, setRoamProfiles] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [selectedGender, setSelectedGender] = useState('all')
+  const [selectedGender, setSelectedGender] = useState(() => routeCategory?.id || 'all')
   const [selectedSection, setSelectedSection] = useState<ProfileSection>(() => {
     if (routeSection) return routeSection
     const saved = localStorage.getItem('cap_profileSection')
@@ -87,7 +99,9 @@ export default function IndexPage() {
   const [modalSearch, setModalSearch] = useState('')
   const [isDetectingModal, setIsDetectingModal] = useState(false)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(() => {
-    if (seoCity) return { lat: seoCity.lat, lng: seoCity.lng }
+    if (seoCity?.lat != null && seoCity?.lng != null) {
+      return { lat: seoCity.lat, lng: seoCity.lng }
+    }
     try {
       const saved = localStorage.getItem('cap_userLocation')
       return saved ? JSON.parse(saved) : null
@@ -161,7 +175,7 @@ export default function IndexPage() {
     }
 
     setCitySearch(match.name)
-    navigate(getCityPath(selectedSection, match))
+    navigate(getCityPath(selectedSection, match, getCategoryByGenderId(selectedGender)?.slug))
   }
 
   const closeGeoPopup = async (loc: { lat: number; lng: number } | null) => {
@@ -255,6 +269,10 @@ export default function IndexPage() {
   }, [routeSection])
 
   useEffect(() => {
+    setSelectedGender(routeCategory?.id || 'all')
+  }, [routeCategory?.id])
+
+  useEffect(() => {
     if (seoCity) {
       setCitySearch(seoCity.name)
       if (seoCity.lat != null && seoCity.lng != null) {
@@ -264,14 +282,29 @@ export default function IndexPage() {
     }
   }, [seoCity?.slug])
 
+  const activeCategorySlug = getCategoryByGenderId(selectedGender)?.slug || null
+
   const changeSection = (section: ProfileSection) => {
     setSelectedSection(section)
     if (seoCity) {
-      navigate(getCityPath(section, seoCity))
+      navigate(getCityPath(section, seoCity, activeCategorySlug))
     }
   }
 
-  const seoMeta = seoCity ? getCitySeoMeta(seoCity, selectedSection) : null
+  const changeGender = (genderId: string) => {
+    setSelectedGender(genderId)
+    if (seoCity && routeSection) {
+      const catSlug = getCategoryByGenderId(genderId)?.slug || null
+      navigate(getCityPath(routeSection, seoCity, catSlug))
+    }
+  }
+
+  const seoMeta = seoCity
+    ? getCitySeoMeta(seoCity, selectedSection, activeCategorySlug)
+    : null
+  const seoBody = seoCity
+    ? getCitySeoBody(seoCity, selectedSection, activeCategorySlug)
+    : null
   const nearbyCities = useMemo(
     () => (seoCity ? getNearbyMunicipalities(seoCity, 8) : []),
     [seoCity]
@@ -280,8 +313,6 @@ export default function IndexPage() {
   useEffect(() => {
     loadProfiles()
   }, [selectedGender, selectedSection, seoCity?.name])
-
-  // citySearch es solo referencia visual — no filtra el backend
 
   // Mide el alto real del header y lo actualiza cuando cambia (filtro edad abierto/cerrado)
   useEffect(() => {
@@ -311,7 +342,6 @@ export default function IndexPage() {
   const loadProfiles = async (loc?: { lat: number; lng: number } | null) => {
     setIsLoading(true)
     try {
-      // No filtramos por ciudad en backend — siempre cargamos todos y ordenamos por distancia
       const params: Record<string, string> = { profileType: selectedSection }
       if (selectedGender !== 'all') params.gender = selectedGender
       if (seoCity) params.city = seoCity.name
@@ -320,12 +350,33 @@ export default function IndexPage() {
       const unique = all.filter(
         (p: any, i: number, self: any[]) => i === self.findIndex((x) => x.id === p.id)
       )
-      const currentLoc = loc !== undefined ? loc : userLocation
+      const currentLoc =
+        loc !== undefined
+          ? loc
+          : userLocation ||
+            (seoCity?.lat != null && seoCity?.lng != null
+              ? { lat: seoCity.lat, lng: seoCity.lng }
+              : null)
       const sorted = sortByDistance(unique, currentLoc)
       setProfiles(sorted)
       setRoamProfiles(sorted.filter((p: any) => p.isRoaming))
+
+      // Si no hay perfiles en la ciudad: cargar cercanos (evita thin content)
+      if (seoCity && sorted.length === 0) {
+        const nearbyParams: Record<string, string> = { profileType: selectedSection }
+        if (selectedGender !== 'all') nearbyParams.gender = selectedGender
+        const nearbyAll = await fetchAllPublicProfiles(nearbyParams)
+        const nearbyUnique = nearbyAll.filter(
+          (p: any, i: number, self: any[]) => i === self.findIndex((x) => x.id === p.id)
+        )
+        const nearbySorted = sortByDistance(nearbyUnique, currentLoc).slice(0, 18)
+        setNearbyProfiles(nearbySorted)
+      } else {
+        setNearbyProfiles([])
+      }
     } catch {
       setProfiles([])
+      setNearbyProfiles([])
     } finally {
       setIsLoading(false)
     }
@@ -383,14 +434,14 @@ export default function IndexPage() {
         <SeoHead
           title={seoMeta.title}
           description={seoMeta.description}
-          canonical={getCityCanonical(selectedSection, seoCity)}
+          canonical={getCityCanonical(selectedSection, seoCity, activeCategorySlug)}
           keywords={seoMeta.keywords}
           jsonLd={{
             '@context': 'https://schema.org',
             '@type': 'WebPage',
             name: seoMeta.title,
             description: seoMeta.description,
-            url: getCityCanonical(selectedSection, seoCity),
+            url: getCityCanonical(selectedSection, seoCity, activeCategorySlug),
             inLanguage: 'es-ES',
             about: {
               '@type': 'Place',
@@ -648,7 +699,7 @@ export default function IndexPage() {
             {GENDER_FILTERS.map((f) => (
               <button
                 key={f.id}
-                onClick={() => setSelectedGender(f.id)}
+                onClick={() => changeGender(f.id)}
                 className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
                   selectedGender === f.id ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                 }`}
@@ -819,15 +870,16 @@ export default function IndexPage() {
 
       <main className="max-w-7xl mx-auto px-3 py-4 space-y-6">
 
-        {seoMeta && seoCity && (
-          <header className="space-y-1">
-            <h1 className="text-xl md:text-2xl font-black text-white">{seoMeta.h1}</h1>
-            <p className="text-gray-400 text-sm">{seoMeta.subtitle}</p>
-            <p className="text-gray-500 text-xs leading-relaxed">
-              {selectedSection === 'escort'
-                ? `Directorio de putas y escorts en ${seoCity.name}. Contacto directo, fotos reales y perfiles cerca de tu ubicación.`
-                : `Perfiles de sexo gratis en ${seoCity.name} sin compensación económica. Encuentros consensuados cerca de ti.`}
-            </p>
+        {seoMeta && seoCity && seoBody && (
+          <header className="space-y-3">
+            <div className="space-y-1">
+              <h1 className="text-xl md:text-2xl font-black text-white">{seoMeta.h1}</h1>
+              <p className="text-gray-400 text-sm">{seoMeta.subtitle}</p>
+            </div>
+            <div className="text-gray-400 text-sm leading-relaxed space-y-2 max-w-3xl">
+              <p>{seoBody.intro}</p>
+              <p className="text-gray-500 text-xs">{seoBody.disclaimer}</p>
+            </div>
           </header>
         )}
 
@@ -924,25 +976,56 @@ export default function IndexPage() {
 
             {/* Grid principal */}
             {filteredProfiles.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="text-6xl mb-4">{selectedSection === 'sexo_gratis' ? '💚' : '🔍'}</div>
-                <p className="text-gray-400 text-lg">
-                  {selectedSection === 'sexo_gratis'
-                    ? 'Aún no hay perfiles en Sexo gratis'
-                    : 'No hay perfiles disponibles'}
-                </p>
-                <p className="text-gray-500 text-sm mt-2">
-                  {selectedSection === 'sexo_gratis'
-                    ? 'Sé el primero en publicar o explora la sección de escorts'
-                    : 'Prueba a cambiar los filtros'}
-                </p>
-                {selectedSection === 'sexo_gratis' && (
-                  <button
-                    onClick={() => changeSection('escort')}
-                    className="mt-4 bg-red-600 hover:bg-red-700 text-white font-bold px-5 py-2.5 rounded-xl transition-colors"
-                  >
-                    Ver escorts
-                  </button>
+              <div className="space-y-6">
+                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-5 text-left space-y-3">
+                  <h2 className="text-white font-bold text-lg">
+                    {seoBody?.emptyTitle || (selectedSection === 'sexo_gratis'
+                      ? 'Aún no hay perfiles en esta zona'
+                      : 'No hay perfiles disponibles')}
+                  </h2>
+                  <p className="text-gray-400 text-sm leading-relaxed">
+                    {seoBody?.emptyText || 'Prueba a cambiar los filtros o explorar otra ciudad.'}
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {selectedSection === 'sexo_gratis' && (
+                      <button
+                        onClick={() => changeSection('escort')}
+                        className="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded-xl transition-colors text-sm"
+                      >
+                        Ver escorts en {seoCity?.name || 'esta zona'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => navigate('/register')}
+                      className="bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl transition-colors text-sm"
+                    >
+                      Crear perfil gratis
+                    </button>
+                  </div>
+                </div>
+
+                {nearbyProfiles.length > 0 && (
+                  <section>
+                    <h2 className="text-white font-bold text-sm mb-3">
+                      {seoBody?.nearbyTitle || 'Explora otros perfiles cerca de ti'}
+                    </h2>
+                    <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 md:gap-3">
+                      {nearbyProfiles.map((profile, index) => (
+                        <ProfileCard
+                          key={profile.id}
+                          profile={profile}
+                          onClick={() => {
+                            sessionStorage.setItem(
+                              'browseProfiles',
+                              JSON.stringify(nearbyProfiles.map((p) => p.id))
+                            )
+                            sessionStorage.setItem('browseIndex', String(index))
+                            navigate(`/profile/${profile.id}`)
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </section>
                 )}
               </div>
             ) : (
@@ -969,7 +1052,7 @@ export default function IndexPage() {
             {nearbyCities.map((city) => (
               <button
                 key={city.slug}
-                onClick={() => navigate(getCityPath(selectedSection, city))}
+                onClick={() => navigate(getCityPath(selectedSection, city, activeCategorySlug))}
                 className="text-xs font-semibold px-3 py-1.5 rounded-full bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
               >
                 {city.name}

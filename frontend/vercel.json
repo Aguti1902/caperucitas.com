@@ -1,5 +1,16 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/putas/:path*",
+      "destination": "/api/seo-html?path=/putas/:path*"
+    },
+    {
+      "source": "/sexo-gratis/:path*",
+      "destination": "/api/seo-html?path=/sexo-gratis/:path*"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
   ]
 }
