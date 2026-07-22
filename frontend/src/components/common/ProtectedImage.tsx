@@ -115,6 +115,8 @@ export default function ProtectedImage({ src, alt, className = '', onClick }: Pr
         src={src}
         alt={alt}
         className="w-full h-full object-cover"
+        loading="lazy"
+        decoding="async"
         draggable={false}
         style={{
           userSelect: 'none',

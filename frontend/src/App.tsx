@@ -1,41 +1,53 @@
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import CookieBanner from './components/common/CookieBanner'
 import PWAInstallPrompt from './components/common/PWAInstallPrompt'
 import ToastContainer from './components/common/ToastContainer'
-
-// Páginas
-import LandingPage from './pages/LandingPage'
-import IndexPage from './pages/IndexPage'
-import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
-import CreateProfilePage from './pages/CreateProfilePage'
-import EditProfilePage from './pages/EditProfilePage'
-import DashboardLayout from './components/layout/DashboardLayout'
-import NavigatePage from './pages/NavigatePage'
-import PublicProfileDetailPage from './pages/ProfileDetailPage'
-import PlusPage from './pages/PlusPage'
-import InfoPage from './pages/InfoPage'
-import VerifyEmailPage from './pages/VerifyEmailPage'
-import EmailSentPage from './pages/EmailSentPage'
-import ForgotPasswordPage from './pages/ForgotPasswordPage'
-import ResetPasswordPage from './pages/ResetPasswordPage'
-import AdminLoginPage from './pages/AdminLoginPage'
-import AdminDashboardPage from './pages/AdminDashboardPage'
-import AdminReportsPage from './pages/AdminReportsPage'
-import AdminUsersPage from './pages/AdminUsersPage'
-import AdminWhatsAppPage from './pages/AdminWhatsAppPage'
-import AdminAnalyticsPage from './pages/AdminAnalyticsPage'
-import AdminRoute from './components/admin/AdminRoute'
-import PublicRoamPage from './pages/PublicRoamPage'
-import PublicInfoPage from './pages/PublicInfoPage'
-import PrivacyPage from './pages/PrivacyPage'
-import TermsPage from './pages/TermsPage'
-import CookiesPage from './pages/CookiesPage'
-import CitiesDirectoryPage from './pages/CitiesDirectoryPage'
-import NormasPage from './pages/NormasPage'
 import { initGA, trackPageView } from './utils/analytics'
+
+// Eager: primera pintura
+import LandingPage from './pages/LandingPage'
+
+// Lazy: reduce bundle inicial
+const IndexPage = lazy(() => import('./pages/IndexPage'))
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const RegisterPage = lazy(() => import('./pages/RegisterPage'))
+const CreateProfilePage = lazy(() => import('./pages/CreateProfilePage'))
+const EditProfilePage = lazy(() => import('./pages/EditProfilePage'))
+const DashboardLayout = lazy(() => import('./components/layout/DashboardLayout'))
+const NavigatePage = lazy(() => import('./pages/NavigatePage'))
+const PublicProfileDetailPage = lazy(() => import('./pages/ProfileDetailPage'))
+const PlusPage = lazy(() => import('./pages/PlusPage'))
+const InfoPage = lazy(() => import('./pages/InfoPage'))
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'))
+const EmailSentPage = lazy(() => import('./pages/EmailSentPage'))
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
+const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage'))
+const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'))
+const AdminReportsPage = lazy(() => import('./pages/AdminReportsPage'))
+const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))
+const AdminWhatsAppPage = lazy(() => import('./pages/AdminWhatsAppPage'))
+const AdminAnalyticsPage = lazy(() => import('./pages/AdminAnalyticsPage'))
+const AdminRoute = lazy(() => import('./components/admin/AdminRoute'))
+const PublicRoamPage = lazy(() => import('./pages/PublicRoamPage'))
+const PublicInfoPage = lazy(() => import('./pages/PublicInfoPage'))
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'))
+const TermsPage = lazy(() => import('./pages/TermsPage'))
+const CookiesPage = lazy(() => import('./pages/CookiesPage'))
+const CitiesDirectoryPage = lazy(() => import('./pages/CitiesDirectoryPage'))
+const NormasPage = lazy(() => import('./pages/NormasPage'))
+const BlogIndexPage = lazy(() => import('./pages/BlogIndexPage'))
+const BlogPostPage = lazy(() => import('./pages/BlogPostPage'))
+
+function PageLoader() {
+  return (
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+}
 
 function App() {
   const { isAuthenticated, hasProfile, isLoading, initAuth, logout } = useAuthStore()
@@ -61,7 +73,6 @@ function App() {
     initAuth()
   }, [])
 
-  // Escuchar evento de sesión expirada y hacer logout limpio sin reload
   useEffect(() => {
     const handleSessionExpired = () => {
       logout().then(() => navigate('/'))
@@ -70,148 +81,91 @@ function App() {
     return () => window.removeEventListener('auth:session-expired', handleSessionExpired)
   }, [logout, navigate])
 
-  // Mostrar pantalla de carga mientras se verifica la sesión
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-gray-400 text-sm">Cargando...</span>
-        </div>
-      </div>
-    )
+    return <PageLoader />
   }
 
   return (
     <>
       <CookieBanner />
-      <Routes>
-        {/* Rutas públicas - accesibles sin login */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/perfiles" element={<IndexPage />} />
-        {/* SEO local: /putas/barcelona y /putas/chicas/en/barcelona */}
-        <Route path="/putas/:categorySlug/en/:citySlug" element={<IndexPage />} />
-        <Route path="/putas/:citySlug" element={<IndexPage />} />
-        <Route path="/sexo-gratis/:categorySlug/en/:citySlug" element={<IndexPage />} />
-        <Route path="/sexo-gratis/:citySlug" element={<IndexPage />} />
-        <Route path="/ciudades" element={<CitiesDirectoryPage />} />
-        <Route path="/profile/:id" element={<PublicProfileDetailPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/email-sent" element={<EmailSentPage />} />
-        <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
-
-        {/* Páginas públicas informativas */}
-        <Route path="/roam" element={<PublicRoamPage />} />
-        <Route path="/info" element={<PublicInfoPage />} />
-
-        {/* Páginas legales */}
-        <Route path="/privacidad" element={<PrivacyPage />} />
-        <Route path="/terminos" element={<TermsPage />} />
-        <Route path="/cookies" element={<CookiesPage />} />
-        <Route path="/normas" element={<NormasPage />} />
-
-        {/* Rutas legacy con orientación - redirigir */}
-        <Route path="/login/:orientation" element={<LoginPage />} />
-        <Route path="/register/:orientation" element={<RegisterPage />} />
-
-        {/* Ruta de crear perfil */}
-        <Route
-          path="/create-profile"
-          element={
-            isAuthenticated && !hasProfile ? (
-              <CreateProfilePage />
-            ) : isAuthenticated ? (
-              <Navigate to="/perfiles" />
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-
-        {/* Ruta standalone de editar perfil (evita doble clic por DashboardLayout) */}
-        <Route
-          path="/edit-profile"
-          element={
-            isAuthenticated && hasProfile ? (
-              <EditProfilePage />
-            ) : isAuthenticated ? (
-              <Navigate to="/create-profile" />
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-
-        {/* Rutas protegidas para escorts (requieren autenticación y perfil) */}
-        <Route
-          path="/app"
-          element={
-            isAuthenticated && hasProfile ? (
-              <DashboardLayout />
-            ) : isAuthenticated ? (
-              <Navigate to="/create-profile" />
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        >
-          <Route index element={<NavigatePage />} />
-          <Route path="profile/:id" element={<PublicProfileDetailPage />} />
-          <Route path="plus" element={<PlusPage />} />
-          <Route path="info" element={<InfoPage />} />
-          <Route path="edit-profile" element={<EditProfilePage />} />
-        </Route>
-
-        {/* Rutas de admin */}
-        <Route path="/admin/login" element={<AdminLoginPage />} />
-        <Route
-          path="/admin/dashboard"
-          element={
-            <AdminRoute>
-              <AdminDashboardPage />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin/reports"
-          element={
-            <AdminRoute>
-              <AdminReportsPage />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin/users"
-          element={
-            <AdminRoute>
-              <AdminUsersPage />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin/analytics"
-          element={
-            <AdminRoute>
-              <AdminAnalyticsPage />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin/whatsapp"
-          element={
-            <AdminRoute>
-              <AdminWhatsAppPage />
-            </AdminRoute>
-          }
-        />
-        <Route path="/admin" element={<Navigate to="/admin/login" />} />
-
-        {/* Redirección por defecto */}
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/perfiles" element={<IndexPage />} />
+          <Route path="/putas/:categorySlug/en/:citySlug" element={<IndexPage />} />
+          <Route path="/putas/:citySlug" element={<IndexPage />} />
+          <Route path="/sexo-gratis/:categorySlug/en/:citySlug" element={<IndexPage />} />
+          <Route path="/sexo-gratis/:citySlug" element={<IndexPage />} />
+          <Route path="/ciudades" element={<CitiesDirectoryPage />} />
+          <Route path="/blog" element={<BlogIndexPage />} />
+          <Route path="/blog/:slug" element={<BlogPostPage />} />
+          <Route path="/profile/:id" element={<PublicProfileDetailPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/email-sent" element={<EmailSentPage />} />
+          <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+          <Route path="/roam" element={<PublicRoamPage />} />
+          <Route path="/info" element={<PublicInfoPage />} />
+          <Route path="/privacidad" element={<PrivacyPage />} />
+          <Route path="/terminos" element={<TermsPage />} />
+          <Route path="/cookies" element={<CookiesPage />} />
+          <Route path="/normas" element={<NormasPage />} />
+          <Route path="/login/:orientation" element={<LoginPage />} />
+          <Route path="/register/:orientation" element={<RegisterPage />} />
+          <Route
+            path="/create-profile"
+            element={
+              isAuthenticated && !hasProfile ? (
+                <CreateProfilePage />
+              ) : isAuthenticated ? (
+                <Navigate to="/perfiles" />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+          <Route
+            path="/edit-profile"
+            element={
+              isAuthenticated && hasProfile ? (
+                <EditProfilePage />
+              ) : isAuthenticated ? (
+                <Navigate to="/create-profile" />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+          <Route
+            path="/app"
+            element={
+              isAuthenticated && hasProfile ? (
+                <DashboardLayout />
+              ) : isAuthenticated ? (
+                <Navigate to="/create-profile" />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          >
+            <Route index element={<NavigatePage />} />
+            <Route path="profile/:id" element={<PublicProfileDetailPage />} />
+            <Route path="plus" element={<PlusPage />} />
+            <Route path="info" element={<InfoPage />} />
+            <Route path="edit-profile" element={<EditProfilePage />} />
+          </Route>
+          <Route path="/admin/login" element={<AdminLoginPage />} />
+          <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboardPage /></AdminRoute>} />
+          <Route path="/admin/reports" element={<AdminRoute><AdminReportsPage /></AdminRoute>} />
+          <Route path="/admin/users" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
+          <Route path="/admin/analytics" element={<AdminRoute><AdminAnalyticsPage /></AdminRoute>} />
+          <Route path="/admin/whatsapp" element={<AdminRoute><AdminWhatsAppPage /></AdminRoute>} />
+          <Route path="/admin" element={<Navigate to="/admin/login" />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Suspense>
       <PWAInstallPrompt />
       <ToastContainer />
     </>

@@ -3,6 +3,7 @@ Allow: /
 Allow: /putas/
 Allow: /sexo-gratis/
 Allow: /ciudades
+Allow: /blog
 Disallow: /admin/
 Disallow: /app/
 Disallow: /create-profile

@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import Logo from '@/components/common/Logo'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 import SeoHead from '@/components/common/SeoHead'
-import { fetchAllPublicProfiles } from '@/services/profile.api'
+import { fetchPublicProfiles } from '@/services/profile.api'
 import { useAuthStore } from '@/store/authStore'
 import { MapPin, Search, Phone, MessageCircle, Zap, Share2, Info, Home, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { SPANISH_CITIES } from '@/data/spanishCities'
@@ -82,6 +82,7 @@ export default function IndexPage() {
   )
 
   const [profiles, setProfiles] = useState<any[]>([])
+  const [profileTotal, setProfileTotal] = useState(0)
   const [nearbyProfiles, setNearbyProfiles] = useState<any[]>([])
   const [roamProfiles, setRoamProfiles] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -346,7 +347,7 @@ export default function IndexPage() {
       if (selectedGender !== 'all') params.gender = selectedGender
       if (seoCity) params.city = seoCity.name
 
-      const all = await fetchAllPublicProfiles(params)
+      const { profiles: all, total } = await fetchPublicProfiles(params)
       const unique = all.filter(
         (p: any, i: number, self: any[]) => i === self.findIndex((x) => x.id === p.id)
       )
@@ -359,13 +360,14 @@ export default function IndexPage() {
               : null)
       const sorted = sortByDistance(unique, currentLoc)
       setProfiles(sorted)
+      setProfileTotal(seoCity ? total : sorted.length)
       setRoamProfiles(sorted.filter((p: any) => p.isRoaming))
 
       // Si no hay perfiles en la ciudad: cargar cercanos (evita thin content)
       if (seoCity && sorted.length === 0) {
         const nearbyParams: Record<string, string> = { profileType: selectedSection }
         if (selectedGender !== 'all') nearbyParams.gender = selectedGender
-        const nearbyAll = await fetchAllPublicProfiles(nearbyParams)
+        const { profiles: nearbyAll } = await fetchPublicProfiles(nearbyParams)
         const nearbyUnique = nearbyAll.filter(
           (p: any, i: number, self: any[]) => i === self.findIndex((x) => x.id === p.id)
         )
@@ -376,6 +378,7 @@ export default function IndexPage() {
       }
     } catch {
       setProfiles([])
+      setProfileTotal(0)
       setNearbyProfiles([])
     } finally {
       setIsLoading(false)
@@ -875,11 +878,38 @@ export default function IndexPage() {
             <div className="space-y-1">
               <h1 className="text-xl md:text-2xl font-black text-white">{seoMeta.h1}</h1>
               <p className="text-gray-400 text-sm">{seoMeta.subtitle}</p>
+              {!isLoading && (
+                <p className="text-red-400 text-sm font-bold">
+                  {profileTotal === 1
+                    ? '1 perfil activo ahora'
+                    : `${profileTotal} perfiles activos ahora`}
+                  {selectedSection === 'sexo_gratis' ? ' · Sexo gratis' : ' · Escorts'}
+                  {' '}en {seoCity.name}
+                </p>
+              )}
             </div>
             <div className="text-gray-400 text-sm leading-relaxed space-y-2 max-w-3xl">
               <p>{seoBody.intro}</p>
+              {seoBody.localNote && (
+                <p className="text-gray-500 text-xs">{seoBody.localNote}</p>
+              )}
               <p className="text-gray-500 text-xs">{seoBody.disclaimer}</p>
             </div>
+            {seoBody.faq && seoBody.faq.length > 0 && (
+              <div className="space-y-2 max-w-3xl">
+                {seoBody.faq.map((item) => (
+                  <details
+                    key={item.q}
+                    className="bg-gray-900/50 border border-gray-800 rounded-lg px-3 py-2"
+                  >
+                    <summary className="text-white text-sm font-semibold cursor-pointer">
+                      {item.q}
+                    </summary>
+                    <p className="text-gray-400 text-xs mt-2 leading-relaxed">{item.a}</p>
+                  </details>
+                ))}
+              </div>
+            )}
           </header>
         )}
 
@@ -1076,6 +1106,7 @@ export default function IndexPage() {
           <button onClick={() => navigate('/cookies')} className="hover:text-gray-400">Cookies</button>
           <button onClick={() => navigate('/normas')} className="hover:text-gray-400">Normas</button>
           <button onClick={() => navigate('/ciudades')} className="hover:text-gray-400">Ciudades</button>
+          <button onClick={() => navigate('/blog')} className="hover:text-gray-400">Blog</button>
         </div>
         <p className="text-xs text-gray-800 mt-1">© {new Date().getFullYear()} Caperucitas.com</p>
       </div>

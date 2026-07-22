@@ -83,6 +83,7 @@ export default function LandingPage() {
               <Link to="/putas/madrid" className="text-xs text-gray-400 hover:text-white underline">Putas Madrid</Link>
               <Link to="/putas/barcelona" className="text-xs text-gray-400 hover:text-white underline">Putas Barcelona</Link>
               <Link to="/putas/valencia" className="text-xs text-gray-400 hover:text-white underline">Putas Valencia</Link>
+              <Link to="/blog" className="text-xs text-yellow-400 hover:text-yellow-300 underline">Blog / Guías</Link>
               <Link to="/ciudades" className="text-xs text-emerald-400 hover:text-emerald-300 underline">Todas las ciudades</Link>
             </div>
           </div>

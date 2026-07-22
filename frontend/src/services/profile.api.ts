@@ -2,10 +2,18 @@ import { api } from '@/services/api'
 
 const PAGE_SIZE = 500
 
-/** Carga todos los perfiles públicos, paginando si el backend aplica límite. */
-export async function fetchAllPublicProfiles(params: Record<string, string> = {}): Promise<any[]> {
+export interface PublicSearchResult {
+  profiles: any[]
+  total: number
+}
+
+/** Carga perfiles públicos paginando. Devuelve también el total del backend. */
+export async function fetchPublicProfiles(
+  params: Record<string, string> = {}
+): Promise<PublicSearchResult> {
   const all: any[] = []
   let page = 1
+  let total = 0
 
   while (true) {
     const response = await api.get('/profile/public-search', {
@@ -13,7 +21,7 @@ export async function fetchAllPublicProfiles(params: Record<string, string> = {}
     })
 
     const batch: any[] = response.data.profiles || []
-    const total: number = response.data.total ?? batch.length
+    total = response.data.total ?? batch.length
 
     for (const profile of batch) {
       if (!all.some((p) => p.id === profile.id)) {
@@ -27,5 +35,11 @@ export async function fetchAllPublicProfiles(params: Record<string, string> = {}
     page++
   }
 
-  return all
+  return { profiles: all, total: Math.max(total, all.length) }
+}
+
+/** @deprecated usar fetchPublicProfiles */
+export async function fetchAllPublicProfiles(params: Record<string, string> = {}): Promise<any[]> {
+  const { profiles } = await fetchPublicProfiles(params)
+  return profiles
 }
