@@ -337,6 +337,13 @@ async function runPrismaDbPush(retries = 3): Promise<void> {
 
 async function bootstrap() {
   try {
+    const { ensureProfileSchema } = await import('./utils/profile-schema-migrate.utils');
+    await ensureProfileSchema();
+  } catch (err: any) {
+    console.warn('⚠️ Profile schema al arrancar:', err?.message);
+  }
+
+  try {
     const { ensureWhatsAppSchema } = await import('./utils/whatsapp-schema-migrate.utils');
     await ensureWhatsAppSchema();
     await runPrismaDbPush();
