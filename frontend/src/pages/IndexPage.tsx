@@ -94,7 +94,7 @@ export default function IndexPage() {
   })
   const [citySearch, setCitySearch] = useState<string>(() => {
     if (seoCity) return seoCity.name
-    return localStorage.getItem('cap_citySearch') || ''
+    return ''
   })
   const [showCityModal, setShowCityModal] = useState(false)
   const [modalSearch, setModalSearch] = useState('')
@@ -103,26 +103,18 @@ export default function IndexPage() {
     if (seoCity?.lat != null && seoCity?.lng != null) {
       return { lat: seoCity.lat, lng: seoCity.lng }
     }
-    try {
-      const saved = localStorage.getItem('cap_userLocation')
-      return saved ? JSON.parse(saved) : null
-    } catch { return null }
+    return null
   })
-  const [showGeoPopup, setShowGeoPopup] = useState(() => !seoCity && !localStorage.getItem('cap_userLocation'))
+  const [showGeoPopup, setShowGeoPopup] = useState(() => !seoCity)
   const [geoDetecting, setGeoDetecting] = useState(false)
   const [nominatimResults, setNominatimResults] = useState<{ name: string; displayName: string; lat: number; lng: number }[]>([])
   const [isSearchingCity, setIsSearchingCity] = useState(false)
 
-  // Sincronizar ciudad y ubicación con localStorage al cambiar
+  // Limpiar persistencia antigua de ciudad/geo (evita que se quede Barcelona al reabrir)
   useEffect(() => {
-    localStorage.setItem('cap_citySearch', citySearch)
-  }, [citySearch])
-
-  useEffect(() => {
-    if (userLocation) {
-      localStorage.setItem('cap_userLocation', JSON.stringify(userLocation))
-    }
-  }, [userLocation])
+    localStorage.removeItem('cap_citySearch')
+    localStorage.removeItem('cap_userLocation')
+  }, [])
 
   // Búsqueda de ubicaciones reales via Nominatim (OpenStreetMap) — cualquier municipio de España
   useEffect(() => {
@@ -284,6 +276,19 @@ export default function IndexPage() {
   }, [seoCity?.slug])
 
   const activeCategorySlug = getCategoryByGenderId(selectedGender)?.slug || null
+
+  const clearCityFilter = () => {
+    setCitySearch('')
+    setUserLocation(null)
+    localStorage.removeItem('cap_citySearch')
+    localStorage.removeItem('cap_userLocation')
+    // Si estamos en URL de ciudad SEO, salir a /perfiles para dejar de filtrar
+    if (seoCity || location.pathname.startsWith('/putas/') || location.pathname.startsWith('/sexo-gratis/')) {
+      navigate('/perfiles')
+    } else {
+      setShowGeoPopup(true)
+    }
+  }
 
   const changeSection = (section: ProfileSection) => {
     setSelectedSection(section)
@@ -597,7 +602,7 @@ export default function IndexPage() {
               {citySearch && (
                 <span
                   role="button"
-                  onClick={(e) => { e.stopPropagation(); setCitySearch('') }}
+                  onClick={(e) => { e.stopPropagation(); clearCityFilter() }}
                   className="ml-auto text-gray-400 hover:text-white flex-shrink-0"
                 >
                   <X className="w-3 h-3" />
@@ -1205,7 +1210,7 @@ function ProfileCard({ profile, onClick, compact = false }: { profile: any; onCl
       </div>
 
       {/* Botones contacto */}
-      {!compact && (profile.phone || profile.whatsapp) && (
+      {!compact && (profile.phone || profile.whatsapp || profile.acceptMessages) && (
         <div className="flex gap-1 p-1.5">
           {profile.phone && (
             <a
@@ -1228,6 +1233,19 @@ function ProfileCard({ profile, onClick, compact = false }: { profile: any; onCl
               <MessageCircle className="w-3 h-3" />
               <span className="hidden sm:inline">WhatsApp</span>
             </a>
+          )}
+          {profile.acceptMessages && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                window.location.href = `/profile/${profile.id}`
+              }}
+              className="flex-1 flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold py-1.5 rounded-lg transition-colors"
+            >
+              <MessageCircle className="w-3 h-3" />
+              <span className="hidden sm:inline">Mensaje</span>
+            </button>
           )}
         </div>
       )}

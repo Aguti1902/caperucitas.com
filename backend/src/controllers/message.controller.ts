@@ -40,7 +40,9 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    if (toProfile.orientation !== myProfile?.orientation) {
+    // Si el destinatario acepta mensajes de contacto, cualquiera puede escribirle.
+    // Si no, se mantiene la regla antigua de misma orientación.
+    if (!toProfile.acceptMessages && toProfile.orientation !== myProfile?.orientation) {
       return res.status(403).json({ error: 'No puedes enviar mensajes a este perfil' });
     }
 

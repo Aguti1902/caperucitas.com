@@ -35,6 +35,7 @@ export default function CreateProfilePage() {
     longitude: null as number | null,
     phone: '',
     whatsapp: '',
+    acceptMessages: false,
     height: '',
     bodyType: '',
     occupation: '',
@@ -124,7 +125,10 @@ export default function CreateProfilePage() {
 
     const age = parseInt(formData.age)
     if (isNaN(age) || age < 18 || age > 99) { showError('⚠️ La edad debe estar entre 18 y 99 años'); return }
-    if (!formData.phone && !formData.whatsapp) { showError('⚠️ Debes añadir al menos un teléfono o WhatsApp de contacto'); return }
+    if (!formData.phone && !formData.whatsapp && !formData.acceptMessages) {
+      showError('⚠️ Debes añadir teléfono, WhatsApp o activar contacto por mensaje')
+      return
+    }
     if (formData.profileType === 'sexo_gratis' && !acceptedSexoGratisRules) {
       showError('⚠️ Debes aceptar las normas de la sección Sexo gratis')
       return
@@ -295,11 +299,11 @@ export default function CreateProfilePage() {
             placeholder="Tu edad"
           />
 
-          {/* Contacto - OBLIGATORIO */}
+          {/* Contacto */}
           <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
             <h3 className="text-white font-semibold mb-3">📞 Datos de contacto *</h3>
             <p className="text-gray-400 text-xs mb-3">
-              Al menos uno es obligatorio. Aparecerán como botones en tu perfil.
+              Añade teléfono/WhatsApp y/o activa mensajes. Ideal para Sexo gratis si no quieres publicar tu número.
             </p>
             <div className="space-y-3">
               <Input
@@ -316,6 +320,36 @@ export default function CreateProfilePage() {
                 onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
                 placeholder="Ej: +34 600 000 000"
               />
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Mensaje</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, acceptMessages: false })}
+                    className={`py-3 rounded-xl font-bold text-sm transition-all ${
+                      !formData.acceptMessages
+                        ? 'bg-gray-600 text-white'
+                        : 'bg-gray-900 text-gray-400 border border-gray-700'
+                    }`}
+                  >
+                    NO
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, acceptMessages: true })}
+                    className={`py-3 rounded-xl font-bold text-sm transition-all ${
+                      formData.acceptMessages
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-900 text-gray-400 border border-gray-700'
+                    }`}
+                  >
+                    SI
+                  </button>
+                </div>
+                <p className="text-gray-500 text-xs mt-2">
+                  Recibirás tus mensajes en tu bandeja de entrada
+                </p>
+              </div>
             </div>
           </div>
 

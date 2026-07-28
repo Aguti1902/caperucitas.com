@@ -22,7 +22,6 @@ export default function EditProfilePage() {
   const [isPausing, setIsPausing] = useState(false)
   const [error, setError] = useState('')
   const [showPauseModal, setShowPauseModal] = useState(false)
-  const [acceptedSexoGratisRules, setAcceptedSexoGratisRules] = useState(false)
   const [profilePaused, setProfilePaused] = useState(false)
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false)
 
@@ -38,6 +37,7 @@ export default function EditProfilePage() {
     longitude: null as number | null,
     phone: '',
     whatsapp: '',
+    acceptMessages: false,
     height: '',
     bodyType: '',
     occupation: '',
@@ -73,6 +73,7 @@ export default function EditProfilePage() {
         longitude: profile.longitude ?? null,
         phone: profile.phone || '',
         whatsapp: profile.whatsapp || '',
+        acceptMessages: !!profile.acceptMessages,
         height: profile.height?.toString() || '',
         bodyType: profile.bodyType || '',
         occupation: profile.occupation || '',
@@ -83,7 +84,6 @@ export default function EditProfilePage() {
       setHobbies(profile.hobbies || [])
       setLanguages(profile.languages?.length ? profile.languages : ['Español'])
       setExistingPhotos(profile.photos || [])
-      setAcceptedSexoGratisRules(profile.profileType === 'sexo_gratis')
     } catch {
       console.error('Error al cargar perfil')
     } finally {
@@ -188,15 +188,16 @@ export default function EditProfilePage() {
       setError('⚠️ Debes tener al menos 1 foto para que tu perfil sea visible')
       return
     }
-    if (formData.profileType === 'sexo_gratis' && !acceptedSexoGratisRules) {
-      setError('⚠️ Debes aceptar las normas de la sección Sexo gratis')
+    if (!formData.phone && !formData.whatsapp && !formData.acceptMessages) {
+      setError('⚠️ Debes añadir teléfono, WhatsApp o activar contacto por mensaje')
       return
     }
 
     setIsSaving(true)
     try {
+      const { profileType: _lockedType, ...payload } = formData
       await api.put('/profile', {
-        ...formData,
+        ...payload,
         age,
         height: formData.height ? parseInt(formData.height) : null,
         hobbies,
@@ -336,51 +337,32 @@ export default function EditProfilePage() {
           max={99}
         />
 
-        {/* Tipo de perfil */}
+        {/* Tipo de perfil — bloqueado tras publicar */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">Tipo de perfil</label>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setFormData({ ...formData, profileType: 'escort' })}
-              className={`py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
+          <div className="grid grid-cols-2 gap-3 opacity-90">
+            <div
+              className={`py-3 px-4 rounded-xl font-semibold text-sm text-center ${
                 formData.profileType === 'escort'
                   ? 'bg-red-600 text-white shadow-lg'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'
+                  : 'bg-gray-800 text-gray-500 border border-gray-700'
               }`}
             >
               💼 Escort
-            </button>
-            <button
-              type="button"
-              onClick={() => setFormData({ ...formData, profileType: 'sexo_gratis' })}
-              className={`py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
+            </div>
+            <div
+              className={`py-3 px-4 rounded-xl font-semibold text-sm text-center ${
                 formData.profileType === 'sexo_gratis'
                   ? 'bg-emerald-600 text-white shadow-lg'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'
+                  : 'bg-gray-800 text-gray-500 border border-gray-700'
               }`}
             >
               💚 Sexo gratis
-            </button>
-          </div>
-          {formData.profileType === 'sexo_gratis' && (
-            <div className="mt-3 bg-emerald-900/20 border border-emerald-700 rounded-xl p-4 space-y-3">
-              <p className="text-emerald-200 text-sm font-semibold">⚠️ Compromiso obligatorio</p>
-              <p className="text-gray-300 text-xs leading-relaxed">
-                No solicitar ni aceptar compensación económica, regalos ni beneficios a cambio.
-                El incumplimiento supone baneo permanente.
-              </p>
-              <label className="flex items-start gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={acceptedSexoGratisRules}
-                  onChange={(e) => setAcceptedSexoGratisRules(e.target.checked)}
-                  className="mt-0.5"
-                />
-                <span className="text-gray-300 text-xs">Acepto estas normas</span>
-              </label>
             </div>
-          )}
+          </div>
+          <p className="text-gray-500 text-xs mt-2">
+            Una vez publicado, el tipo de perfil no se puede cambiar.
+          </p>
         </div>
 
         {/* Contacto */}
@@ -401,6 +383,36 @@ export default function EditProfilePage() {
               onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
               placeholder="+34 600 000 000"
             />
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Mensaje</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, acceptMessages: false })}
+                  className={`py-3 rounded-xl font-bold text-sm transition-all ${
+                    !formData.acceptMessages
+                      ? 'bg-gray-600 text-white'
+                      : 'bg-gray-900 text-gray-400 border border-gray-700'
+                  }`}
+                >
+                  NO
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, acceptMessages: true })}
+                  className={`py-3 rounded-xl font-bold text-sm transition-all ${
+                    formData.acceptMessages
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-900 text-gray-400 border border-gray-700'
+                  }`}
+                >
+                  SI
+                </button>
+              </div>
+              <p className="text-gray-500 text-xs mt-2">
+                Recibirás tus mensajes en tu bandeja de entrada
+              </p>
+            </div>
           </div>
         </div>
 

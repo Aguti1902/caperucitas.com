@@ -16,9 +16,10 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
 
     const { title, aboutMe, lookingFor, age, orientation, gender, role, city, latitude, longitude, 
           height, bodyType, relationshipStatus, relationshipGoal, occupation, education, smoking, drinking,
-          children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp, profileType } = req.body;
+          children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp, acceptMessages, profileType } = req.body;
 
     const validProfileType = profileType === 'sexo_gratis' ? 'sexo_gratis' : 'escort';
+    const wantsMessages = acceptMessages === true || acceptMessages === 'true';
 
     // Verificar que no tenga ya un perfil
     const existingProfile = await prisma.profile.findUnique({
@@ -27,6 +28,10 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
 
     if (existingProfile) {
       return res.status(400).json({ error: 'Ya tienes un perfil creado' });
+    }
+
+    if (!phone && !whatsapp && !wantsMessages) {
+      return res.status(400).json({ error: 'Debes añadir teléfono, WhatsApp o activar contacto por mensaje' });
     }
 
     // gender viene del campo orientation (chica/chico/trans/casa)
@@ -62,6 +67,7 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
         languages: languages || ['Español'],
         phone: phone || null,
         whatsapp: whatsapp || null,
+        acceptMessages: wantsMessages,
         profileType: validProfileType,
         isOnline: true,
         isPaused: true, // invisible hasta subir al menos una foto
@@ -115,10 +121,11 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
 
     const { title, aboutMe, lookingFor, age, orientation, gender, role, city, latitude, longitude,
           height, bodyType, relationshipStatus, relationshipGoal, occupation, education, smoking, drinking,
-          children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp, isPaused, profileType } = req.body;
+          children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp, acceptMessages, isPaused } = req.body;
 
-    const profileTypeUpdate =
-      profileType === 'sexo_gratis' || profileType === 'escort' ? profileType : undefined;
+    // profileType NO se puede cambiar una vez publicado (ignorar si viene en el body)
+    const acceptMessagesUpdate =
+      acceptMessages === undefined ? undefined : (acceptMessages === true || acceptMessages === 'true');
 
     const updatedProfile = await prisma.profile.update({
       where: { userId: req.userId },
@@ -149,8 +156,8 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
         languages: languages || [],
         phone: phone !== undefined ? phone : undefined,
         whatsapp: whatsapp !== undefined ? whatsapp : undefined,
+        acceptMessages: acceptMessagesUpdate,
         isPaused: isPaused !== undefined ? isPaused : undefined,
-        profileType: profileTypeUpdate,
         lastSeenAt: new Date(),
       },
     });

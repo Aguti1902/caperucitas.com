@@ -40,6 +40,8 @@ const CitiesDirectoryPage = lazy(() => import('./pages/CitiesDirectoryPage'))
 const NormasPage = lazy(() => import('./pages/NormasPage'))
 const BlogIndexPage = lazy(() => import('./pages/BlogIndexPage'))
 const BlogPostPage = lazy(() => import('./pages/BlogPostPage'))
+const InboxPage = lazy(() => import('./pages/InboxPage'))
+const ChatPage = lazy(() => import('./pages/ChatPage'))
 
 function PageLoader() {
   return (
@@ -155,6 +157,8 @@ function App() {
             <Route path="plus" element={<PlusPage />} />
             <Route path="info" element={<InfoPage />} />
             <Route path="edit-profile" element={<EditProfilePage />} />
+            <Route path="inbox" element={<InboxPage />} />
+            <Route path="chat/:profileId" element={<ChatPage />} />
           </Route>
           <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboardPage /></AdminRoute>} />

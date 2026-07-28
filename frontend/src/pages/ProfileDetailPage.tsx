@@ -27,7 +27,7 @@ function extractCityName(city: string): string {
 export default function ProfileDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, hasProfile } = useAuthStore()
   const [profile, setProfile] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
@@ -288,13 +288,13 @@ export default function ProfileDetailPage() {
           )}
         </div>
 
-        {/* Botones de contacto - ANCHOS, bien visibles */}
-        {(profile.phone || profile.whatsapp) && (
-          <div className="flex gap-3">
+        {/* Botones de contacto */}
+        {(profile.phone || profile.whatsapp || profile.acceptMessages) && (
+          <div className="flex gap-3 flex-wrap">
             {profile.phone && (
               <a
                 href={`tel:${profile.phone}`}
-                className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-colors text-lg"
+                className="flex-1 min-w-[120px] flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-colors text-lg"
               >
                 <Phone className="w-6 h-6" />
                 Llamar
@@ -305,11 +305,28 @@ export default function ProfileDetailPage() {
                 href={`https://wa.me/${whatsappClean}?text=${waMessage}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl transition-colors text-lg"
+                className="flex-1 min-w-[120px] flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl transition-colors text-lg"
               >
                 <MessageCircle className="w-6 h-6" />
                 WhatsApp
               </a>
+            )}
+            {profile.acceptMessages && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isAuthenticated || !hasProfile) {
+                    showToast('Entra con tu perfil para enviar un mensaje', 'warning')
+                    navigate('/login')
+                    return
+                  }
+                  navigate(`/app/chat/${profile.id}`)
+                }}
+                className="flex-1 min-w-[120px] flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-xl transition-colors text-lg"
+              >
+                <MessageCircle className="w-6 h-6" />
+                Mensaje
+              </button>
             )}
           </div>
         )}
@@ -447,7 +464,7 @@ export default function ProfileDetailPage() {
       </div>
 
       {/* Botones flotantes en móvil */}
-      {(profile.phone || whatsappClean) && (
+      {(profile.phone || whatsappClean || profile.acceptMessages) && (
         <div className="fixed bottom-0 left-0 right-0 z-50 flex gap-0 md:hidden shadow-2xl">
           {profile.phone && (
             <a
@@ -468,6 +485,23 @@ export default function ProfileDetailPage() {
               <MessageCircle className="w-6 h-6" />
               WhatsApp
             </a>
+          )}
+          {profile.acceptMessages && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!isAuthenticated || !hasProfile) {
+                  showToast('Entra con tu perfil para enviar un mensaje', 'warning')
+                  navigate('/login')
+                  return
+                }
+                navigate(`/app/chat/${profile.id}`)
+              }}
+              className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold py-5 transition-colors text-lg"
+            >
+              <MessageCircle className="w-6 h-6" />
+              Mensaje
+            </button>
           )}
         </div>
       )}

@@ -97,8 +97,10 @@ model Profile {
   // Contacto
   phone           String?   // Número de teléfono
   whatsapp        String?   // Número de WhatsApp
+  acceptMessages  Boolean   @default(false) // Contacto por mensaje interno (bandeja)
   
   // Tipo de perfil: escort (de pago) o sexo_gratis (sin compensación económica)
+  // Una vez publicado no se puede cambiar (bloqueo en updateProfile)
   profileType     String    @default("escort") // 'escort' | 'sexo_gratis'
 
   // Estado de visibilidad

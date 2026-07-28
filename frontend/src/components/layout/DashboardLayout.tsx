@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useToastStore } from '@/store/toastStore'
 import { useState } from 'react'
 import Modal from '../common/Modal'
-import { User, LogOut, Zap, Info, Globe } from 'lucide-react'
+import { User, LogOut, Zap, Info, Globe, Mail } from 'lucide-react'
 
 export default function DashboardLayout() {
   const location = useLocation()
@@ -22,6 +22,7 @@ export default function DashboardLayout() {
 
   const navItems = [
     { path: '/app', label: 'Navegar', Icon: Globe },
+    { path: '/app/inbox', label: 'Buzón', Icon: Mail },
     { path: '/app/plus', label: 'ROAM', Icon: Zap },
     { path: '/app/info', label: 'Info', Icon: Info },
   ]
@@ -84,7 +85,10 @@ export default function DashboardLayout() {
           <div className="flex justify-around">
             {navItems.map((item) => {
               const Icon = item.Icon
-              const active = location.pathname === item.path
+              const active =
+                item.path === '/app'
+                  ? location.pathname === '/app'
+                  : location.pathname === item.path || location.pathname.startsWith(item.path + '/')
 
               return (
                 <button

@@ -1,17 +1,18 @@
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowRight } from 'lucide-react'
 import SeoHead from '@/components/common/SeoHead'
 import { SITE_URL } from '@/utils/citySeo'
 
 export default function LandingPage() {
   const navigate = useNavigate()
 
-  const handleEnter = () => navigate('/perfiles')
+  const handleEscorts = () => {
+    localStorage.setItem('cap_profileSection', 'escort')
+    navigate('/perfiles')
+  }
   const handleSexoGratis = () => {
     localStorage.setItem('cap_profileSection', 'sexo_gratis')
-    navigate('/sexo-gratis/barcelona')
+    navigate('/perfiles')
   }
-  const handleEscortsCity = () => navigate('/putas/barcelona')
   const handleNotAdult = () => { window.location.href = 'https://www.google.com' }
 
   const handleShare = () => {
@@ -27,13 +28,12 @@ export default function LandingPage() {
     <div className="min-h-screen bg-black flex flex-col">
       <SeoHead
         title="Putas y escorts cerca de ti en España | Caperucitas.com"
-        description="Encuentra putas y escorts en tu ciudad. Madrid, Barcelona, Valencia y más de 100 ciudades. Contacto directo, discreto y sin rodeos."
+        description="Encuentra putas, escorts, prostitutas, travestis, masajistas y sexo gratis cerca de ti. Madrid, Barcelona, Valencia y más de 100 ciudades."
         canonical={SITE_URL}
-        keywords="putas, escorts, putas cerca, escorts españa, sexo gratis"
+        keywords="putas, escorts, prostitutas, travestis, masajistas, sexo gratis, encuentros casuales"
       />
       <main className="flex-1 max-w-2xl mx-auto w-full px-0 flex flex-col">
 
-        {/* Banner logo - ancho completo */}
         <img
           src="/logo-caperucitas.jpeg"
           alt="Caperucitas.com"
@@ -42,7 +42,6 @@ export default function LandingPage() {
 
         <div className="px-5 py-6 space-y-6">
 
-          {/* Texto principal */}
           <div className="text-center space-y-2">
             <h1 className="text-2xl font-black text-white leading-tight">
               La nueva forma revolucionaria de encontrar Caperucitas cerca de ti.
@@ -52,34 +51,21 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Banner promocional Sexo gratis */}
-          <div className="relative overflow-hidden rounded-2xl border border-emerald-600/50 bg-gradient-to-br from-emerald-900/80 via-gray-900 to-gray-950 p-5 shadow-xl shadow-emerald-900/20">
-            <span className="absolute top-3 right-3 bg-yellow-400 text-gray-900 text-[10px] font-black px-2 py-0.5 rounded-full">
-              NUEVO
-            </span>
-            <p className="text-emerald-300 text-xs font-bold uppercase tracking-wider mb-1">Sección exclusiva</p>
-            <h2 className="text-white text-xl font-black leading-tight mb-2">
-              💚 Sexo gratis — sin pagar, sin rodeos
-            </h2>
-            <p className="text-gray-300 text-sm leading-relaxed mb-4">
-              Encuentros consensuados sin compensación económica. También tenemos escorts profesionales
-              en otra sección. Más visitas, más perfiles, más opciones cerca de ti.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                onClick={handleSexoGratis}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-base py-3.5 rounded-xl transition-all"
-              >
-                Ver Sexo gratis
-              </button>
-              <button
-                onClick={handleEscortsCity}
-                className="w-full bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-base py-3.5 rounded-xl transition-all"
-              >
-                Ver escorts
-              </button>
+          {/* Texto SEO / keywords */}
+          <div className="rounded-2xl border border-emerald-600/50 bg-gradient-to-br from-emerald-900/80 via-gray-900 to-gray-950 p-5 shadow-xl shadow-emerald-900/20">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-emerald-300 text-xs font-bold uppercase tracking-wider">Sección exclusiva</p>
+              <span className="bg-yellow-400 text-gray-900 text-[10px] font-black px-2 py-0.5 rounded-full">
+                NUEVO
+              </span>
             </div>
-            <div className="flex flex-wrap gap-2 mt-3 justify-center">
+            <h2 className="text-white text-xl font-black leading-tight mb-3">
+              Sexo gratis — sin pagar, sin rodeos
+            </h2>
+            <p className="text-gray-200 text-sm leading-relaxed">
+              En <span className="text-red-400 font-semibold">Caperucitas.com</span> puedes encontrar las mejores escorts, putas, prostitutas, travestis, masajistas y acompañantes más cercanas al lugar donde te encuentres. En nuestra nueva sección, puedes encontrar sexo para follar gratis en tu ciudad con chicas, chicos heteros o gays. Busca encuentros casuales cerca de ti.
+            </p>
+            <div className="flex flex-wrap gap-2 mt-4 justify-center">
               <Link to="/putas/madrid" className="text-xs text-gray-400 hover:text-white underline">Putas Madrid</Link>
               <Link to="/putas/barcelona" className="text-xs text-gray-400 hover:text-white underline">Putas Barcelona</Link>
               <Link to="/putas/valencia" className="text-xs text-gray-400 hover:text-white underline">Putas Valencia</Link>
@@ -88,7 +74,6 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Video 1 */}
           <div className="relative w-full rounded-xl overflow-hidden shadow-2xl bg-gray-900" style={{ paddingTop: '56.25%' }}>
             <iframe
               className="absolute inset-0 w-full h-full"
@@ -100,17 +85,23 @@ export default function LandingPage() {
             />
           </div>
 
-          {/* Botones edad */}
+          {/* 4 botones principales (como el mockup) */}
           <div className="space-y-3">
             <button
-              onClick={handleEnter}
-              className="w-full bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black text-xl py-5 rounded-xl transition-all shadow-lg shadow-red-900/40"
+              onClick={handleEscorts}
+              className="w-full bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black text-lg py-5 rounded-xl transition-all shadow-lg shadow-red-900/40"
             >
-              Tengo 18 años
+              Tengo 18 años y busco escorts
+            </button>
+            <button
+              onClick={handleSexoGratis}
+              className="w-full bg-yellow-500 hover:bg-yellow-400 active:scale-95 text-gray-900 font-black text-lg py-5 rounded-xl transition-all shadow-lg shadow-yellow-900/30"
+            >
+              Tengo 18 años y busco sexo gratis
             </button>
             <button
               onClick={handleNotAdult}
-              className="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black text-xl py-5 rounded-xl transition-all"
+              className="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black text-lg py-5 rounded-xl transition-all"
             >
               No tengo 18 años
             </button>
@@ -127,39 +118,6 @@ export default function LandingPage() {
             </button>
           </div>
 
-          {/* Texto descriptivo */}
-          <div className="space-y-4 text-sm leading-relaxed">
-            <p className="text-gray-200">
-              En <span className="text-red-500 font-semibold">Caperucitas.com</span> el juego comienza cuando te conviertes en el{' '}
-              <span className="text-red-400 font-semibold">Lobo Feroz</span>. Aquí podrás descubrir y "cazar" caperucitas que están cerca de ti, conocer gente nueva y vivir encuentros llenos de misterio, diversión y un toque de travesura.
-            </p>
-            <p className="text-gray-200">
-              Explora, conecta y deja que la aventura empiece... porque en este bosque siempre hay una nueva caperucita esperandote. ¿Te atreves a entrar?
-            </p>
-          </div>
-
-          {/* Video 2 */}
-          <div className="relative w-full rounded-xl overflow-hidden shadow-2xl bg-gray-900" style={{ paddingTop: '56.25%' }}>
-            <iframe
-              className="absolute inset-0 w-full h-full"
-              src="https://www.youtube.com/embed/vUVizeSgAkg"
-              title="Caperucitas.com - Funciones"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          </div>
-
-          {/* Botón entrar al final */}
-          <button
-            onClick={handleEnter}
-            className="w-full bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black text-xl py-5 rounded-xl transition-all shadow-lg shadow-red-900/40 flex items-center justify-center gap-3"
-          >
-            <ArrowRight className="w-6 h-6" />
-            Entrar al bosque
-          </button>
-
-          {/* Legal */}
           <p className="text-center text-xs text-gray-600 pb-4">
             Al entrar confirmas que tienes 18 años o más y aceptas nuestros{' '}
             <button onClick={() => navigate('/info')} className="text-gray-500 hover:text-gray-400 underline">
