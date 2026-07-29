@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Response, Request } from 'express';
 import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { generateChatbotResponse } from '../services/chatbot.service';
@@ -312,6 +312,100 @@ export const deleteConversation = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Error al eliminar conversación:', error);
     res.status(500).json({ error: 'Error al eliminar conversación' });
+  }
+};
+
+/** Mensaje de contacto sin cuenta (público) */
+export const sendGuestContactMessage = async (req: Request, res: Response) => {
+  try {
+    const { toProfileId, name, phone, email, text } = req.body || {};
+
+    if (!toProfileId || typeof toProfileId !== 'string') {
+      return res.status(400).json({ error: 'Perfil destinatario requerido' });
+    }
+    const cleanName = String(name || '').trim();
+    const cleanText = String(text || '').trim();
+    if (!cleanName || cleanName.length < 2) {
+      return res.status(400).json({ error: 'El nombre es obligatorio' });
+    }
+    if (!cleanText || cleanText.length < 5) {
+      return res.status(400).json({ error: 'El mensaje es demasiado corto' });
+    }
+    if (cleanText.length > 2000) {
+      return res.status(400).json({ error: 'El mensaje es demasiado largo' });
+    }
+
+    const toProfile = await prisma.profile.findUnique({
+      where: { id: toProfileId },
+      select: { id: true, acceptMessages: true, isPaused: true },
+    });
+
+    if (!toProfile || toProfile.isPaused || !toProfile.acceptMessages) {
+      return res.status(404).json({ error: 'Este perfil no acepta mensajes' });
+    }
+
+    const message = await prisma.guestContactMessage.create({
+      data: {
+        toProfileId,
+        name: cleanName.slice(0, 80),
+        phone: phone ? String(phone).trim().slice(0, 40) : null,
+        email: email ? String(email).trim().slice(0, 120) : null,
+        text: cleanText,
+      },
+    });
+
+    res.status(201).json({
+      message: 'Mensaje enviado correctamente',
+      id: message.id,
+    });
+  } catch (error) {
+    console.error('Error al enviar mensaje de invitado:', error);
+    res.status(500).json({ error: 'Error al enviar el mensaje' });
+  }
+};
+
+/** Bandeja de mensajes de invitados (dueño del perfil) */
+export const getGuestContactInbox = async (req: AuthRequest, res: Response) => {
+  try {
+    const messages = await prisma.guestContactMessage.findMany({
+      where: { toProfileId: req.profileId! },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    res.json({ messages });
+  } catch (error) {
+    console.error('Error al cargar mensajes de invitados:', error);
+    res.status(500).json({ error: 'Error al cargar mensajes' });
+  }
+};
+
+export const deleteGuestContactMessage = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.guestContactMessage.findFirst({
+      where: { id, toProfileId: req.profileId! },
+    });
+    if (!existing) {
+      return res.status(404).json({ error: 'Mensaje no encontrado' });
+    }
+    await prisma.guestContactMessage.delete({ where: { id } });
+    res.json({ message: 'Mensaje eliminado' });
+  } catch (error) {
+    console.error('Error al eliminar mensaje de invitado:', error);
+    res.status(500).json({ error: 'Error al eliminar mensaje' });
+  }
+};
+
+export const markGuestContactRead = async (req: AuthRequest, res: Response) => {
+  try {
+    await prisma.guestContactMessage.updateMany({
+      where: { toProfileId: req.profileId!, isRead: false },
+      data: { isRead: true },
+    });
+    res.json({ message: 'Marcados como leídos' });
+  } catch (error) {
+    console.error('Error al marcar invitados como leídos:', error);
+    res.status(500).json({ error: 'Error al marcar como leídos' });
   }
 };
 

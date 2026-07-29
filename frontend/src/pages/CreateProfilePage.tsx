@@ -29,7 +29,7 @@ export default function CreateProfilePage() {
     lookingFor: '',
     age: '',
     gender: '',
-    profileType: 'escort' as 'escort' | 'sexo_gratis',
+    profileType: '' as '' | 'escort' | 'sexo_gratis',
     city: '',
     latitude: null as number | null,
     longitude: null as number | null,
@@ -120,6 +120,7 @@ export default function CreateProfilePage() {
     setError('')
 
     if (!formData.gender) { showError('⚠️ Debes seleccionar tu categoría'); return }
+    if (!formData.profileType) { showError('⚠️ Debes elegir Escort o Sexo gratis'); return }
     if (!formData.title.trim()) { showError('⚠️ El título es obligatorio'); return }
     if (formData.title.length > 20) { showError('⚠️ El título debe tener máximo 20 caracteres'); return }
 
@@ -233,7 +234,15 @@ export default function CreateProfilePage() {
                 💚 Sexo gratis
               </button>
             </div>
-            <p className="text-gray-500 text-xs mt-2">Solo puedes elegir una opción. Aparecerás en la sección correspondiente.</p>
+            <p className="text-gray-500 text-xs mt-2">
+              Solo puedes elegir una opción. Aparecerás en la sección correspondiente.
+            </p>
+            <p className="text-amber-200/90 text-xs mt-2 leading-relaxed bg-amber-900/20 border border-amber-700/40 rounded-lg px-3 py-2">
+              Si eliges &quot;Sexo gratis&quot; no podrás pedir dinero ni regalos a cambio de sexo; si lo haces, serás
+              bloqueado permanentemente en nuestra web. Si pides algo a cambio, selecciona ESCORT. Si no eres
+              profesional, puedes elegir la opción de &quot;Mensaje&quot; como forma de contacto para recibir respuestas
+              sin tener que poner tu número de teléfono ni tu WhatsApp.
+            </p>
             {formData.profileType === 'sexo_gratis' && (
               <div className="mt-3 bg-emerald-900/20 border border-emerald-700 rounded-xl p-4 space-y-3">
                 <p className="text-emerald-200 text-sm font-semibold">⚠️ Compromiso obligatorio</p>

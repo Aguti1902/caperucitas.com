@@ -5,6 +5,7 @@ import { showToast } from '@/store/toastStore'
 import { useAuthStore } from '@/store/authStore'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 import ReportModal from '@/components/common/ReportModal'
+import GuestMessageModal from '@/components/common/GuestMessageModal'
 import { AlertTriangle, Phone, MessageCircle, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 import { formatRelationshipGoal } from '@/utils/profileUtils'
 import ProtectedImage from '@/components/common/ProtectedImage'
@@ -27,11 +28,12 @@ function extractCityName(city: string): string {
 export default function ProfileDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { isAuthenticated, hasProfile } = useAuthStore()
+  const { isAuthenticated } = useAuthStore()
   const [profile, setProfile] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
   const [showReportModal, setShowReportModal] = useState(false)
+  const [showGuestMessageModal, setShowGuestMessageModal] = useState(false)
   const [reportCount, setReportCount] = useState(0)
   const [reportCountsByReason, setReportCountsByReason] = useState({
     scam: 0, inappropriate_photos: 0, money_request: 0,
@@ -314,14 +316,7 @@ export default function ProfileDetailPage() {
             {profile.acceptMessages && (
               <button
                 type="button"
-                onClick={() => {
-                  if (!isAuthenticated || !hasProfile) {
-                    showToast('Entra con tu perfil para enviar un mensaje', 'warning')
-                    navigate('/login')
-                    return
-                  }
-                  navigate(`/app/chat/${profile.id}`)
-                }}
+                onClick={() => setShowGuestMessageModal(true)}
                 className="flex-1 min-w-[120px] flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-xl transition-colors text-lg"
               >
                 <MessageCircle className="w-6 h-6" />
@@ -489,14 +484,7 @@ export default function ProfileDetailPage() {
           {profile.acceptMessages && (
             <button
               type="button"
-              onClick={() => {
-                if (!isAuthenticated || !hasProfile) {
-                  showToast('Entra con tu perfil para enviar un mensaje', 'warning')
-                  navigate('/login')
-                  return
-                }
-                navigate(`/app/chat/${profile.id}`)
-              }}
+              onClick={() => setShowGuestMessageModal(true)}
               className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold py-5 transition-colors text-lg"
             >
               <MessageCircle className="w-6 h-6" />
@@ -504,6 +492,14 @@ export default function ProfileDetailPage() {
             </button>
           )}
         </div>
+      )}
+
+      {showGuestMessageModal && (
+        <GuestMessageModal
+          profileId={profile.id}
+          profileTitle={profile.title || 'perfil'}
+          onClose={() => setShowGuestMessageModal(false)}
+        />
       )}
 
       {/* Modal de denuncia — accesible sin login */}

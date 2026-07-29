@@ -37,9 +37,9 @@ export default function LoginPage() {
     setIsLoading(true)
     try {
       await login(email, password, captchaToken)
-      // Ir directamente al perfil del usuario tras login
+      // Tras login: bandeja si tiene perfil, si no crear perfil
       const { hasProfile: hp } = useAuthStore.getState()
-      navigate(hp ? '/edit-profile' : '/create-profile')
+      navigate(hp ? '/app/inbox' : '/create-profile')
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión')
       if (err.response?.data?.requiresEmailVerification) {

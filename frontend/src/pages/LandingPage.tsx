@@ -1,4 +1,5 @@
 import { useNavigate, Link } from 'react-router-dom'
+import { ArrowRight } from 'lucide-react'
 import SeoHead from '@/components/common/SeoHead'
 import { SITE_URL } from '@/utils/citySeo'
 
@@ -117,6 +118,38 @@ export default function LandingPage() {
               ¡Comparte Caperucitas.com!
             </button>
           </div>
+
+          {/* Texto del bosque */}
+          <div className="space-y-4 text-sm leading-relaxed">
+            <p className="text-gray-200">
+              En <span className="text-red-500 font-semibold">Caperucitas.com</span> el juego comienza cuando te conviertes en el{' '}
+              <span className="text-red-400 font-semibold">Lobo Feroz</span>. Aquí podrás descubrir y &quot;cazar&quot; caperucitas que están cerca de ti, conocer gente nueva y vivir encuentros llenos de misterio, diversión y un toque de travesura.
+            </p>
+            <p className="text-gray-200">
+              Explora, conecta y deja que la aventura empiece... porque en este bosque siempre hay una nueva caperucita esperándote. ¿Te atreves a entrar?
+            </p>
+          </div>
+
+          {/* Video 2 */}
+          <div className="relative w-full rounded-xl overflow-hidden shadow-2xl bg-gray-900" style={{ paddingTop: '56.25%' }}>
+            <iframe
+              className="absolute inset-0 w-full h-full"
+              src="https://www.youtube.com/embed/vUVizeSgAkg"
+              title="Caperucitas.com - Funciones"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+
+          {/* Botón entrar al bosque */}
+          <button
+            onClick={handleEscorts}
+            className="w-full bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black text-xl py-5 rounded-xl transition-all shadow-lg shadow-red-900/40 flex items-center justify-center gap-3"
+          >
+            <ArrowRight className="w-6 h-6" />
+            Entrar al bosque
+          </button>
 
           <p className="text-center text-xs text-gray-600 pb-4">
             Al entrar confirmas que tienes 18 años o más y aceptas nuestros{' '}

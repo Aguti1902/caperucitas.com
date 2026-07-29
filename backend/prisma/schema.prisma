@@ -129,6 +129,7 @@ model Profile {
   favoritedBy     Favorite[] @relation("TargetFavorites")
   sentMessages    Message[] @relation("SentMessages")
   receivedMessages Message[] @relation("ReceivedMessages")
+  guestContactMessages GuestContactMessage[]
   blocksInitiated Block[]   @relation("BlockerProfile")
   blocksReceived  Block[]   @relation("BlockedProfile")
   photoAccessAsOwner   PrivatePhotoAccess[] @relation("PhotoAccessOwner")
@@ -217,6 +218,25 @@ model Message {
   @@index([toProfileId])
   @@index([createdAt])
   @@map("messages")
+}
+
+// Mensajes de contacto sin cuenta (invitados)
+model GuestContactMessage {
+  id          String   @id @default(uuid())
+  toProfileId String
+  toProfile   Profile  @relation(fields: [toProfileId], references: [id], onDelete: Cascade)
+
+  name        String
+  phone       String?
+  email       String?
+  text        String   @db.Text
+
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([toProfileId])
+  @@index([createdAt])
+  @@map("guest_contact_messages")
 }
 
 // Bloqueos
