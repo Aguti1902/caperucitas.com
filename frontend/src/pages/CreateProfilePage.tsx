@@ -237,6 +237,9 @@ export default function CreateProfilePage() {
             <p className="text-gray-500 text-xs mt-2">
               Solo puedes elegir una opción. Aparecerás en la sección correspondiente.
             </p>
+            <p className="text-red-400 text-xs mt-2 font-bold leading-relaxed bg-red-950/40 border border-red-700/50 rounded-lg px-3 py-2">
+              ATENCIÓN: una vez seleccionada Escort o Sexo gratis, no se podrá cambiar una vez publicado tu perfil.
+            </p>
             <p className="text-amber-200/90 text-xs mt-2 leading-relaxed bg-amber-900/20 border border-amber-700/40 rounded-lg px-3 py-2">
               Si eliges &quot;Sexo gratis&quot; no podrás pedir dinero ni regalos a cambio de sexo; si lo haces, serás
               bloqueado permanentemente en nuestra web. Si pides algo a cambio, selecciona ESCORT. Si no eres
