@@ -239,6 +239,36 @@ export const createRoamPaymentIntent = async (
   return paymentIntent;
 };
 
+/** Payment Intent Premium Sexo gratis — 20€ / 3 meses (promo) */
+export const createSexoGratisPremiumPaymentIntent = async (
+  userId: string,
+  profileId: string,
+  email: string
+) => {
+  if (!stripe) {
+    throw new Error('Stripe no está configurado. Por favor, configura STRIPE_SECRET_KEY en las variables de entorno.');
+  }
+
+  const customer = await getOrCreateStripeCustomer(userId, email);
+  const price = 20;
+
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: Math.round(price * 100),
+    currency: 'eur',
+    customer: customer.id,
+    metadata: {
+      userId,
+      profileId,
+      type: 'sexo_gratis_premium',
+      price: price.toString(),
+      days: '90',
+    },
+    description: 'Premium Sexo gratis — 3 meses (promo 20€)',
+  });
+
+  return paymentIntent;
+};
+
 // Crear Setup Intent y suscripción para 9Plus (suscripción embebida)
 export const createSubscriptionSetupIntent = async (
   userId: string,
@@ -437,6 +467,36 @@ const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.PaymentIntent)
     });
 
     console.log(`✅ RoAM activado para perfil ${profileId} (${duration} minutos) via Payment Intent`);
+  }
+
+  if (type === 'sexo_gratis_premium') {
+    const profileId = metadata.profileId;
+    const days = parseInt(metadata.days || '90', 10);
+    if (!profileId) return;
+
+    const profile = await prisma.profile.findUnique({ where: { id: profileId } });
+    if (!profile || profile.profileType !== 'sexo_gratis') return;
+
+    const now = new Date();
+    const premiumBase =
+      profile.premiumUntil && new Date(profile.premiumUntil).getTime() > now.getTime()
+        ? new Date(profile.premiumUntil)
+        : now;
+    const listingBase =
+      profile.listingExpiresAt && new Date(profile.listingExpiresAt).getTime() > now.getTime()
+        ? new Date(profile.listingExpiresAt)
+        : now;
+
+    await prisma.profile.update({
+      where: { id: profileId },
+      data: {
+        premiumUntil: new Date(premiumBase.getTime() + days * 24 * 60 * 60 * 1000),
+        listingExpiresAt: new Date(listingBase.getTime() + days * 24 * 60 * 60 * 1000),
+        isPaused: false,
+      },
+    });
+
+    console.log(`✅ Premium Sexo gratis activado para perfil ${profileId} (${days} días)`);
   }
 };
 

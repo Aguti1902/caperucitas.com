@@ -259,3 +259,47 @@ export const sendSubscriptionReminderEmail = async (email: string, expiresAt: Da
   });
 };
 
+/** Aviso: el anuncio Sexo gratis caduca pronto */
+export const sendListingExpiryReminderEmail = async (
+  email: string,
+  expiresAt: Date,
+  profileTitle: string
+): Promise<void> => {
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'Caperucitas <noreply@caperucitas.com>';
+  const frontendUrl = (process.env.FRONTEND_URL || 'https://caperucitas.com').split(',')[0].trim();
+  const resend = getResendClient();
+  const diasRestantes = Math.max(
+    1,
+    Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+  );
+
+  await resend.emails.send({
+    from: fromEmail,
+    to: email,
+    subject: `Tu perfil Sexo gratis caduca en ${diasRestantes} días`,
+    html: `
+      <!DOCTYPE html>
+      <html><body style="font-family:Arial,sans-serif;color:#333">
+        <div style="max-width:600px;margin:0 auto;padding:20px">
+          <div style="background:#059669;color:white;padding:24px;border-radius:10px 10px 0 0;text-align:center">
+            <h1 style="margin:0">Tu anuncio va a caducar</h1>
+          </div>
+          <div style="background:#f9f9f9;padding:24px;border-radius:0 0 10px 10px">
+            <p>Hola${profileTitle ? `, <strong>${profileTitle}</strong>` : ''},</p>
+            <p>Tu perfil de <strong>Sexo gratis</strong> dejará de aparecer en las búsquedas el
+              <strong>${expiresAt.toLocaleDateString('es-ES')}</strong> (en ${diasRestantes} días).</p>
+            <p>Entra y pulsa <strong>Renovar gratis</strong> para seguir activo 90 días más, sin rellenar datos.</p>
+            <p style="text-align:center;margin:28px 0">
+              <a href="${frontendUrl}/app/edit-profile"
+                 style="background:#059669;color:white;padding:14px 28px;text-decoration:none;border-radius:8px;font-weight:bold">
+                Renovar gratis
+              </a>
+            </p>
+            <p style="font-size:13px;color:#666">También puedes contratar Premium (20€ / 3 meses) para mostrar teléfono/WhatsApp y salir en el carrusel.</p>
+          </div>
+        </div>
+      </body></html>
+    `,
+  });
+};
+

@@ -1,4 +1,4 @@
-// Formatear tiempo relativo para última conexión
+// Formatear tiempo relativo para última conexión / actividad
 export const formatLastSeen = (lastSeenAt: string | Date | null | undefined): string => {
   if (!lastSeenAt) return 'Hace tiempo'
 
@@ -14,9 +14,11 @@ export const formatLastSeen = (lastSeenAt: string | Date | null | undefined): st
   } else if (diffMinutes < 60) {
     return `Hace ${diffMinutes} ${diffMinutes === 1 ? 'minuto' : 'minutos'}`
   } else if (diffHours < 24) {
-    return `Hace ${diffHours} ${diffHours === 1 ? 'hora' : 'horas'}`
+    return 'Activo hoy'
+  } else if (diffDays === 1) {
+    return 'Activo ayer'
   } else if (diffDays < 7) {
-    return `Hace ${diffDays} ${diffDays === 1 ? 'día' : 'días'}`
+    return `hace ${diffDays} días`
   } else if (diffDays < 30) {
     const weeks = Math.floor(diffDays / 7)
     return `Hace ${weeks} ${weeks === 1 ? 'semana' : 'semanas'}`

@@ -1,10 +1,18 @@
 import prisma from '../lib/prisma';
 
-/** Asegura columnas y tablas nuevas de perfiles / contacto. */
+/** Asegura columnas y tablas nuevas de perfiles / contacto / freemium. */
 export async function ensureProfileSchema(): Promise<void> {
   await prisma.$executeRawUnsafe(`
     ALTER TABLE "profiles"
     ADD COLUMN IF NOT EXISTS "acceptMessages" BOOLEAN NOT NULL DEFAULT false
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "profiles"
+    ADD COLUMN IF NOT EXISTS "listingExpiresAt" TIMESTAMP(3)
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "profiles"
+    ADD COLUMN IF NOT EXISTS "premiumUntil" TIMESTAMP(3)
   `);
 
   await prisma.$executeRawUnsafe(`
@@ -30,5 +38,5 @@ export async function ensureProfileSchema(): Promise<void> {
     ON guest_contact_messages("createdAt")
   `);
 
-  console.log('✅ profiles.acceptMessages + guest_contact_messages listos');
+  console.log('✅ schema perfiles freemium / guest messages listo');
 }

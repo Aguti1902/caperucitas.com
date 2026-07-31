@@ -6,8 +6,9 @@ import { useAuthStore } from '@/store/authStore'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 import ReportModal from '@/components/common/ReportModal'
 import GuestMessageModal from '@/components/common/GuestMessageModal'
-import { AlertTriangle, Phone, MessageCircle, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
+import { AlertTriangle, Phone, MessageCircle, ChevronLeft, ChevronRight, ArrowLeft, Crown } from 'lucide-react'
 import { formatRelationshipGoal } from '@/utils/profileUtils'
+import { formatLastSeen } from '@/utils/timeUtils'
 import ProtectedImage from '@/components/common/ProtectedImage'
 import { SPANISH_CITIES } from '@/data/spanishCities'
 
@@ -272,11 +273,17 @@ export default function ProfileDetailPage() {
       <div className="px-4 py-5 space-y-5">
         {/* Nombre, edad y ubicación */}
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-2">
+          <h1 className="text-3xl font-bold text-white flex items-center gap-2 flex-wrap">
             {profile.title}, {profile.age}
             {profile.isOnline && (
               <span className="inline-flex items-center bg-green-500 rounded-full px-2 py-0.5 text-xs font-bold text-white">
                 ● Online
+              </span>
+            )}
+            {profile.isPremium && (
+              <span className="inline-flex items-center gap-1 bg-amber-500 text-gray-900 rounded-full px-2 py-0.5 text-xs font-bold">
+                <Crown className="w-3 h-3" />
+                Premium
               </span>
             )}
           </h1>
@@ -286,6 +293,11 @@ export default function ProfileDetailPage() {
           {distanceKm !== null && (
             <p className="text-gray-500 text-sm">
               📏 A {distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m` : `${distanceKm} km`} de ti
+            </p>
+          )}
+          {!profile.isOnline && (
+            <p className="text-gray-500 text-sm mt-0.5">
+              {formatLastSeen(profile.lastSeenAt)}
             </p>
           )}
         </div>

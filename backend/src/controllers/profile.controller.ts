@@ -4,6 +4,14 @@ import { validationResult } from 'express-validator';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { calculateDistance } from '../utils/distance.utils';
 import { normalizeProfilesPhotos, normalizeProfilePhotos } from '../utils/photo.utils';
+import {
+  addDays,
+  isSexoGratisPremium,
+  sanitizePublicContact,
+  SEXO_GRATIS_LISTING_DAYS,
+  SEXO_GRATIS_TRIAL_PREMIUM_DAYS,
+  SEXO_GRATIS_PAID_PREMIUM_DAYS,
+} from '../utils/sexoGratis.utils';
 
 
 // Crear perfil
@@ -19,7 +27,9 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
           children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp, acceptMessages, profileType } = req.body;
 
     const validProfileType = profileType === 'sexo_gratis' ? 'sexo_gratis' : 'escort';
-    const wantsMessages = acceptMessages === true || acceptMessages === 'true';
+    // Sexo gratis: mensaje siempre activo
+    const wantsMessages =
+      validProfileType === 'sexo_gratis' || acceptMessages === true || acceptMessages === 'true';
 
     // Verificar que no tenga ya un perfil
     const existingProfile = await prisma.profile.findUnique({
@@ -30,12 +40,26 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Ya tienes un perfil creado' });
     }
 
-    if (!phone && !whatsapp && !wantsMessages) {
+    if (validProfileType === 'escort' && !phone && !whatsapp && !wantsMessages) {
       return res.status(400).json({ error: 'Debes añadir teléfono, WhatsApp o activar contacto por mensaje' });
     }
 
     // gender viene del campo orientation (chica/chico/trans/casa)
     const profileGender = gender || orientation || 'chica';
+
+    const now = new Date();
+    const sexoGratisData =
+      validProfileType === 'sexo_gratis'
+        ? {
+            acceptMessages: true,
+            listingExpiresAt: addDays(now, SEXO_GRATIS_LISTING_DAYS),
+            premiumUntil: addDays(now, SEXO_GRATIS_TRIAL_PREMIUM_DAYS),
+          }
+        : {
+            acceptMessages: wantsMessages,
+            listingExpiresAt: null,
+            premiumUntil: null,
+          };
 
     // Crear perfil
     const profile = await prisma.profile.create({
@@ -67,7 +91,9 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
         languages: languages || ['Español'],
         phone: phone || null,
         whatsapp: whatsapp || null,
-        acceptMessages: wantsMessages,
+        acceptMessages: sexoGratisData.acceptMessages,
+        listingExpiresAt: sexoGratisData.listingExpiresAt,
+        premiumUntil: sexoGratisData.premiumUntil,
         profileType: validProfileType,
         isOnline: true,
         isPaused: true, // invisible hasta subir al menos una foto
@@ -104,7 +130,10 @@ export const getMyProfile = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Perfil no encontrado' });
     }
 
-    res.json(profile);
+    res.json({
+      ...profile,
+      isPremium: isSexoGratisPremium(profile),
+    });
   } catch (error) {
     console.error('Error al obtener perfil:', error);
     res.status(500).json({ error: 'Error al obtener perfil' });
@@ -123,9 +152,15 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
           height, bodyType, relationshipStatus, relationshipGoal, occupation, education, smoking, drinking,
           children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp, acceptMessages, isPaused } = req.body;
 
-    // profileType NO se puede cambiar una vez publicado (ignorar si viene en el body)
     const acceptMessagesUpdate =
-      acceptMessages === undefined ? undefined : (acceptMessages === true || acceptMessages === 'true');
+      acceptMessages === undefined
+        ? undefined
+        : acceptMessages === true || acceptMessages === 'true';
+
+    const existing = await prisma.profile.findUnique({
+      where: { userId: req.userId },
+      select: { profileType: true },
+    });
 
     const updatedProfile = await prisma.profile.update({
       where: { userId: req.userId },
@@ -156,7 +191,9 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
         languages: languages || [],
         phone: phone !== undefined ? phone : undefined,
         whatsapp: whatsapp !== undefined ? whatsapp : undefined,
-        acceptMessages: acceptMessagesUpdate,
+        // Sexo gratis: mensaje siempre on
+        acceptMessages:
+          existing?.profileType === 'sexo_gratis' ? true : acceptMessagesUpdate,
         isPaused: isPaused !== undefined ? isPaused : undefined,
         lastSeenAt: new Date(),
       },
@@ -566,6 +603,7 @@ export const publicSearchProfiles = async (req: Request, res: Response) => {
     const { gender, city, page, limit, q, profileType } = req.query;
 
     const sectionType = profileType === 'sexo_gratis' ? 'sexo_gratis' : 'escort';
+    const now = new Date();
 
     const where: any = {
       isPaused: false,
@@ -574,6 +612,14 @@ export const publicSearchProfiles = async (req: Request, res: Response) => {
         some: { type: { in: ['cover', 'public'] } },
       },
     };
+
+    // Sexo gratis: solo anuncios dentro del periodo de 90 días
+    if (sectionType === 'sexo_gratis') {
+      where.OR = [
+        { listingExpiresAt: { gt: now } },
+        { listingExpiresAt: null },
+      ];
+    }
 
     if (gender && gender !== 'all') {
       where.gender = gender as string;
@@ -584,20 +630,25 @@ export const publicSearchProfiles = async (req: Request, res: Response) => {
     }
 
     if (q) {
-      where.OR = [
+      const textFilter = [
         { title: { contains: q as string, mode: 'insensitive' } },
         { aboutMe: { contains: q as string, mode: 'insensitive' } },
       ];
+      if (where.OR) {
+        where.AND = [{ OR: where.OR }, { OR: textFilter }];
+        delete where.OR;
+      } else {
+        where.OR = textFilter;
+      }
     }
 
     const queryOptions: any = {
       where,
       include: PUBLIC_PROFILE_INCLUDE,
-      orderBy: [
-        { isRoaming: 'desc' },
-        { isOnline: 'desc' },
-        { lastSeenAt: 'desc' },
-      ],
+      orderBy:
+        sectionType === 'sexo_gratis'
+          ? [{ premiumUntil: 'desc' }, { isOnline: 'desc' }, { lastSeenAt: 'desc' }]
+          : [{ isRoaming: 'desc' }, { isOnline: 'desc' }, { lastSeenAt: 'desc' }],
     };
 
     const limitNum = limit !== undefined && limit !== '' ? Number(limit) : null;
@@ -612,11 +663,19 @@ export const publicSearchProfiles = async (req: Request, res: Response) => {
       prisma.profile.count({ where }),
     ]);
 
-    const normalized = (profiles as any[]).map(p => ({
-      ...p,
-      coverPhoto: p.photos.find(ph => ph.type === 'cover')?.url || p.photos[0]?.url || null,
-      publicPhotos: p.photos.filter(ph => ph.type === 'public').map(ph => ph.url),
-    }));
+    const normalized = (profiles as any[]).map((p) => {
+      const base = {
+        ...p,
+        coverPhoto: p.photos.find((ph: any) => ph.type === 'cover')?.url || p.photos[0]?.url || null,
+        publicPhotos: p.photos.filter((ph: any) => ph.type === 'public').map((ph: any) => ph.url),
+      };
+      return sanitizePublicContact(base);
+    });
+
+    // Premium activos primero (por si premiumUntil ya pasó pero orden SQL lo dejó arriba)
+    if (sectionType === 'sexo_gratis') {
+      normalized.sort((a, b) => Number(b.isPremium) - Number(a.isPremium));
+    }
 
     res.json({ profiles: normalized, total });
   } catch (error) {
@@ -639,15 +698,104 @@ export const getPublicProfileById = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Perfil no encontrado' });
     }
 
-    const normalized = {
+    if (profile.isPaused) {
+      return res.status(404).json({ error: 'Perfil no encontrado' });
+    }
+
+    if (
+      profile.profileType === 'sexo_gratis' &&
+      profile.listingExpiresAt &&
+      new Date(profile.listingExpiresAt).getTime() <= Date.now()
+    ) {
+      return res.status(404).json({ error: 'Perfil no encontrado' });
+    }
+
+    const normalized = sanitizePublicContact({
       ...profile,
-      coverPhoto: profile.photos.find(ph => ph.type === 'cover')?.url || profile.photos[0]?.url || null,
-      publicPhotos: profile.photos.filter(ph => ph.type === 'public').map(ph => ph.url),
-    };
+      coverPhoto: profile.photos.find((ph) => ph.type === 'cover')?.url || profile.photos[0]?.url || null,
+      publicPhotos: profile.photos.filter((ph) => ph.type === 'public').map((ph) => ph.url),
+    });
 
     res.json(normalized);
   } catch (error) {
     console.error('Error al obtener perfil público:', error);
     res.status(500).json({ error: 'Error al obtener perfil' });
+  }
+};
+
+/** Renovar anuncio Sexo gratis gratis (+90 días) */
+export const renewFreeListing = async (req: AuthRequest, res: Response) => {
+  try {
+    const profile = await prisma.profile.findUnique({
+      where: { userId: req.userId },
+    });
+
+    if (!profile) {
+      return res.status(404).json({ error: 'Perfil no encontrado' });
+    }
+    if (profile.profileType !== 'sexo_gratis') {
+      return res.status(400).json({ error: 'Solo disponible para perfiles Sexo gratis' });
+    }
+
+    const base =
+      profile.listingExpiresAt && new Date(profile.listingExpiresAt).getTime() > Date.now()
+        ? new Date(profile.listingExpiresAt)
+        : new Date();
+
+    const updated = await prisma.profile.update({
+      where: { id: profile.id },
+      data: {
+        listingExpiresAt: addDays(base, SEXO_GRATIS_LISTING_DAYS),
+        isPaused: false,
+        lastSeenAt: new Date(),
+      },
+    });
+
+    res.json({
+      message: 'Perfil renovado gratis 90 días más',
+      profile: updated,
+    });
+  } catch (error) {
+    console.error('Error al renovar listing:', error);
+    res.status(500).json({ error: 'Error al renovar el perfil' });
+  }
+};
+
+/** Activar Premium Sexo gratis (pago o simulación si no hay Stripe) */
+export const activateSexoGratisPremium = async (req: AuthRequest, res: Response) => {
+  try {
+    const profile = await prisma.profile.findUnique({
+      where: { userId: req.userId },
+    });
+    if (!profile || profile.profileType !== 'sexo_gratis') {
+      return res.status(400).json({ error: 'Solo perfiles Sexo gratis' });
+    }
+
+    const base =
+      profile.premiumUntil && new Date(profile.premiumUntil).getTime() > Date.now()
+        ? new Date(profile.premiumUntil)
+        : new Date();
+    const listingBase =
+      profile.listingExpiresAt && new Date(profile.listingExpiresAt).getTime() > Date.now()
+        ? new Date(profile.listingExpiresAt)
+        : new Date();
+
+    const updated = await prisma.profile.update({
+      where: { id: profile.id },
+      data: {
+        premiumUntil: addDays(base, SEXO_GRATIS_PAID_PREMIUM_DAYS),
+        listingExpiresAt: addDays(listingBase, SEXO_GRATIS_LISTING_DAYS),
+        isPaused: false,
+      },
+    });
+
+    res.json({
+      message: 'Premium Sexo gratis activado 3 meses',
+      profile: updated,
+      isPremium: isSexoGratisPremium(updated),
+    });
+  } catch (error) {
+    console.error('Error al activar premium sexo gratis:', error);
+    res.status(500).json({ error: 'Error al activar Premium' });
   }
 };

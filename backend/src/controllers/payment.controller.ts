@@ -5,6 +5,7 @@ import {
   createSubscriptionCheckoutSession,
   createRoamCheckoutSession,
   createRoamPaymentIntent,
+  createSexoGratisPremiumPaymentIntent,
   createSubscriptionSetupIntent,
   confirmSubscriptionWithPaymentMethod,
   handleStripeWebhook,
@@ -303,6 +304,46 @@ export const createRoamPaymentIntentController = async (req: AuthRequest, res: R
   } catch (error: any) {
     console.error('Error al crear Payment Intent de RoAM:', error);
     res.status(500).json({ error: 'Error al crear sesión de pago' });
+  }
+};
+
+// Payment Intent Premium Sexo gratis (20€ / 3 meses)
+export const createSexoGratisPremiumPaymentIntentController = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.userId || !req.profileId) {
+      return res.status(401).json({ error: 'No autenticado' });
+    }
+
+    const profile = await prisma.profile.findUnique({
+      where: { id: req.profileId },
+      include: { user: true },
+    });
+
+    if (!profile || profile.profileType !== 'sexo_gratis') {
+      return res.status(400).json({ error: 'Solo disponible para perfiles Sexo gratis' });
+    }
+
+    if (!stripe) {
+      // Sin Stripe: activar directo (promo / entorno sin pagos)
+      const { activateSexoGratisPremium } = await import('./profile.controller');
+      return activateSexoGratisPremium(req, res);
+    }
+
+    const paymentIntent = await createSexoGratisPremiumPaymentIntent(
+      req.userId,
+      req.profileId,
+      profile.user.email
+    );
+
+    res.json({
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+      amountEur: 20,
+      days: 90,
+    });
+  } catch (error: any) {
+    console.error('Error Payment Intent Sexo gratis Premium:', error);
+    res.status(500).json({ error: error.message || 'Error al crear pago' });
   }
 };
 

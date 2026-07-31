@@ -293,6 +293,51 @@ cron.schedule('0 9 * * *', async () => {
   }
 });
 
+// Cron: Sexo gratis — pausar caducados + avisar 7 días antes
+cron.schedule('15 9 * * *', async () => {
+  console.log('⏰ Cron: freemium Sexo gratis (caducidad / avisos)...');
+  try {
+    const prisma = (await import('./lib/prisma')).default;
+    const { sendListingExpiryReminderEmail } = await import('./utils/email-resend.utils');
+    const now = new Date();
+
+    // Pausar anuncios caducados
+    const paused = await prisma.profile.updateMany({
+      where: {
+        profileType: 'sexo_gratis',
+        isPaused: false,
+        listingExpiresAt: { lt: now },
+      },
+      data: { isPaused: true },
+    });
+    if (paused.count > 0) {
+      console.log(`⏸️ Pausados ${paused.count} perfiles Sexo gratis caducados`);
+    }
+
+    // Aviso ~7 días antes
+    const in7 = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const in8 = new Date(now.getTime() + 8 * 24 * 60 * 60 * 1000);
+    const expiring = await prisma.profile.findMany({
+      where: {
+        profileType: 'sexo_gratis',
+        isPaused: false,
+        listingExpiresAt: { gte: in7, lt: in8 },
+      },
+      include: { user: { select: { email: true } } },
+    });
+
+    for (const p of expiring) {
+      if (p.user?.email && p.listingExpiresAt) {
+        await sendListingExpiryReminderEmail(p.user.email, p.listingExpiresAt, p.title);
+        console.log(`📧 Aviso caducidad Sexo gratis → ${p.user.email}`);
+      }
+    }
+    console.log(`✅ Cron Sexo gratis: ${expiring.length} avisos`);
+  } catch (err) {
+    console.error('❌ Error cron Sexo gratis:', err);
+  }
+});
+
 // Cron: reanudar campañas pausadas por límite diario (00:05 UTC)
 cron.schedule('5 0 * * *', async () => {
   console.log('⏰ Cron: reanudando campañas WhatsApp pausadas por límite diario...');

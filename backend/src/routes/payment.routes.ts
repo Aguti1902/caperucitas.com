@@ -7,6 +7,7 @@ import {
   createCustomerPortalSession,
   getStripePublishableKey,
   createRoamPaymentIntentController,
+  createSexoGratisPremiumPaymentIntentController,
   createSubscriptionSetupIntentController,
   confirmSubscriptionController,
 } from '../controllers/payment.controller';
@@ -37,6 +38,9 @@ router.post('/subscription/confirm', confirmSubscriptionController);
 
 // Crear Payment Intent para RoAM (embebido)
 router.post('/roam/payment-intent', requireProfile, createRoamPaymentIntentController);
+
+// Premium Sexo gratis 20€ / 3 meses
+router.post('/sexo-gratis-premium/payment-intent', requireProfile, createSexoGratisPremiumPaymentIntentController);
 
 // Crear sesión del portal de cliente (gestionar suscripción)
 router.post('/customer-portal', createCustomerPortalSession);

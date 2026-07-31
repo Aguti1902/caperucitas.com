@@ -9,10 +9,11 @@ import LoadingSpinner from '@/components/common/LoadingSpinner'
 import Modal from '@/components/common/Modal'
 import { detectLocation } from '@/utils/geolocation'
 import CitySelector from '@/components/common/CitySelector'
-import { Eye, Pause, Play, LogOut } from 'lucide-react'
+import { Eye, Pause, Play, LogOut, Crown, RefreshCw } from 'lucide-react'
 import BackNavBar from '@/components/common/BackNavBar'
 import { showToast } from '@/store/toastStore'
 import { uploadProfilePhotos } from '@/utils/uploadProfilePhotos'
+import SexoGratisPremiumPaymentForm from '@/components/payment/SexoGratisPremiumPaymentForm'
 
 export default function EditProfilePage() {
   const navigate = useNavigate()
@@ -24,6 +25,11 @@ export default function EditProfilePage() {
   const [showPauseModal, setShowPauseModal] = useState(false)
   const [profilePaused, setProfilePaused] = useState(false)
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false)
+  const [isPremium, setIsPremium] = useState(false)
+  const [listingExpiresAt, setListingExpiresAt] = useState<string | null>(null)
+  const [premiumUntil, setPremiumUntil] = useState<string | null>(null)
+  const [isRenewing, setIsRenewing] = useState(false)
+  const [showPremiumModal, setShowPremiumModal] = useState(false)
 
   const [formData, setFormData] = useState({
     title: '',
@@ -61,6 +67,9 @@ export default function EditProfilePage() {
       const response = await api.get('/profile/me')
       const profile = response.data
       setProfilePaused(profile.isPaused || false)
+      setIsPremium(!!profile.isPremium)
+      setListingExpiresAt(profile.listingExpiresAt || null)
+      setPremiumUntil(profile.premiumUntil || null)
       setFormData({
         title: profile.title || '',
         aboutMe: profile.aboutMe || '',
@@ -73,7 +82,8 @@ export default function EditProfilePage() {
         longitude: profile.longitude ?? null,
         phone: profile.phone || '',
         whatsapp: profile.whatsapp || '',
-        acceptMessages: !!profile.acceptMessages,
+        acceptMessages:
+          profile.profileType === 'sexo_gratis' ? true : !!profile.acceptMessages,
         height: profile.height?.toString() || '',
         bodyType: profile.bodyType || '',
         occupation: profile.occupation || '',
@@ -88,6 +98,21 @@ export default function EditProfilePage() {
       console.error('Error al cargar perfil')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleRenewListing = async () => {
+    setIsRenewing(true)
+    try {
+      const res = await api.post('/profile/renew-listing')
+      setListingExpiresAt(res.data.profile?.listingExpiresAt || null)
+      setProfilePaused(false)
+      showToast('✓ Perfil renovado 90 días más', 'success')
+      await loadProfile()
+    } catch (err: any) {
+      showToast(err.response?.data?.error || 'Error al renovar', 'error')
+    } finally {
+      setIsRenewing(false)
     }
   }
 
@@ -188,7 +213,12 @@ export default function EditProfilePage() {
       setError('⚠️ Debes tener al menos 1 foto para que tu perfil sea visible')
       return
     }
-    if (!formData.phone && !formData.whatsapp && !formData.acceptMessages) {
+    if (
+      formData.profileType === 'escort' &&
+      !formData.phone &&
+      !formData.whatsapp &&
+      !formData.acceptMessages
+    ) {
       setError('⚠️ Debes añadir teléfono, WhatsApp o activar contacto por mensaje')
       return
     }
@@ -198,6 +228,7 @@ export default function EditProfilePage() {
       const { profileType: _lockedType, ...payload } = formData
       await api.put('/profile', {
         ...payload,
+        acceptMessages: formData.profileType === 'sexo_gratis' ? true : formData.acceptMessages,
         age,
         height: formData.height ? parseInt(formData.height) : null,
         hobbies,
@@ -365,54 +396,133 @@ export default function EditProfilePage() {
           </p>
         </div>
 
+        {/* Freemium Sexo gratis */}
+        {formData.profileType === 'sexo_gratis' && (
+          <div className="space-y-3">
+            <div className="bg-emerald-950/40 border border-emerald-700/50 rounded-xl p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-emerald-300 font-semibold text-sm">Anuncio gratuito (90 días)</p>
+                  <p className="text-gray-400 text-xs mt-1">
+                    {listingExpiresAt
+                      ? `Caduca el ${new Date(listingExpiresAt).toLocaleDateString('es-ES')}`
+                      : 'Sin fecha de caducidad'}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleRenewListing}
+                  isLoading={isRenewing}
+                  className="shrink-0 !py-2 !px-3 text-xs"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 mr-1 inline" />
+                  Renovar gratis
+                </Button>
+              </div>
+            </div>
+
+            <div
+              className={`rounded-xl p-4 border ${
+                isPremium
+                  ? 'bg-amber-950/30 border-amber-600/50'
+                  : 'bg-gray-800 border-gray-700'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className={`font-semibold text-sm flex items-center gap-1.5 ${isPremium ? 'text-amber-300' : 'text-white'}`}>
+                    <Crown className="w-4 h-4" />
+                    {isPremium ? 'Premium activo' : 'Premium Sexo gratis'}
+                  </p>
+                  <p className="text-gray-400 text-xs mt-1 leading-relaxed">
+                    {isPremium && premiumUntil
+                      ? `Hasta el ${new Date(premiumUntil).toLocaleDateString('es-ES')}. Teléfono/WhatsApp visibles, mejor ranking y carrusel.`
+                      : '20€ / 3 meses: muestra teléfono y WhatsApp, mejor posición y carrusel (~10 km).'}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="accent"
+                  onClick={() => setShowPremiumModal(true)}
+                  className="shrink-0 !py-2 !px-3 text-xs"
+                >
+                  {isPremium ? 'Ampliar' : 'Contratar 20€'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Contacto */}
         <div className="bg-gray-800 rounded-xl p-4">
           <h3 className="text-white font-semibold mb-3">📞 Datos de contacto</h3>
+          {formData.profileType === 'sexo_gratis' && (
+            <p className="text-gray-400 text-xs mb-3 leading-relaxed">
+              Mensaje siempre activo. Teléfono/WhatsApp solo son públicos con Premium
+              {isPremium ? ' (activo ahora).' : ' (ahora ocultos en el listado).'}
+            </p>
+          )}
           <div className="space-y-3">
             <Input
-              label="Teléfono (para llamadas)"
+              label={
+                formData.profileType === 'sexo_gratis'
+                  ? 'Teléfono (público solo con Premium)'
+                  : 'Teléfono (para llamadas)'
+              }
               type="tel"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               placeholder="+34 600 000 000"
             />
             <Input
-              label="WhatsApp"
+              label={
+                formData.profileType === 'sexo_gratis'
+                  ? 'WhatsApp (público solo con Premium)'
+                  : 'WhatsApp'
+              }
               type="tel"
               value={formData.whatsapp}
               onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
               placeholder="+34 600 000 000"
             />
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Mensaje</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, acceptMessages: false })}
-                  className={`py-3 rounded-xl font-bold text-sm transition-all ${
-                    !formData.acceptMessages
-                      ? 'bg-gray-600 text-white'
-                      : 'bg-gray-900 text-gray-400 border border-gray-700'
-                  }`}
-                >
-                  NO
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, acceptMessages: true })}
-                  className={`py-3 rounded-xl font-bold text-sm transition-all ${
-                    formData.acceptMessages
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-900 text-gray-400 border border-gray-700'
-                  }`}
-                >
-                  SI
-                </button>
+            {formData.profileType === 'sexo_gratis' ? (
+              <div className="bg-purple-900/30 border border-purple-700/50 rounded-xl px-3 py-3">
+                <p className="text-purple-200 text-sm font-semibold">💬 Mensaje: siempre activo</p>
+                <p className="text-gray-400 text-xs mt-1">Gratis y sin publicar tu número.</p>
               </div>
-              <p className="text-gray-500 text-xs mt-2">
-                Recibirás tus mensajes en tu bandeja de entrada
-              </p>
-            </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Mensaje</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, acceptMessages: false })}
+                    className={`py-3 rounded-xl font-bold text-sm transition-all ${
+                      !formData.acceptMessages
+                        ? 'bg-gray-600 text-white'
+                        : 'bg-gray-900 text-gray-400 border border-gray-700'
+                    }`}
+                  >
+                    NO
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, acceptMessages: true })}
+                    className={`py-3 rounded-xl font-bold text-sm transition-all ${
+                      formData.acceptMessages
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-900 text-gray-400 border border-gray-700'
+                    }`}
+                  >
+                    SI
+                  </button>
+                </div>
+                <p className="text-gray-500 text-xs mt-2">
+                  Recibirás tus mensajes en tu bandeja de entrada
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -585,6 +695,30 @@ export default function EditProfilePage() {
               {profilePaused ? 'Activar perfil' : 'Pausar perfil'}
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showPremiumModal}
+        onClose={() => setShowPremiumModal(false)}
+        title="Premium Sexo gratis — 20€ / 3 meses"
+        maxWidth="md"
+      >
+        <div className="space-y-3">
+          <ul className="text-gray-300 text-sm space-y-1.5 list-disc pl-5">
+            <li>Teléfono y WhatsApp visibles en tu anuncio</li>
+            <li>Mejor posición en el listado</li>
+            <li>Carrusel Premium (~10 km)</li>
+            <li>Renovación del anuncio incluida</li>
+          </ul>
+          <SexoGratisPremiumPaymentForm
+            onCancel={() => setShowPremiumModal(false)}
+            onSuccess={async () => {
+              setShowPremiumModal(false)
+              showToast('✓ Premium activado', 'success')
+              await loadProfile()
+            }}
+          />
         </div>
       </Modal>
       </div>

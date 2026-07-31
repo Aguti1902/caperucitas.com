@@ -5,9 +5,10 @@ import LoadingSpinner from '@/components/common/LoadingSpinner'
 import SeoHead from '@/components/common/SeoHead'
 import { fetchPublicProfiles } from '@/services/profile.api'
 import { useAuthStore } from '@/store/authStore'
-import { MapPin, Search, Phone, MessageCircle, Zap, Share2, Info, Home, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { MapPin, Search, Phone, MessageCircle, Zap, Share2, Info, Home, ChevronLeft, ChevronRight, X, Crown } from 'lucide-react'
 import { SPANISH_CITIES } from '@/data/spanishCities'
 import { getProfileCoverPhoto } from '@/utils/profileUtils'
+import { formatLastSeen } from '@/utils/timeUtils'
 import {
   getCityBySlug,
   getCityCanonical,
@@ -85,6 +86,7 @@ export default function IndexPage() {
   const [profileTotal, setProfileTotal] = useState(0)
   const [nearbyProfiles, setNearbyProfiles] = useState<any[]>([])
   const [roamProfiles, setRoamProfiles] = useState<any[]>([])
+  const [premiumCarouselProfiles, setPremiumCarouselProfiles] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedGender, setSelectedGender] = useState(() => routeCategory?.id || 'all')
   const [selectedSection, setSelectedSection] = useState<ProfileSection>(() => {
@@ -366,7 +368,21 @@ export default function IndexPage() {
       const sorted = sortByDistance(unique, currentLoc)
       setProfiles(sorted)
       setProfileTotal(seoCity ? total : sorted.length)
-      setRoamProfiles(sorted.filter((p: any) => p.isRoaming))
+      setRoamProfiles(
+        selectedSection === 'escort' ? sorted.filter((p: any) => p.isRoaming) : []
+      )
+
+      // Carrusel Premium Sexo gratis (~10 km), estilo Destacamos
+      if (selectedSection === 'sexo_gratis') {
+        const premium = sorted.filter((p: any) => {
+          if (!p.isPremium) return false
+          if (!currentLoc || p.latitude == null || p.longitude == null) return true
+          return haversineKm(currentLoc.lat, currentLoc.lng, p.latitude, p.longitude) <= 10
+        })
+        setPremiumCarouselProfiles(sortByDistance(premium, currentLoc))
+      } else {
+        setPremiumCarouselProfiles([])
+      }
 
       // Si no hay perfiles en la ciudad: cargar cercanos (evita thin content)
       if (seoCity && sorted.length === 0) {
@@ -385,6 +401,7 @@ export default function IndexPage() {
       setProfiles([])
       setProfileTotal(0)
       setNearbyProfiles([])
+      setPremiumCarouselProfiles([])
     } finally {
       setIsLoading(false)
     }
@@ -395,6 +412,15 @@ export default function IndexPage() {
     if (userLocation && profiles.length > 0) {
       setProfiles(prev => sortByDistance(prev, userLocation))
       setRoamProfiles(prev => sortByDistance(prev, userLocation))
+      setPremiumCarouselProfiles(prev =>
+        sortByDistance(
+          prev.filter((p) => {
+            if (p.latitude == null || p.longitude == null) return true
+            return haversineKm(userLocation.lat, userLocation.lng, p.latitude, p.longitude) <= 10
+          }),
+          userLocation
+        )
+      )
     }
   }, [userLocation])
 
@@ -957,8 +983,54 @@ export default function IndexPage() {
           <LoadingSpinner />
         ) : (
           <>
-            {/* Sección ROAM */}
-            {roamProfiles.length > 0 && (
+            {/* Carrusel Premium Sexo gratis (~10 km) */}
+            {selectedSection === 'sexo_gratis' && premiumCarouselProfiles.length > 0 && (
+              <section>
+                <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl p-3 mb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-5 h-5 text-white" />
+                    <div>
+                      <span className="text-white font-black text-lg tracking-wide">PREMIUM</span>
+                      <span className="text-emerald-100 text-xs ml-2">(cerca de ti)</span>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-gray-400 text-xs mb-3 px-1">
+                  Perfiles Premium Sexo gratis en ~10 km. Más visibles y con teléfono/WhatsApp.
+                </p>
+                <div className="relative">
+                  <button
+                    onClick={() => scrollRoam('left')}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-gray-900/80 hover:bg-gray-800 text-white rounded-full p-1.5 shadow-lg -ml-2"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <div
+                    ref={roamRef}
+                    className="flex gap-3 overflow-x-auto no-scrollbar scroll-smooth pb-2"
+                  >
+                    {premiumCarouselProfiles.map((profile, index) => (
+                      <div key={profile.id} className="flex-shrink-0 w-36">
+                        <ProfileCard
+                          profile={profile}
+                          onClick={() => handleProfileClick(profile.id, index)}
+                          compact
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => scrollRoam('right')}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-gray-900/80 hover:bg-gray-800 text-white rounded-full p-1.5 shadow-lg -mr-2"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {/* Sección ROAM (escorts) */}
+            {selectedSection === 'escort' && roamProfiles.length > 0 && (
               <section>
                 <div className="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl p-3 mb-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1180,10 +1252,15 @@ function ProfileCard({ profile, onClick, compact = false }: { profile: any; onCl
           </div>
         )}
 
-        {/* ROAM badge */}
+        {/* ROAM / Premium badge */}
         {profile.isRoaming && (
           <div className="absolute top-1.5 right-1.5 bg-yellow-500 rounded-full p-1 shadow-lg">
             <Zap className="w-2.5 h-2.5 text-gray-900" fill="currentColor" strokeWidth={0} />
+          </div>
+        )}
+        {profile.isPremium && !profile.isRoaming && (
+          <div className="absolute top-1.5 right-1.5 bg-amber-500 rounded-full p-1 shadow-lg">
+            <Crown className="w-2.5 h-2.5 text-gray-900" />
           </div>
         )}
 
@@ -1201,6 +1278,9 @@ function ProfileCard({ profile, onClick, compact = false }: { profile: any; onCl
             <MapPin className="w-2 h-2 flex-shrink-0" />
             <span className="truncate">{profile.city || 'España'}</span>
           </div>
+          <p className={`text-[9px] mt-0.5 ${profile.isOnline ? 'text-green-400' : 'text-gray-400'}`}>
+            {profile.isOnline ? 'En línea' : formatLastSeen(profile.lastSeenAt)}
+          </p>
           {!compact && profile.lookingFor && (
             <p className="text-gray-400 text-[9px] mt-0.5 line-clamp-1">
               {profile.lookingFor.substring(0, 30)}{profile.lookingFor.length > 30 ? '…' : ''}
