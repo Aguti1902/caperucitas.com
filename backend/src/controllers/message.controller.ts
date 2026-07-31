@@ -409,3 +409,26 @@ export const markGuestContactRead = async (req: AuthRequest, res: Response) => {
   }
 };
 
+/** Total de mensajes nuevos (chats + contactos sin cuenta) */
+export const getUnreadCount = async (req: AuthRequest, res: Response) => {
+  try {
+    const profileId = req.profileId!;
+    const [chatUnread, guestUnread] = await Promise.all([
+      prisma.message.count({
+        where: { toProfileId: profileId, isRead: false },
+      }),
+      prisma.guestContactMessage.count({
+        where: { toProfileId: profileId, isRead: false },
+      }),
+    ]);
+    res.json({
+      chatUnread,
+      guestUnread,
+      total: chatUnread + guestUnread,
+    });
+  } catch (error) {
+    console.error('Error al contar no leídos:', error);
+    res.status(500).json({ error: 'Error al contar mensajes' });
+  }
+};
+

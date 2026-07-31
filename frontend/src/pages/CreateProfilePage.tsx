@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '@/services/api'
 import { uploadProfilePhotos } from '@/utils/uploadProfilePhotos'
+import { sanitizePhoneInput } from '@/utils/phoneUtils'
 import { useAuthStore } from '@/store/authStore'
 import Input from '@/components/common/Input'
 import Textarea from '@/components/common/Textarea'
@@ -341,9 +342,12 @@ export default function CreateProfilePage() {
                     : 'Teléfono (para llamadas)'
                 }
                 type="tel"
+                inputMode="tel"
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="Ej: +34 600 000 000"
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: sanitizePhoneInput(e.target.value) })
+                }
+                placeholder="Ej: +34600000000"
               />
               <Input
                 label={
@@ -352,9 +356,12 @@ export default function CreateProfilePage() {
                     : 'WhatsApp (puede ser el mismo)'
                 }
                 type="tel"
+                inputMode="tel"
                 value={formData.whatsapp}
-                onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                placeholder="Ej: +34 600 000 000"
+                onChange={(e) =>
+                  setFormData({ ...formData, whatsapp: sanitizePhoneInput(e.target.value) })
+                }
+                placeholder="Ej: +34600000000"
               />
               {formData.profileType === 'sexo_gratis' ? (
                 <div className="bg-purple-900/30 border border-purple-700/50 rounded-xl px-3 py-3">

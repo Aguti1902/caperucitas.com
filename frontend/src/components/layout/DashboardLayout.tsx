@@ -4,6 +4,8 @@ import InstallPWA from '../common/InstallPWA'
 import Toast from '../common/Toast'
 import { useAuthStore } from '@/store/authStore'
 import { useToastStore } from '@/store/toastStore'
+import { useNotificationStore } from '@/store/notificationStore'
+import { useUnreadMessages } from '@/hooks/useUnreadMessages'
 import { useState } from 'react'
 import Modal from '../common/Modal'
 import { User, LogOut, Zap, Info, Globe, Mail } from 'lucide-react'
@@ -13,7 +15,9 @@ export default function DashboardLayout() {
   const navigate = useNavigate()
   const { logout } = useAuthStore()
   const { toasts, removeToast } = useToastStore()
+  const unreadMessagesCount = useNotificationStore((s) => s.unreadMessagesCount)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
+  useUnreadMessages(true)
 
   const handleLogout = async () => {
     await logout()
@@ -96,15 +100,22 @@ export default function DashboardLayout() {
                   onClick={() => navigate(item.path)}
                   className={`nav-bottom-item relative ${active ? 'active' : ''}`}
                 >
-                  <Icon className={`w-6 h-6 mb-1 ${active ? 'text-red-500' : ''}`} />
+                  <span className="relative inline-flex">
+                    <Icon className={`w-6 h-6 mb-1 ${active ? 'text-red-500' : ''}`} />
+                    {item.path === '/app/inbox' && unreadMessagesCount > 0 && (
+                      <span className="absolute -top-1 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                        {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                      </span>
+                    )}
+                  </span>
                   <span>{item.label}</span>
                 </button>
               )
             })}
 
-            {/* Volver al inicio público */}
+            {/* Volver al listado público (con Buzón si estás logueado) */}
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/perfiles')}
               className="nav-bottom-item"
             >
               <Globe className="w-6 h-6 mb-1 text-gray-400" />

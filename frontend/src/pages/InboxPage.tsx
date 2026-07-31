@@ -5,16 +5,30 @@ import LoadingSpinner from '@/components/common/LoadingSpinner'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import ProtectedImage from '@/components/common/ProtectedImage'
-import { Trash2, Mail } from 'lucide-react'
+import { Trash2, Mail, MessageCircle } from 'lucide-react'
 import { showToast } from '@/store/toastStore'
+import { useAuthStore } from '@/store/authStore'
+import { useNotificationStore } from '@/store/notificationStore'
+
+function buildWhatsAppReplyText(profileId: string | undefined) {
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.caperucitas.com'
+  const profileUrl = profileId ? `${origin}/profile/${profileId}` : `${origin}/`
+  return encodeURIComponent(
+    `Hola, me has mandado un mensaje a traves de caperucitas.com, sobre mi perfil: ${profileUrl}`
+  )
+}
 
 export default function InboxPage() {
   const navigate = useNavigate()
+  const { user } = useAuthStore()
+  const setUnreadMessagesCount = useNotificationStore((s) => s.setUnreadMessagesCount)
   const [conversations, setConversations] = useState<any[]>([])
   const [guestMessages, setGuestMessages] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [selectedGuest, setSelectedGuest] = useState<any | null>(null)
+
+  const myProfileId = user?.profile?.id
 
   useEffect(() => {
     loadAll()
@@ -26,9 +40,17 @@ export default function InboxPage() {
         api.get('/messages/conversations').catch(() => ({ data: { conversations: [] } })),
         api.get('/messages/guest-inbox').catch(() => ({ data: { messages: [] } })),
       ])
-      setConversations(convRes.data.conversations || [])
-      setGuestMessages(guestRes.data.messages || [])
-      api.put('/messages/guest-inbox/read').catch(() => {})
+      const guests = guestRes.data.messages || []
+      const convs = convRes.data.conversations || []
+      setConversations(convs)
+      setGuestMessages(guests)
+
+      // Marcar como leídos al entrar en el buzón y quitar el badge
+      await api.put('/messages/guest-inbox/read').catch(() => {})
+      setGuestMessages((prev) => prev.map((m) => ({ ...m, isRead: true })))
+
+      const chatUnread = convs.reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0)
+      setUnreadMessagesCount(chatUnread)
     } catch (error) {
       console.error('Error al cargar bandeja:', error)
     } finally {
@@ -66,6 +88,16 @@ export default function InboxPage() {
     }
   }
 
+  const openWhatsAppReply = (phone: string) => {
+    const digits = phone.replace(/\D/g, '')
+    if (!digits) {
+      showToast('Este contacto no tiene teléfono', 'warning')
+      return
+    }
+    const text = buildWhatsAppReplyText(myProfileId)
+    window.open(`https://wa.me/${digits}?text=${text}`, '_blank')
+  }
+
   if (isLoading) {
     return <LoadingSpinner />
   }
@@ -98,14 +130,24 @@ export default function InboxPage() {
               </h2>
               <div className="divide-y divide-gray-800 border-y border-gray-800">
                 {guestMessages.map((msg) => (
-                  <div key={msg.id} className="flex items-stretch gap-2 px-2 hover:bg-gray-900/80">
+                  <div
+                    key={msg.id}
+                    className={`flex items-stretch gap-2 px-2 hover:bg-gray-900/80 ${
+                      !msg.isRead ? 'bg-purple-950/30' : ''
+                    }`}
+                  >
                     <button
                       type="button"
                       onClick={() => setSelectedGuest(msg)}
                       className="flex-1 text-left p-3 min-w-0"
                     >
                       <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="font-semibold text-white truncate">{msg.name}</span>
+                        <span className="font-semibold text-white truncate flex items-center gap-2">
+                          {!msg.isRead && (
+                            <span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />
+                          )}
+                          {msg.name}
+                        </span>
                         <span className="text-xs text-gray-500 flex-shrink-0">
                           {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true, locale: es })}
                         </span>
@@ -230,21 +272,33 @@ export default function InboxPage() {
               </div>
             )}
             <p className="text-gray-200 text-sm whitespace-pre-wrap mb-4">{selectedGuest.text}</p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setSelectedGuest(null)}
-                className="flex-1 py-3 rounded-xl bg-gray-800 text-white font-semibold"
-              >
-                Cerrar
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDeleteGuest(selectedGuest.id)}
-                className="flex-1 py-3 rounded-xl bg-red-900/60 text-red-300 font-semibold"
-              >
-                Borrar
-              </button>
+            <div className="flex flex-col gap-2">
+              {selectedGuest.phone && (
+                <button
+                  type="button"
+                  onClick={() => openWhatsAppReply(selectedGuest.phone)}
+                  className="w-full py-3 rounded-xl bg-green-600 hover:bg-green-500 text-white font-semibold flex items-center justify-center gap-2"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                  Responder por WhatsApp
+                </button>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedGuest(null)}
+                  className="flex-1 py-3 rounded-xl bg-gray-800 text-white font-semibold"
+                >
+                  Cerrar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteGuest(selectedGuest.id)}
+                  className="flex-1 py-3 rounded-xl bg-red-900/60 text-red-300 font-semibold"
+                >
+                  Borrar
+                </button>
+              </div>
             </div>
           </div>
         </div>

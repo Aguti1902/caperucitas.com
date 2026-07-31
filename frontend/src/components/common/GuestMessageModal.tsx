@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { X, Send } from 'lucide-react'
 import { api } from '@/services/api'
 import { showToast } from '@/store/toastStore'
+import { sanitizePhoneInput } from '@/utils/phoneUtils'
 
 type Props = {
   profileId: string
@@ -89,10 +90,11 @@ export default function GuestMessageModal({ profileId, profileTitle, onClose }: 
             <label className="block text-sm font-medium text-gray-300 mb-1">Teléfono de contacto</label>
             <input
               type="tel"
+              inputMode="numeric"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
               maxLength={40}
-              placeholder="Para que te puedan responder"
+              placeholder="Solo números, ej: +34600000000"
               className="w-full bg-gray-900 border border-gray-700 focus:border-purple-500 rounded-xl px-4 py-3 text-white text-sm outline-none"
             />
           </div>

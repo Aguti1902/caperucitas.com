@@ -5,10 +5,12 @@ import LoadingSpinner from '@/components/common/LoadingSpinner'
 import SeoHead from '@/components/common/SeoHead'
 import { fetchPublicProfiles } from '@/services/profile.api'
 import { useAuthStore } from '@/store/authStore'
-import { MapPin, Search, Phone, MessageCircle, Zap, Share2, Info, Home, ChevronLeft, ChevronRight, X, Crown } from 'lucide-react'
+import { MapPin, Search, Phone, MessageCircle, Zap, Share2, Info, Home, ChevronLeft, ChevronRight, X, Crown, Mail } from 'lucide-react'
 import { SPANISH_CITIES } from '@/data/spanishCities'
 import { getProfileCoverPhoto } from '@/utils/profileUtils'
 import { formatLastSeen } from '@/utils/timeUtils'
+import { useUnreadMessages } from '@/hooks/useUnreadMessages'
+import { useNotificationStore } from '@/store/notificationStore'
 import {
   getCityBySlug,
   getCityCanonical,
@@ -65,6 +67,8 @@ export default function IndexPage() {
     categorySlug?: string
   }>()
   const { isAuthenticated, hasProfile } = useAuthStore()
+  const unreadMessagesCount = useNotificationStore((s) => s.unreadMessagesCount)
+  useUnreadMessages(isAuthenticated && hasProfile)
 
   const routeSection: SeoSection | null = location.pathname.startsWith('/sexo-gratis/')
     ? 'sexo_gratis'
@@ -549,12 +553,29 @@ export default function IndexPage() {
         <div className="max-w-7xl mx-auto px-3 flex items-center justify-between h-14">
           <Logo size="sm" />
           {isAuthenticated ? (
-            <button
-              onClick={handleEscortAccess}
-              className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
-            >
-              Mi cuenta
-            </button>
+            <div className="flex items-center gap-2">
+              {hasProfile && (
+                <button
+                  onClick={() => navigate('/app/inbox')}
+                  className="relative bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold px-3 py-2 rounded-lg transition-colors inline-flex items-center gap-1.5"
+                  title="Buzón"
+                >
+                  <Mail className="w-4 h-4" />
+                  <span className="hidden sm:inline">Buzón</span>
+                  {unreadMessagesCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                      {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                    </span>
+                  )}
+                </button>
+              )}
+              <button
+                onClick={handleEscortAccess}
+                className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
+              >
+                Mi cuenta
+              </button>
+            </div>
           ) : (
             <div className="flex items-center gap-2">
               <button

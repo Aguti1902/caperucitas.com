@@ -14,6 +14,7 @@ import BackNavBar from '@/components/common/BackNavBar'
 import { showToast } from '@/store/toastStore'
 import { uploadProfilePhotos } from '@/utils/uploadProfilePhotos'
 import SexoGratisPremiumPaymentForm from '@/components/payment/SexoGratisPremiumPaymentForm'
+import { sanitizePhoneInput } from '@/utils/phoneUtils'
 
 export default function EditProfilePage() {
   const navigate = useNavigate()
@@ -80,8 +81,8 @@ export default function EditProfilePage() {
         city: profile.city || '',
         latitude: profile.latitude ?? null,
         longitude: profile.longitude ?? null,
-        phone: profile.phone || '',
-        whatsapp: profile.whatsapp || '',
+        phone: sanitizePhoneInput(profile.phone || ''),
+        whatsapp: sanitizePhoneInput(profile.whatsapp || ''),
         acceptMessages:
           profile.profileType === 'sexo_gratis' ? true : !!profile.acceptMessages,
         height: profile.height?.toString() || '',
@@ -471,9 +472,12 @@ export default function EditProfilePage() {
                   : 'Teléfono (para llamadas)'
               }
               type="tel"
+              inputMode="tel"
               value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="+34 600 000 000"
+              onChange={(e) =>
+                setFormData({ ...formData, phone: sanitizePhoneInput(e.target.value) })
+              }
+              placeholder="+34600000000"
             />
             <Input
               label={
@@ -482,9 +486,12 @@ export default function EditProfilePage() {
                   : 'WhatsApp'
               }
               type="tel"
+              inputMode="tel"
               value={formData.whatsapp}
-              onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-              placeholder="+34 600 000 000"
+              onChange={(e) =>
+                setFormData({ ...formData, whatsapp: sanitizePhoneInput(e.target.value) })
+              }
+              placeholder="+34600000000"
             />
             {formData.profileType === 'sexo_gratis' ? (
               <div className="bg-purple-900/30 border border-purple-700/50 rounded-xl px-3 py-3">

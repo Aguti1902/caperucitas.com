@@ -21,6 +21,7 @@ router.use(requireProfile);
 
 router.post('/', messageController.sendMessage);
 router.get('/conversations', messageController.getConversations);
+router.get('/unread-count', messageController.getUnreadCount);
 router.get('/guest-inbox', messageController.getGuestContactInbox);
 router.put('/guest-inbox/read', messageController.markGuestContactRead);
 router.delete('/guest/:id', messageController.deleteGuestContactMessage);
