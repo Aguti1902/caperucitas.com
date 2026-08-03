@@ -968,21 +968,6 @@ export default function IndexPage() {
           </header>
         )}
 
-        {/* Banner promocional Sexo gratis */}
-        {selectedSection === 'escort' && (
-          <button
-            onClick={() => changeSection('sexo_gratis')}
-            className="w-full text-left relative overflow-hidden rounded-xl border border-emerald-600/40 bg-gradient-to-r from-emerald-900/60 to-gray-900 p-4 hover:border-emerald-500 transition-colors active:scale-[0.99]"
-          >
-            <span className="absolute top-2 right-2 bg-yellow-400 text-gray-900 text-[9px] font-black px-1.5 py-0.5 rounded-full">
-              NUEVO
-            </span>
-            <p className="text-emerald-300 text-[10px] font-bold uppercase tracking-wide">Novedad</p>
-            <p className="text-white font-black text-sm mt-0.5">💚 Sección Sexo gratis ya disponible</p>
-            <p className="text-gray-400 text-xs mt-1">Encuentros sin pagar · Toca aquí para explorar</p>
-          </button>
-        )}
-
         {selectedSection === 'sexo_gratis' && !dismissedSexoGratisBanner && (
           <div className="flex items-start gap-2.5 bg-emerald-900/20 border border-emerald-800/40 rounded-xl px-3 py-3">
             <Info className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
