@@ -29,9 +29,9 @@ export default function LandingPage() {
     <div className="min-h-screen bg-black flex flex-col">
       <SeoHead
         title="Putas y escorts cerca de ti en España | Caperucitas.com"
-        description="Encuentra putas, escorts, prostitutas, travestis, masajistas y sexo gratis cerca de ti. Madrid, Barcelona, Valencia y más de 100 ciudades."
+        description="Encuentra putas, escorts, prostitutas, lumis, travestis, masajistas y sexo gratis cerca de ti. Madrid, Barcelona, Valencia y más de 100 ciudades."
         canonical={SITE_URL}
-        keywords="putas, escorts, prostitutas, travestis, masajistas, sexo gratis, encuentros casuales"
+        keywords="putas, escorts, prostitutas, lumis, travestis, masajistas, sexo gratis, encuentros casuales"
       />
       <main className="flex-1 max-w-2xl mx-auto w-full px-0 flex flex-col">
 
@@ -63,8 +63,11 @@ export default function LandingPage() {
             <h2 className="text-white text-xl font-black leading-tight mb-3">
               Sexo gratis — sin pagar, sin rodeos
             </h2>
+            <p className="text-yellow-300 text-sm font-bold leading-relaxed mb-3 bg-yellow-400/10 border border-yellow-400/40 rounded-xl px-3 py-2">
+              Si no encuentras sexo gratis, también puedes encontrar a una escort cerca de ti.
+            </p>
             <p className="text-gray-200 text-sm leading-relaxed">
-              En <span className="text-red-400 font-semibold">Caperucitas.com</span> puedes encontrar las mejores escorts, putas, prostitutas, travestis, masajistas y acompañantes más cercanas al lugar donde te encuentres. En nuestra nueva sección, puedes encontrar sexo para follar gratis en tu ciudad con chicas, chicos heteros o gays. Busca encuentros casuales cerca de ti.
+              En <span className="text-red-400 font-semibold">Caperucitas.com</span> puedes encontrar las mejores escorts, putas, prostitutas, lumis, travestis, masajistas y acompañantes más cercanas al lugar donde te encuentres. En nuestra nueva sección, puedes encontrar sexo para follar gratis en tu ciudad con chicas, chicos heteros o gays. Busca encuentros casuales cerca de ti.
             </p>
             <div className="flex flex-wrap gap-2 mt-4 justify-center">
               <Link to="/putas/madrid" className="text-xs text-gray-400 hover:text-white underline">Putas Madrid</Link>

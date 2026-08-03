@@ -6,7 +6,6 @@ import SeoHead from '@/components/common/SeoHead'
 import { fetchPublicProfiles } from '@/services/profile.api'
 import { useAuthStore } from '@/store/authStore'
 import { MapPin, Search, Phone, MessageCircle, Zap, Share2, Info, Home, ChevronLeft, ChevronRight, X, Crown, Mail } from 'lucide-react'
-import { SPANISH_CITIES } from '@/data/spanishCities'
 import { getProfileCoverPhoto } from '@/utils/profileUtils'
 import { formatLastSeen } from '@/utils/timeUtils'
 import { useUnreadMessages } from '@/hooks/useUnreadMessages'
@@ -177,23 +176,34 @@ export default function IndexPage() {
     navigate(getCityPath(selectedSection, match, getCategoryByGenderId(selectedGender)?.slug))
   }
 
+  /**
+   * GPS / "Permitir mi ubicación": mostrar TODOS los perfiles (como antes),
+   * ordenados por cercanía. El filtro por ciudad solo aplica al elegir ciudad manualmente.
+   */
+  const applyGpsLocation = async (loc: { lat: number; lng: number }) => {
+    setUserLocation(loc)
+    // Sin ciudad manual → no filtrar; se ven todos ordenados por cercanía
+    setCitySearch('')
+    setShowGeoPopup(false)
+    setShowCityModal(false)
+    setGeoDetecting(false)
+    setIsDetectingModal(false)
+    setNominatimResults([])
+
+    // Si estábamos en URL de ciudad, salir a /perfiles para ver todos
+    if (seoCity || location.pathname.startsWith('/putas/') || location.pathname.startsWith('/sexo-gratis/')) {
+      navigate('/perfiles')
+      return
+    }
+
+    loadProfiles(loc)
+  }
+
   const closeGeoPopup = async (loc: { lat: number; lng: number } | null) => {
     setShowGeoPopup(false)
     setGeoDetecting(false)
     if (!loc) return
-
-    if (!seoCity && (location.pathname === '/perfiles' || location.pathname === '/')) {
-      const resolved = await resolveCityFromCoords(loc.lat, loc.lng, selectedSection)
-      if (resolved) {
-        setUserLocation(loc)
-        setCitySearch(resolved.name)
-        navigate(resolved.path)
-        return
-      }
-    }
-
-    setUserLocation(loc)
-    loadProfiles(loc)
+    await applyGpsLocation(loc)
   }
 
   const handleGeoAllow = () => {
@@ -219,22 +229,15 @@ export default function IndexPage() {
     setIsDetectingModal(true)
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        const { latitude, longitude } = pos.coords
-        goToCity('', latitude, longitude)
-        setIsDetectingModal(false)
+        await applyGpsLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude })
       },
       async () => {
         try {
           const r = await fetch('https://ipapi.co/json/')
           const d = await r.json()
           if (d.latitude && d.longitude) {
-            setUserLocation({ lat: d.latitude, lng: d.longitude })
-            const closest = SPANISH_CITIES.reduce((prev, city) => {
-              const dist = Math.hypot(city.lat - d.latitude, city.lng - d.longitude)
-              const pdist = Math.hypot(prev.lat - d.latitude, prev.lng - d.longitude)
-              return dist < pdist ? city : prev
-            })
-            setCitySearch(closest.name)
+            await applyGpsLocation({ lat: d.latitude, lng: d.longitude })
+            return
           }
         } catch { /* sin ciudad */ }
         setIsDetectingModal(false)
