@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 import SeoHead from '@/components/common/SeoHead'
-import SexoGratisInfoModal from '@/components/common/SexoGratisInfoModal'
+import SexoGratisInfoModal, { SEXO_GRATIS_INFO } from '@/components/common/SexoGratisInfoModal'
 import { SITE_URL } from '@/utils/citySeo'
 
 export default function LandingPage() {
@@ -87,7 +87,7 @@ export default function LandingPage() {
                 </button>
               </p>
               <p className="text-red-400 text-sm font-semibold leading-relaxed mt-3 bg-red-950/30 border border-red-700/40 rounded-xl px-3 py-2">
-                En esta sección no se puede pedir compensación económica o serás expulsado/a, para ello tienes la sección &quot;escorts&quot;.
+                {SEXO_GRATIS_INFO.redWarning}
               </p>
             </div>
 

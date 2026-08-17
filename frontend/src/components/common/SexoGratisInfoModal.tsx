@@ -16,7 +16,7 @@ export const SEXO_GRATIS_INFO = {
     '🚀 ¿Quieres más visibilidad y contactos más rápidos? Contrata PREMIUM por solo 20 € cada 3 meses, precio promocional, y aparece en el carrusel de perfiles destacados, en primera fila, para que te vean desde el primer vistazo. Además, podrán contactarte directamente por WhatsApp y llamadas, además de recibir mensajes.',
   ],
   redWarning:
-    'En esta sección no se puede pedir compensación económica o serás expulsado/a, para ello tienes la sección "escorts".',
+    'En esta sección no se puede pedir compensación económica o serás expulsado/a, para ello tienes la sección "escorts". Pero sí puedes poner que ofreces compensación económica a cambio de sexo.',
 }
 
 export default function SexoGratisInfoModal({ isOpen, onClose }: SexoGratisInfoModalProps) {
