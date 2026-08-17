@@ -24,6 +24,8 @@ import {
   type SeoSection,
 } from '@/utils/citySeo'
 import { resolveCityFromCoords } from '@/utils/geoCityRedirect'
+import SexoGratisInfoModal from '@/components/common/SexoGratisInfoModal'
+import { getWhatsAppLink } from '@/utils/phoneUtils'
 
 const GENDER_LABELS: Record<string, { label: string; color: string }> = {
   chica: { label: 'Chica', color: 'bg-pink-600' },
@@ -43,6 +45,9 @@ const GENDER_FILTERS = [
   { id: 'masajes', label: 'Masajes' },
   { id: 'casa', label: 'Casas/Pisos' },
 ]
+
+/** En Sexo gratis no se muestran Trans / Masajes / Casas-Pisos */
+const SEXO_GRATIS_HIDDEN_GENDERS = new Set(['trans', 'masajes', 'casa'])
 
 type ProfileSection = 'escort' | 'sexo_gratis'
 
@@ -283,6 +288,21 @@ export default function IndexPage() {
       setShowGeoPopup(false)
     }
   }, [seoCity?.slug])
+
+  const visibleGenderFilters = useMemo(
+    () =>
+      selectedSection === 'sexo_gratis'
+        ? GENDER_FILTERS.filter((f) => !SEXO_GRATIS_HIDDEN_GENDERS.has(f.id))
+        : GENDER_FILTERS,
+    [selectedSection]
+  )
+
+  // Si el filtro activo no existe en Sexo gratis, volver a "Todas"
+  useEffect(() => {
+    if (selectedSection === 'sexo_gratis' && SEXO_GRATIS_HIDDEN_GENDERS.has(selectedGender)) {
+      setSelectedGender('all')
+    }
+  }, [selectedSection, selectedGender])
 
   const activeCategorySlug = getCategoryByGenderId(selectedGender)?.slug || null
 
@@ -754,7 +774,7 @@ export default function IndexPage() {
         {/* Filtros de género */}
         <div className="border-t border-gray-800 px-3 py-2">
           <div className="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto no-scrollbar">
-            {GENDER_FILTERS.map((f) => (
+            {visibleGenderFilters.map((f) => (
               <button
                 key={f.id}
                 onClick={() => changeGender(f.id)}
@@ -769,49 +789,10 @@ export default function IndexPage() {
         </div>
       </header>
 
-      {/* Modal información Sexo gratis */}
-      {showSexoGratisInfo && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowSexoGratisInfo(false)} />
-          <div className="relative w-full max-w-sm bg-gray-900 rounded-2xl shadow-2xl border border-emerald-800/50 overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 bg-emerald-900/20">
-              <div className="flex items-center gap-2">
-                <Info className="w-5 h-5 text-emerald-400" />
-                <h2 className="text-white font-bold text-lg">Sexo gratis</h2>
-              </div>
-              <button onClick={() => setShowSexoGratisInfo(false)} className="text-gray-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="px-5 py-4 space-y-3 text-sm text-gray-300 leading-relaxed">
-              <p>
-                Sección para personas que buscan u ofrecen encuentros consensuados{' '}
-                <strong className="text-white">sin compensación económica</strong>.
-              </p>
-              <p>
-                Si publicas aquí, te comprometes a no solicitar ni aceptar dinero, regalos ni ningún beneficio a cambio.
-              </p>
-              <p className="text-red-400 font-semibold text-xs">
-                El incumplimiento supone baneo y expulsión permanente.
-              </p>
-              <button
-                onClick={() => { setShowSexoGratisInfo(false); navigate('/normas') }}
-                className="text-emerald-400 hover:text-emerald-300 text-xs underline"
-              >
-                Ver normas completas
-              </button>
-            </div>
-            <div className="px-5 pb-4">
-              <button
-                onClick={() => setShowSexoGratisInfo(false)}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors"
-              >
-                Entendido
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SexoGratisInfoModal
+        isOpen={showSexoGratisInfo}
+        onClose={() => setShowSexoGratisInfo(false)}
+      />
 
       {/* Modal de búsqueda de ciudad */}
       {showCityModal && (
@@ -971,9 +952,26 @@ export default function IndexPage() {
         {selectedSection === 'sexo_gratis' && !dismissedSexoGratisBanner && (
           <div className="flex items-start gap-2.5 bg-emerald-900/20 border border-emerald-800/40 rounded-xl px-3 py-3">
             <Info className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-            <p className="text-gray-300 text-xs flex-1 leading-relaxed">
-              Encuentros consensuados sin compensación económica. Si pides o aceptas dinero, serás expulsado/a.
-            </p>
+            <div className="text-gray-300 text-xs flex-1 leading-relaxed space-y-1.5">
+              <p>
+                Encuentros consentidos sin compensación económica, si pides dinero o regalos, serás expulsado/a.
+              </p>
+              <p className="font-semibold text-white">
+                Crear y mantener tu perfil en esta sección es siempre gratis. No tienes que pagar nada.
+              </p>
+              <p>
+                <button
+                  type="button"
+                  onClick={() => setShowSexoGratisInfo(true)}
+                  className="text-yellow-300 font-black underline underline-offset-2 hover:text-yellow-200"
+                >
+                  + INFO
+                </button>
+                {' '}
+                Y recuerda: si no encuentras lo que buscas, en nuestra sección &quot;escorts&quot; puedes
+                encontrar las chicas y chicos de pago cerca de ti.
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => {
@@ -1313,7 +1311,7 @@ function ProfileCard({ profile, onClick, compact = false }: { profile: any; onCl
           )}
           {profile.whatsapp && (
             <a
-              href={`https://wa.me/${profile.whatsapp.replace(/\D/g, '')}`}
+              href={getWhatsAppLink(profile.whatsapp) || '#'}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}

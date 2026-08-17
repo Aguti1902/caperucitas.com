@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import Logo from '@/components/common/Logo'
 import { ArrowLeft, Info, FileText, Shield, Cookie } from 'lucide-react'
 import { useState } from 'react'
+import { SEXO_GRATIS_INFO } from '@/components/common/SexoGratisInfoModal'
 
 type Tab = 'info' | 'terms' | 'privacy' | 'cookies'
 
@@ -67,6 +68,18 @@ export default function PublicInfoPage() {
                 <li>✅ Contacta directamente por teléfono o WhatsApp</li>
                 <li>✅ Sin suscripciones ni pagos para ver perfiles</li>
               </ul>
+            </div>
+
+            <div className="bg-gray-900 rounded-2xl p-6 border border-emerald-800/40 space-y-3">
+              <h2 className="text-xl font-bold text-white">
+                {SEXO_GRATIS_INFO.title} <span aria-hidden>🆕</span>
+              </h2>
+              {SEXO_GRATIS_INFO.paragraphs.map((p) => (
+                <p key={p.slice(0, 28)} className="text-sm leading-relaxed">{p}</p>
+              ))}
+              <p className="text-red-400 font-semibold text-sm bg-red-950/40 border border-red-700/40 rounded-xl px-3 py-2">
+                {SEXO_GRATIS_INFO.redWarning}
+              </p>
             </div>
 
             <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800 space-y-4">

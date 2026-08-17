@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '@/services/api'
 import { uploadProfilePhotos } from '@/utils/uploadProfilePhotos'
-import { sanitizePhoneInput } from '@/utils/phoneUtils'
+import { sanitizePhoneInput, sanitizeWhatsAppInput } from '@/utils/phoneUtils'
 import { useAuthStore } from '@/store/authStore'
 import Input from '@/components/common/Input'
 import Textarea from '@/components/common/Textarea'
@@ -19,6 +19,8 @@ const GENDER_OPTIONS = [
   { id: 'gay', label: '🌈 Gay', color: 'bg-green-500' },
   { id: 'masajes', label: '💆 Masajes', color: 'bg-teal-500' },
 ]
+
+const SEXO_GRATIS_HIDDEN_GENDERS = new Set(['trans', 'masajes', 'casa'])
 
 export default function CreateProfilePage() {
   const navigate = useNavigate()
@@ -232,7 +234,12 @@ export default function CreateProfilePage() {
               <button
                 type="button"
                 onClick={() =>
-                  setFormData({ ...formData, profileType: 'sexo_gratis', acceptMessages: true })
+                  setFormData({
+                    ...formData,
+                    profileType: 'sexo_gratis',
+                    acceptMessages: true,
+                    gender: SEXO_GRATIS_HIDDEN_GENDERS.has(formData.gender) ? '' : formData.gender,
+                  })
                 }
                 className={`py-4 px-4 rounded-xl font-semibold text-base transition-all ${
                   formData.profileType === 'sexo_gratis'
@@ -282,7 +289,13 @@ export default function CreateProfilePage() {
               Categoría *
             </label>
             <div className="grid grid-cols-2 gap-3">
-              {GENDER_OPTIONS.map(opt => (
+              {GENDER_OPTIONS
+                .filter((opt) =>
+                  formData.profileType === 'sexo_gratis'
+                    ? !SEXO_GRATIS_HIDDEN_GENDERS.has(opt.id)
+                    : true
+                )
+                .map(opt => (
                 <button
                   key={opt.id}
                   type="button"
@@ -352,16 +365,16 @@ export default function CreateProfilePage() {
               <Input
                 label={
                   formData.profileType === 'sexo_gratis'
-                    ? 'WhatsApp (opcional — público solo con Premium)'
-                    : 'WhatsApp (puede ser el mismo)'
+                    ? 'WhatsApp — teléfono o nombre de usuario (opcional — público solo con Premium)'
+                    : 'WhatsApp — teléfono o nombre de usuario'
                 }
-                type="tel"
-                inputMode="tel"
+                type="text"
+                inputMode="text"
                 value={formData.whatsapp}
                 onChange={(e) =>
-                  setFormData({ ...formData, whatsapp: sanitizePhoneInput(e.target.value) })
+                  setFormData({ ...formData, whatsapp: sanitizeWhatsAppInput(e.target.value) })
                 }
-                placeholder="Ej: +34600000000"
+                placeholder="Ej: +34600000000 / @tunombreusuario"
               />
               {formData.profileType === 'sexo_gratis' ? (
                 <div className="bg-purple-900/30 border border-purple-700/50 rounded-xl px-3 py-3">

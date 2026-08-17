@@ -5,6 +5,7 @@ import TermsAndConditions from '@/components/legal/TermsAndConditions'
 import PrivacyPolicy from '@/components/legal/PrivacyPolicy'
 import CookiePolicy from '@/components/legal/CookiePolicy'
 import CommunityGuidelines from '@/components/legal/CommunityGuidelines'
+import { SEXO_GRATIS_INFO } from '@/components/common/SexoGratisInfoModal'
 
 type LegalTab = 'info' | 'terms' | 'privacy' | 'cookies' | 'community'
 
@@ -56,16 +57,31 @@ export default function InfoPage() {
                 <strong className="text-white">1. Sin registro:</strong> Cualquier persona puede ver todos los perfiles sin necesidad de crear una cuenta.
               </p>
               <p>
-                <strong className="text-white">2. Registro de perfiles:</strong> Solo las escorts necesitan registrarse para aparecer en los resultados de búsqueda.
+                <strong className="text-white">2. Registro de perfiles:</strong> Puedes registrarte para publicar como escort o en la sección Sexo gratis.
               </p>
               <p>
-                <strong className="text-white">3. Perfil completo:</strong> Añade fotos, descripción, servicios, teléfono y WhatsApp para que los clientes te encuentren fácilmente.
+                <strong className="text-white">3. Perfil completo:</strong> Añade fotos, descripción, servicios, teléfono y WhatsApp para que te encuentren fácilmente.
               </p>
               <p>
                 <strong className="text-white">4. Actualiza tu ubicación:</strong> La ubicación solo se actualiza cuando tú lo decides, pulsando "Actualizar ubicación".
               </p>
               <p>
                 <strong className="text-white">5. Pausa cuando quieras:</strong> Puedes pausar y reactivar tu perfil en cualquier momento desde tu perfil.
+              </p>
+            </div>
+          </section>
+
+          {/* Sexo gratis */}
+          <section className="bg-gray-900 rounded-xl p-6 border border-emerald-800/40">
+            <h2 className="text-2xl font-bold text-white mb-4">
+              {SEXO_GRATIS_INFO.title} <span aria-hidden>🆕</span>
+            </h2>
+            <div className="text-gray-300 space-y-3 text-sm leading-relaxed">
+              {SEXO_GRATIS_INFO.paragraphs.map((p) => (
+                <p key={p.slice(0, 28)}>{p}</p>
+              ))}
+              <p className="text-red-400 font-semibold bg-red-950/40 border border-red-700/40 rounded-xl px-3 py-2">
+                {SEXO_GRATIS_INFO.redWarning}
               </p>
             </div>
           </section>

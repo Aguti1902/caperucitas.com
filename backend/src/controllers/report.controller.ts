@@ -256,7 +256,7 @@ async function sendReportEmail(reportedProfileId: string, totalReports: number) 
     const emailContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
         <div style="background-color: #ff4444; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-          <h2 style="margin: 0;">⚠️ ALERTA DE DENUNCIAS - 9citas.com</h2>
+          <h2 style="margin: 0;">⚠️ ALERTA DE DENUNCIAS - caperucitas.com</h2>
         </div>
         
         <div style="background-color: white; padding: 20px; border-radius: 0 0 8px 8px;">
@@ -281,21 +281,21 @@ async function sendReportEmail(reportedProfileId: string, totalReports: number) 
             <strong>Acción recomendada:</strong> Revisar el perfil y tomar las medidas necesarias.
           </p>
 
-          <a href="https://9citas.com/admin/perfil/${profile.id}" 
+          <a href="https://caperucitas.com/admin/perfil/${profile.id}" 
              style="display: inline-block; background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-top: 10px;">
             Ver perfil en administración
           </a>
         </div>
 
         <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
-          <p>Este es un email automático de 9citas.com</p>
+          <p>Este es un email automático de caperucitas.com</p>
           <p>Se envían alertas en los umbrales: 15, 30, 45 y 60 denuncias</p>
         </div>
       </div>
     `;
 
     await transporter.sendMail({
-      from: `"9citas - Sistema de Denuncias" <${process.env.SMTP_USER}>`,
+      from: `"Caperucitas - Sistema de Denuncias" <${process.env.SMTP_USER}>`,
       to: process.env.REPORTS_EMAIL || process.env.SMTP_USER, // Email de denuncias
       subject: `⚠️ ALERTA: Perfil con ${totalReports} denuncias - Revisar urgente`,
       html: emailContent,

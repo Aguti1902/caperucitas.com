@@ -202,7 +202,7 @@ export const createCustomerPortalSession = async (req: AuthRequest, res: Respons
       return res.status(500).json({ error: 'Stripe no está configurado. Por favor, configura STRIPE_SECRET_KEY en las variables de entorno.' });
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || 'https://9citas.com';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://caperucitas.com';
     const session = await stripe.billingPortal.sessions.create({
       customer: subscription.stripeCustomerId,
       return_url: `${frontendUrl}/app/plus`,

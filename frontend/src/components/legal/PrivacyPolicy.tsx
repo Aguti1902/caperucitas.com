@@ -10,7 +10,7 @@ export default function PrivacyPolicy() {
       <section className="mb-8">
         <h2 className="text-2xl font-bold text-white mb-4">1. Introducción</h2>
         <p className="text-gray-300 mb-4">
-          SMM4U LLC Social Media Marketing Four You ("nosotros", "nuestro" o "la Empresa") opera el servicio 9citas.com 
+          SMM4U LLC Social Media Marketing Four You ("nosotros", "nuestro" o "la Empresa") opera el servicio caperucitas.com 
           (en adelante, "el Servicio"). Esta Política de Privacidad describe cómo recopilamos, usamos, 
           almacenamos y protegemos su información personal cuando utiliza nuestro Servicio.
         </p>
@@ -159,7 +159,7 @@ export default function PrivacyPolicy() {
           <li><strong className="text-white">Retirar consentimiento:</strong> Puede retirar su consentimiento en cualquier momento</li>
         </ul>
         <p className="text-gray-300 mb-4">
-          Para ejercer estos derechos, contacte con nosotros en: <strong className="text-white">privacy@9citas.com</strong>
+          Para ejercer estos derechos, contacte con nosotros en: <strong className="text-white">privacy@caperucitas.com</strong>
         </p>
         <p className="text-gray-300">
           También puede eliminar su cuenta directamente desde la configuración de la aplicación.
@@ -194,7 +194,7 @@ export default function PrivacyPolicy() {
           El Servicio está destinado exclusivamente a personas mayores de 18 años. No recopilamos 
           intencionalmente información de menores de edad. Si descubrimos que hemos recopilado información 
           de un menor, la eliminaremos inmediatamente. Si cree que un menor está usando el Servicio, 
-          contáctenos en: <strong className="text-white">safety@9citas.com</strong>
+          contáctenos en: <strong className="text-white">safety@caperucitas.com</strong>
         </p>
       </section>
 
@@ -224,10 +224,10 @@ export default function PrivacyPolicy() {
         </p>
         <div className="bg-gray-800 rounded-lg p-4 text-gray-300">
           <p><strong className="text-white">Empresa:</strong> SMM4U LLC Social Media Marketing Four You</p>
-          <p><strong className="text-white">Servicio:</strong> 9citas.com</p>
-          <p><strong className="text-white">Email de Privacidad:</strong> privacy@9citas.com</p>
-          <p><strong className="text-white">Email General:</strong> soporte@9citas.com</p>
-          <p><strong className="text-white">Email Legal:</strong> legal@9citas.com</p>
+          <p><strong className="text-white">Servicio:</strong> caperucitas.com</p>
+          <p><strong className="text-white">Email de Privacidad:</strong> privacy@caperucitas.com</p>
+          <p><strong className="text-white">Email General:</strong> soporte@caperucitas.com</p>
+          <p><strong className="text-white">Email Legal:</strong> legal@caperucitas.com</p>
         </div>
       </section>
 

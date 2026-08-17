@@ -72,7 +72,7 @@ export default function MatchNotification() {
 
   if (!isVisible || !match) return null
 
-  const coverPhoto = match.matchProfile.photos?.[0]?.url || '/logo.png'
+  const coverPhoto = match.matchProfile.photos?.[0]?.url || '/logo-caperucitas.jpeg'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900 p-4 animate-fade-in">

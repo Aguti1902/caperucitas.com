@@ -9,7 +9,7 @@ export default function CommunityGuidelines() {
 
       <div className="bg-gradient-to-r from-primary to-secondary rounded-xl p-6 mb-8">
         <p className="text-white text-lg font-semibold mb-2">
-          🤝 Bienvenido a la comunidad de 9citas
+          🤝 Bienvenido a la comunidad de Caperucitas
         </p>
         <p className="text-white">
           Nuestra misión es crear un espacio seguro, respetuoso y auténtico donde las personas puedan conocerse 
@@ -263,7 +263,7 @@ export default function CommunityGuidelines() {
       <section className="mb-8">
         <h2 className="text-2xl font-bold text-white mb-4">9. Moderación de Contenido</h2>
         <p className="text-gray-300 mb-4">
-          9citas.com se reserva el derecho de:
+          caperucitas.com se reserva el derecho de:
         </p>
         <ul className="list-disc list-inside text-gray-300 space-y-2">
           <li>Revisar y eliminar contenido que viole estas normas</li>
@@ -280,7 +280,7 @@ export default function CommunityGuidelines() {
           Si crees que tu cuenta fue suspendida o eliminada por error, puedes contactarnos en:
         </p>
         <div className="bg-gray-800 rounded-lg p-4 text-gray-300 mb-4">
-          <p><strong className="text-white">Email de Apelaciones:</strong> appeals@9citas.com</p>
+          <p><strong className="text-white">Email de Apelaciones:</strong> appeals@caperucitas.com</p>
           <p className="text-sm mt-2">Incluye: tu correo electrónico registrado, razón de la apelación, y cualquier evidencia relevante</p>
         </div>
         <p className="text-gray-300">
@@ -292,7 +292,7 @@ export default function CommunityGuidelines() {
         <h2 className="text-2xl font-bold text-white mb-4">11. Agradecimiento</h2>
         <div className="bg-gradient-to-r from-primary to-secondary rounded-xl p-6">
           <p className="text-white text-center">
-            Gracias por ser parte de nuestra comunidad y ayudarnos a mantener 9citas como un lugar seguro, 
+            Gracias por ser parte de nuestra comunidad y ayudarnos a mantener Caperucitas como un lugar seguro, 
             respetuoso y divertido para todos. Juntos podemos crear un espacio donde las personas puedan 
             conectar de manera auténtica y significativa. 💕
           </p>
@@ -306,10 +306,10 @@ export default function CommunityGuidelines() {
         </p>
         <div className="bg-gray-800 rounded-lg p-4 text-gray-300">
           <p><strong className="text-white">Empresa:</strong> SMM4U LLC Social Media Marketing Four You</p>
-          <p><strong className="text-white">Servicio:</strong> 9citas.com</p>
-          <p><strong className="text-white">Soporte:</strong> soporte@9citas.com</p>
-          <p><strong className="text-white">Seguridad:</strong> safety@9citas.com</p>
-          <p><strong className="text-white">Apelaciones:</strong> appeals@9citas.com</p>
+          <p><strong className="text-white">Servicio:</strong> caperucitas.com</p>
+          <p><strong className="text-white">Soporte:</strong> soporte@caperucitas.com</p>
+          <p><strong className="text-white">Seguridad:</strong> safety@caperucitas.com</p>
+          <p><strong className="text-white">Apelaciones:</strong> appeals@caperucitas.com</p>
         </div>
       </section>
     </div>

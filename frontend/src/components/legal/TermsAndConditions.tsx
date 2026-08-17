@@ -10,7 +10,7 @@ export default function TermsAndConditions() {
       <section className="mb-8">
         <h2 className="text-2xl font-bold text-white mb-4">1. Aceptación de los Términos</h2>
         <p className="text-gray-300 mb-4">
-          Al acceder y utilizar 9citas.com (en adelante, "el Servicio"), operado por SMM4U LLC Social Media Marketing Four You 
+          Al acceder y utilizar caperucitas.com (en adelante, "el Servicio"), operado por SMM4U LLC Social Media Marketing Four You 
           (en adelante, "la Empresa", "nosotros" o "nuestro"), usted acepta estar legalmente vinculado por estos 
           Términos y Condiciones. Si no está de acuerdo con alguna parte de estos términos, no debe utilizar el Servicio.
         </p>
@@ -227,9 +227,9 @@ export default function TermsAndConditions() {
         </p>
         <div className="bg-gray-800 rounded-lg p-4 text-gray-300">
           <p><strong className="text-white">Empresa:</strong> SMM4U LLC Social Media Marketing Four You</p>
-          <p><strong className="text-white">Servicio:</strong> 9citas.com</p>
-          <p><strong className="text-white">Email:</strong> legal@9citas.com</p>
-          <p><strong className="text-white">Soporte:</strong> soporte@9citas.com</p>
+          <p><strong className="text-white">Servicio:</strong> caperucitas.com</p>
+          <p><strong className="text-white">Email:</strong> legal@caperucitas.com</p>
+          <p><strong className="text-white">Soporte:</strong> soporte@caperucitas.com</p>
         </div>
       </section>
     </div>

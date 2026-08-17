@@ -14,7 +14,7 @@ import BackNavBar from '@/components/common/BackNavBar'
 import { showToast } from '@/store/toastStore'
 import { uploadProfilePhotos } from '@/utils/uploadProfilePhotos'
 import SexoGratisPremiumPaymentForm from '@/components/payment/SexoGratisPremiumPaymentForm'
-import { sanitizePhoneInput } from '@/utils/phoneUtils'
+import { sanitizePhoneInput, sanitizeWhatsAppInput } from '@/utils/phoneUtils'
 
 export default function EditProfilePage() {
   const navigate = useNavigate()
@@ -82,7 +82,7 @@ export default function EditProfilePage() {
         latitude: profile.latitude ?? null,
         longitude: profile.longitude ?? null,
         phone: sanitizePhoneInput(profile.phone || ''),
-        whatsapp: sanitizePhoneInput(profile.whatsapp || ''),
+        whatsapp: sanitizeWhatsAppInput(profile.whatsapp || ''),
         acceptMessages:
           profile.profileType === 'sexo_gratis' ? true : !!profile.acceptMessages,
         height: profile.height?.toString() || '',
@@ -482,16 +482,16 @@ export default function EditProfilePage() {
             <Input
               label={
                 formData.profileType === 'sexo_gratis'
-                  ? 'WhatsApp (público solo con Premium)'
-                  : 'WhatsApp'
+                  ? 'WhatsApp — teléfono o nombre de usuario (público solo con Premium)'
+                  : 'WhatsApp — teléfono o nombre de usuario'
               }
-              type="tel"
-              inputMode="tel"
+              type="text"
+              inputMode="text"
               value={formData.whatsapp}
               onChange={(e) =>
-                setFormData({ ...formData, whatsapp: sanitizePhoneInput(e.target.value) })
+                setFormData({ ...formData, whatsapp: sanitizeWhatsAppInput(e.target.value) })
               }
-              placeholder="+34600000000"
+              placeholder="Ej: +34600000000 / @tunombreusuario"
             />
             {formData.profileType === 'sexo_gratis' ? (
               <div className="bg-purple-900/30 border border-purple-700/50 rounded-xl px-3 py-3">

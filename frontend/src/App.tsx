@@ -16,7 +16,6 @@ const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const CreateProfilePage = lazy(() => import('./pages/CreateProfilePage'))
 const EditProfilePage = lazy(() => import('./pages/EditProfilePage'))
 const DashboardLayout = lazy(() => import('./components/layout/DashboardLayout'))
-const NavigatePage = lazy(() => import('./pages/NavigatePage'))
 const PublicProfileDetailPage = lazy(() => import('./pages/ProfileDetailPage'))
 const PlusPage = lazy(() => import('./pages/PlusPage'))
 const InfoPage = lazy(() => import('./pages/InfoPage'))
@@ -152,7 +151,7 @@ function App() {
               )
             }
           >
-            <Route index element={<NavigatePage />} />
+            <Route index element={<Navigate to="/perfiles" replace />} />
             <Route path="profile/:id" element={<PublicProfileDetailPage />} />
             <Route path="plus" element={<PlusPage />} />
             <Route path="info" element={<InfoPage />} />

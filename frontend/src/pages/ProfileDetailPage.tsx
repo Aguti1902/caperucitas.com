@@ -11,6 +11,7 @@ import { formatRelationshipGoal } from '@/utils/profileUtils'
 import { formatLastSeen } from '@/utils/timeUtils'
 import ProtectedImage from '@/components/common/ProtectedImage'
 import { SPANISH_CITIES } from '@/data/spanishCities'
+import { getWhatsAppLink } from '@/utils/phoneUtils'
 
 /** Devuelve solo el nombre de ciudad limpio (sin calle, número, etc.) */
 function extractCityName(city: string): string {
@@ -158,9 +159,10 @@ export default function ProfileDetailPage() {
   const hasPrev = currentIndex.current > 0 && profileIds.current.length > 1
   const hasNext = currentIndex.current < profileIds.current.length - 1 && profileIds.current.length > 1
 
-  const phoneClean = profile.phone?.replace(/\D/g, '')
-  const whatsappClean = profile.whatsapp?.replace(/\D/g, '') || phoneClean
-  const waMessage = encodeURIComponent(`Hola, he visto tu perfil en Caperucitas.com y quiero quedar contigo, ¿estás disponible?`)
+  const waMessage = `Hola, he visto tu perfil en Caperucitas.com y quiero quedar contigo, ¿estás disponible?`
+  const whatsappHref =
+    getWhatsAppLink(profile.whatsapp, waMessage) ||
+    getWhatsAppLink(profile.phone, waMessage)
 
   return (
     <div
@@ -314,9 +316,9 @@ export default function ProfileDetailPage() {
                 Llamar
               </a>
             )}
-            {whatsappClean && (
+            {whatsappHref && (
               <a
-                href={`https://wa.me/${whatsappClean}?text=${waMessage}`}
+                href={whatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 min-w-[120px] flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl transition-colors text-lg"
@@ -471,7 +473,7 @@ export default function ProfileDetailPage() {
       </div>
 
       {/* Botones flotantes en móvil */}
-      {(profile.phone || whatsappClean || profile.acceptMessages) && (
+      {(profile.phone || whatsappHref || profile.acceptMessages) && (
         <div className="fixed bottom-0 left-0 right-0 z-50 flex gap-0 md:hidden shadow-2xl">
           {profile.phone && (
             <a
@@ -482,9 +484,9 @@ export default function ProfileDetailPage() {
               Llamar
             </a>
           )}
-          {whatsappClean && (
+          {whatsappHref && (
             <a
-              href={`https://wa.me/${whatsappClean}?text=${waMessage}`}
+              href={whatsappHref}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-5 transition-colors text-lg"

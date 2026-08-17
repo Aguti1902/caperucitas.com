@@ -25,7 +25,7 @@ export default function DashboardLayout() {
   }
 
   const navItems = [
-    { path: '/app', label: 'Navegar', Icon: Globe },
+    { path: '/perfiles', label: 'Navegar', Icon: Globe },
     { path: '/app/inbox', label: 'Buzón', Icon: Mail },
     { path: '/app/plus', label: 'ROAM', Icon: Zap },
     { path: '/app/info', label: 'Info', Icon: Info },
@@ -90,8 +90,8 @@ export default function DashboardLayout() {
             {navItems.map((item) => {
               const Icon = item.Icon
               const active =
-                item.path === '/app'
-                  ? location.pathname === '/app'
+                item.path === '/perfiles'
+                  ? false // listado público vive fuera del dashboard
                   : location.pathname === item.path || location.pathname.startsWith(item.path + '/')
 
               return (
@@ -112,15 +112,6 @@ export default function DashboardLayout() {
                 </button>
               )
             })}
-
-            {/* Volver al listado público (con Buzón si estás logueado) */}
-            <button
-              onClick={() => navigate('/perfiles')}
-              className="nav-bottom-item"
-            >
-              <Globe className="w-6 h-6 mb-1 text-gray-400" />
-              <span>Inicio</span>
-            </button>
           </div>
         </div>
       </nav>

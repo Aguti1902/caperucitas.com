@@ -9,13 +9,12 @@ import { Trash2, Mail, MessageCircle } from 'lucide-react'
 import { showToast } from '@/store/toastStore'
 import { useAuthStore } from '@/store/authStore'
 import { useNotificationStore } from '@/store/notificationStore'
+import { getWhatsAppLink } from '@/utils/phoneUtils'
 
 function buildWhatsAppReplyText(profileId: string | undefined) {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.caperucitas.com'
   const profileUrl = profileId ? `${origin}/profile/${profileId}` : `${origin}/`
-  return encodeURIComponent(
-    `Hola, me has mandado un mensaje a traves de caperucitas.com, sobre mi perfil: ${profileUrl}`
-  )
+  return `Hola, me has mandado un mensaje a traves de caperucitas.com, sobre mi perfil: ${profileUrl}`
 }
 
 export default function InboxPage() {
@@ -89,13 +88,12 @@ export default function InboxPage() {
   }
 
   const openWhatsAppReply = (phone: string) => {
-    const digits = phone.replace(/\D/g, '')
-    if (!digits) {
-      showToast('Este contacto no tiene teléfono', 'warning')
+    const link = getWhatsAppLink(phone, buildWhatsAppReplyText(myProfileId))
+    if (!link) {
+      showToast('Este contacto no tiene WhatsApp válido', 'warning')
       return
     }
-    const text = buildWhatsAppReplyText(myProfileId)
-    window.open(`https://wa.me/${digits}?text=${text}`, '_blank')
+    window.open(link, '_blank')
   }
 
   if (isLoading) {
