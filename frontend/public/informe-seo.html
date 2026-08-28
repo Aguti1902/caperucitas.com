@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Caperucitas.com — Informe SEO y Estado Actual</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:920px;margin:32px auto;padding:0 18px 60px;color:#111827;line-height:1.55;background:#fff}
+  .cover{background:#111827;color:#fff;padding:36px 28px;border-radius:14px;border:3px solid #dc2626;text-align:center;margin-bottom:28px}
+  .cover h1{margin:0 0 10px;font-size:28px;color:#fff}
+  .cover p{margin:6px 0;color:#fecaca}
+  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:18px 0 8px}
+  .kpi div{background:#f3f4f6;padding:14px;border-radius:10px;text-align:center}
+  .kpi b{display:block;color:#dc2626;font-size:22px}
+  h1{color:#dc2626;font-size:22px;border-bottom:2px solid #e5e7eb;padding-bottom:8px;margin-top:34px}
+  h2{font-size:16px;margin-top:22px;color:#111827}
+  table{width:100%;border-collapse:collapse;margin:12px 0 18px;font-size:14px}
+  th{background:#dc2626;color:#fff;text-align:left;padding:9px}
+  td{border:1px solid #e5e7eb;padding:8px;vertical-align:top}
+  tr:nth-child(even) td{background:#f9fafb}
+  ul{padding-left:20px}
+  li{margin:4px 0}
+  .note{background:#fef2f2;border:1px solid #fecaca;padding:12px 14px;border-radius:10px;margin:14px 0}
+  .muted{color:#6b7280;font-size:13px}
+  @media print { .cover{break-after:page} }
+</style>
+</head>
+<body>
+<div class="cover">
+  <h1>CAPERUCITAS.COM</h1>
+  <p><strong>Informe de Mejoras SEO y Estado Actual de la Web</strong></p>
+  <p>28/08/2026 · https://www.caperucitas.com</p>
+</div>
+
+<div class="kpi">
+  <div><b>17.585</b>URLs sitemap</div>
+  <div><b>8.132</b>Municipios INE</div>
+  <div><b>46</b>Copy único</div>
+  <div><b>176</b>Perfiles*</div>
+</div>
+<p class="muted">* Escorts 165 + Sexo gratis 11 (API producción, agosto 2026)</p>
+
+<h1>1. Resumen ejecutivo</h1>
+<p>La estrategia SEO de Caperucitas.com se centra en <strong>páginas locales programáticas</strong> (<code>/putas/{ciudad}</code>, <code>/sexo-gratis/{ciudad}</code>) sobre una SPA Vite/React, con una capa técnica para que Google vea metadatos correctos (Edge + SeoHead), sitemap masivo, prerender, blog y copy único en ciudades top.</p>
+<ul>
+  <li>URLs amigables por ciudad y categoría</li>
+  <li>Metadatos dinámicos cliente + HTML para bots</li>
+  <li>8.132 municipios + ~107 ciudades principales</li>
+  <li>46 ciudades con texto único anti thin-content</li>
+  <li>Sitemap (~17,5k), robots.txt, prerender, blog (6 posts), JSON-LD</li>
+</ul>
+
+<h1>2. Estado actual de producción</h1>
+<table>
+  <tr><th>Componente</th><th>Estado</th><th>Detalle</th></tr>
+  <tr><td>Frontend</td><td>Operativo</td><td>Vercel · https://www.caperucitas.com</td></tr>
+  <tr><td>Backend API</td><td>Operativo</td><td>Railway · /api/health → ok</td></tr>
+  <tr><td>Base de datos</td><td>Operativa</td><td>PostgreSQL Railway (tras resolver impago)</td></tr>
+  <tr><td>Dominio canónico</td><td>www</td><td>https://www.caperucitas.com</td></tr>
+  <tr><td>Analytics</td><td>Activo</td><td>GA4 G-65MTSFL92G</td></tr>
+  <tr><td>Search Console</td><td>Verificada</td><td>Meta en index.html</td></tr>
+  <tr><td>Perfiles escorts</td><td>165</td><td>API public-search</td></tr>
+  <tr><td>Perfiles sexo gratis</td><td>11</td><td>API public-search</td></tr>
+  <tr><td>robots/sitemap</td><td>Publicados</td><td>Accesibles en producción</td></tr>
+</table>
+<div class="note"><strong>Nota:</strong> En agosto 2026 el backend estuvo caído por <strong>impago en Railway</strong>. Eso hacía parecer que no había perfiles y bloqueaba el login. <em>No fue un borrado de datos por cambios de código.</em> Ahora la API responde correctamente.</div>
+
+<h1>3. Mejoras SEO implementadas</h1>
+<h2>3.1 Metadatos</h2>
+<ul>
+  <li><strong>SeoHead</strong>: title, description, keywords, OG, Twitter, canonical, JSON-LD</li>
+  <li><strong>citySeo</strong>: H1/title/description por ciudad + sección + categoría</li>
+  <li><strong>Inyección Edge</strong>: middleware + seo-html para bots sin esperar a React</li>
+  <li>Canonical www · lang=es · JSON-LD WebPage/Place y BlogPosting</li>
+</ul>
+<h2>3.2 URLs</h2>
+<table>
+  <tr><th>Patrón</th><th>Uso</th></tr>
+  <tr><td>/putas/{ciudad}</td><td>Escorts por ciudad</td></tr>
+  <tr><td>/putas/{categoria}/en/{ciudad}</td><td>chicas, chicos, gays, trans, masajes, casas</td></tr>
+  <tr><td>/sexo-gratis/{ciudad}</td><td>Sexo gratis local</td></tr>
+  <tr><td>/sexo-gratis/{categoria}/en/{ciudad}</td><td>Sexo gratis + categoría</td></tr>
+  <tr><td>/ciudades</td><td>Directorio municipios</td></tr>
+  <tr><td>/blog y /blog/{slug}</td><td>Contenido editorial</td></tr>
+</table>
+<h2>3.3 Contenido local</h2>
+<ul>
+  <li>8.132 municipios INE · ~107 ciudades con coordenadas · 46 con copy único</li>
+  <li>H1, intro, contador, FAQ, empty state, perfiles cercanos, ciudades vecinas</li>
+  <li>Landing con keywords (escorts, putas, prostitutas, lumis, etc.)</li>
+</ul>
+<h2>3.4 Blog</h2>
+<ul>
+  <li>/blog/putas-en-barcelona-2026</li>
+  <li>/blog/putas-en-madrid-2026</li>
+  <li>/blog/sexo-gratis-barcelona</li>
+  <li>/blog/sexo-gratis-madrid</li>
+  <li>/blog/como-funciona-caperucitas</li>
+  <li>/blog/putas-cerca-de-mi-ubicacion</li>
+</ul>
+<h2>3.5 Técnico</h2>
+<ul>
+  <li>Sitemap 17.585 URLs · robots.txt · prerender ciudades top</li>
+  <li>Build: municipalities → sitemap → tsc → vite → prerender</li>
+  <li>Rewrites Vercel a /api/seo-html · cache s-maxage ≈ 300s</li>
+</ul>
+
+<h1>4. Inventario</h1>
+<table>
+  <tr><th>Métrica</th><th>Valor</th></tr>
+  <tr><td>URLs sitemap</td><td>17.585</td></tr>
+  <tr><td>Municipios INE</td><td>8.132</td></tr>
+  <tr><td>/putas/{ciudad} + /sexo-gratis/{ciudad}</td><td>8.149 + 8.149</td></tr>
+  <tr><td>URLs categoría</td><td>636 + 636</td></tr>
+  <tr><td>Copy único / blog / categorías</td><td>46 / 6 / 6</td></tr>
+</table>
+
+<h1>5. Riesgos</h1>
+<ul>
+  <li>Thin content en miles de municipios genéricos</li>
+  <li>Sitemap muy grande con páginas vacías</li>
+  <li>SPA + dependencia de API Railway</li>
+  <li>/profile/:id sin metas propias; FAQ sin FAQPage schema; og:image fija</li>
+  <li>Nicho adulto (SafeSearch)</li>
+</ul>
+
+<h1>6. Recomendaciones</h1>
+<ul>
+  <li><strong>Alta:</strong> priorizar sitemap, noindex sin oferta, mantener pago Railway</li>
+  <li><strong>Media:</strong> Edge/prerender en blog/landing, SeoHead en perfiles, FAQ schema, unificar www</li>
+  <li><strong>Baja / estratégica:</strong> OG dinámico, más blog local, valorar SSR/SSG</li>
+</ul>
+
+<h1>7. Conclusión</h1>
+<p>Base SEO local sólida y ambiciosa. Estado actual: frontend y backend operativos. El siguiente salto es <strong>calidad y priorización</strong>, no más URLs.</p>
+<p class="muted">Documento interno · generado 28/08/2026 10:49 UTC · Tip: en el navegador usa Ctrl/Cmd+P → Guardar como PDF</p>
+</body></html>
