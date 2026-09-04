@@ -103,9 +103,13 @@ model Profile {
   // Una vez publicado no se puede cambiar (bloqueo en updateProfile)
   profileType     String    @default("escort") // 'escort' | 'sexo_gratis'
 
-  // Freemium Sexo gratis
-  listingExpiresAt DateTime? // Caducidad del anuncio gratuito (90 días, renovable)
-  premiumUntil     DateTime? // Premium Sexo gratis (trial 30 días o pago 90 días)
+  // Freemium Sexo gratis / Premium listado escorts
+  listingExpiresAt DateTime? // Caducidad del anuncio gratuito (90 días, renovable) — sexo gratis
+  premiumUntil     DateTime? // Premium listado (sexo gratis trial/pago o escort 20€/mes)
+
+  // Inactividad / soft-delete
+  lastInactivityEmailAt DateTime? // Último email de “entra a tu perfil”
+  deletedAt             DateTime? // Soft-delete → API pública 410 Gone
 
   // Estado de visibilidad
   isPaused        Boolean   @default(false) // Perfil pausado temporalmente

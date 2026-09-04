@@ -8,6 +8,7 @@ import {
   getStripePublishableKey,
   createRoamPaymentIntentController,
   createSexoGratisPremiumPaymentIntentController,
+  createEscortPremiumPaymentIntentController,
   createSubscriptionSetupIntentController,
   confirmSubscriptionController,
 } from '../controllers/payment.controller';
@@ -41,6 +42,9 @@ router.post('/roam/payment-intent', requireProfile, createRoamPaymentIntentContr
 
 // Premium Sexo gratis 20€ / 3 meses
 router.post('/sexo-gratis-premium/payment-intent', requireProfile, createSexoGratisPremiumPaymentIntentController);
+
+// Premium Escorts 20€ / mes
+router.post('/escort-premium/payment-intent', requireProfile, createEscortPremiumPaymentIntentController);
 
 // Crear sesión del portal de cliente (gestionar suscripción)
 router.post('/customer-portal', createCustomerPortalSession);

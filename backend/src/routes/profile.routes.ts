@@ -44,6 +44,7 @@ router.post('/renew-listing', requireProfile, profileController.renewFreeListing
 
 // Activar Premium Sexo gratis (3 meses) — también vía Stripe payment-intent
 router.post('/sexo-gratis-premium', requireProfile, profileController.activateSexoGratisPremium);
+router.post('/escort-premium', requireProfile, profileController.activateEscortPremium);
 
 // Actualizar perfil
 router.put(

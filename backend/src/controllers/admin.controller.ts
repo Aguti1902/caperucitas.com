@@ -133,7 +133,27 @@ export const deleteUser = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
-    // Eliminar usuario (CASCADE eliminará el perfil y todo lo relacionado)
+    // Soft-delete del perfil: se conserva fila para devolver 410 Gone (SEO)
+    if (user.profile?.id) {
+      try {
+        await prisma.$executeRawUnsafe(
+          `UPDATE "profiles"
+           SET "deletedAt" = NOW(),
+               "isPaused" = true,
+               "isOnline" = false,
+               "userId" = NULL,
+               phone = NULL,
+               whatsapp = NULL,
+               "acceptMessages" = false
+           WHERE id = $1`,
+          user.profile.id
+        );
+      } catch (e) {
+        console.warn('⚠️ Soft-delete perfil falló, se intentará borrado completo:', e);
+      }
+    }
+
+    // Eliminar usuario (perfil ya desvinculado → no CASCADE del anuncio)
     await prisma.user.delete({
       where: { id: userId },
     });

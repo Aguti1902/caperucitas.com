@@ -303,3 +303,97 @@ export const sendListingExpiryReminderEmail = async (
   });
 };
 
+/** Email al recibir un mensaje de contacto sin cuenta (PDF: copy invitados) */
+export const sendGuestContactMessageEmail = async (
+  toEmail: string,
+  profileTitle: string,
+  guestName: string,
+  messagePreview: string
+): Promise<void> => {
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'Caperucitas <noreply@caperucitas.com>';
+  const frontendUrl = (process.env.FRONTEND_URL || 'https://caperucitas.com').split(',')[0].trim();
+  const resend = getResendClient();
+  const preview = messagePreview.slice(0, 180).replace(/</g, '&lt;');
+
+  await resend.emails.send({
+    from: fromEmail,
+    to: toEmail,
+    subject: `Nuevo mensaje en Caperucitas${profileTitle ? ` — ${profileTitle}` : ''}`,
+    html: `
+      <!DOCTYPE html>
+      <html><body style="font-family:Arial,sans-serif;color:#333">
+        <div style="max-width:600px;margin:0 auto;padding:20px">
+          <div style="background:#dc2626;color:white;padding:24px;border-radius:10px 10px 0 0;text-align:center">
+            <h1 style="margin:0;font-size:22px">Tienes un mensaje nuevo</h1>
+          </div>
+          <div style="background:#f9f9f9;padding:24px;border-radius:0 0 10px 10px">
+            <p>Hola${profileTitle ? `, <strong>${profileTitle}</strong>` : ''},</p>
+            <p><strong>${guestName}</strong> te ha escrito desde tu anuncio en Caperucitas.com.</p>
+            <blockquote style="margin:16px 0;padding:12px 16px;background:#fff;border-left:4px solid #dc2626;color:#444">
+              ${preview}${messagePreview.length > 180 ? '…' : ''}
+            </blockquote>
+            <p>Entra en tu bandeja para leerlo y responder.</p>
+            <p style="text-align:center;margin:28px 0">
+              <a href="${frontendUrl}/app/messages"
+                 style="background:#dc2626;color:white;padding:14px 28px;text-decoration:none;border-radius:8px;font-weight:bold">
+                Ver mensajes
+              </a>
+            </p>
+            <p style="font-size:13px;color:#666">
+              Si tu anuncio es gratis, el contacto es solo por mensaje. Con Premium (20€/mes) también puedes mostrar teléfono y WhatsApp.
+            </p>
+          </div>
+        </div>
+      </body></html>
+    `,
+  });
+};
+
+/** Recordatorio de inactividad: entra a tu perfil (cada ~30 días) */
+export const sendInactivityReminderEmail = async (
+  email: string,
+  profileTitle: string,
+  daysInactive: number,
+  warningNearPause: boolean
+): Promise<void> => {
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'Caperucitas <noreply@caperucitas.com>';
+  const frontendUrl = (process.env.FRONTEND_URL || 'https://caperucitas.com').split(',')[0].trim();
+  const resend = getResendClient();
+
+  const subject = warningNearPause
+    ? `Tu anuncio puede pausarse pronto — entra a Caperucitas`
+    : `Te echamos de menos en Caperucitas`;
+
+  await resend.emails.send({
+    from: fromEmail,
+    to: email,
+    subject,
+    html: `
+      <!DOCTYPE html>
+      <html><body style="font-family:Arial,sans-serif;color:#333">
+        <div style="max-width:600px;margin:0 auto;padding:20px">
+          <div style="background:#111827;color:white;padding:24px;border-radius:10px 10px 0 0;text-align:center">
+            <h1 style="margin:0;font-size:22px">Entra a tu perfil</h1>
+          </div>
+          <div style="background:#f9f9f9;padding:24px;border-radius:0 0 10px 10px">
+            <p>Hola${profileTitle ? `, <strong>${profileTitle}</strong>` : ''},</p>
+            <p>Llevas unos <strong>${daysInactive} días</strong> sin entrar en Caperucitas.</p>
+            ${
+              warningNearPause
+                ? `<p style="color:#b45309"><strong>Aviso:</strong> si no entras pronto (cerca de 90 días de inactividad), tu anuncio podría pausarse automáticamente.</p>`
+                : `<p>Entra de vez en cuando para que tu anuncio siga activo y veas mensajes nuevos.</p>`
+            }
+            <p style="text-align:center;margin:28px 0">
+              <a href="${frontendUrl}/app/edit-profile"
+                 style="background:#dc2626;color:white;padding:14px 28px;text-decoration:none;border-radius:8px;font-weight:bold">
+                Entrar a mi perfil
+              </a>
+            </p>
+            <p style="font-size:13px;color:#666">Mantener tu anuncio es gratis. Premium (20€/mes) muestra teléfono y WhatsApp en público.</p>
+          </div>
+        </div>
+      </body></html>
+    `,
+  });
+};
+

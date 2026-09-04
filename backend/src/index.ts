@@ -338,6 +338,112 @@ cron.schedule('15 9 * * *', async () => {
   }
 });
 
+// Cron: inactividad — emails cada ~30 días; aviso ~7 días antes de 90; pausa solo si AUTO_PAUSE_INACTIVE=true
+cron.schedule('30 9 * * *', async () => {
+  console.log('⏰ Cron: inactividad perfiles...');
+  try {
+    const prisma = (await import('./lib/prisma')).default;
+    const { sendInactivityReminderEmail } = await import('./utils/email-resend.utils');
+    const {
+      INACTIVITY_PAUSE_DAYS,
+      INACTIVITY_WARNING_DAYS,
+      INACTIVITY_EMAIL_EVERY_DAYS,
+      AUTO_PAUSE_INACTIVE_ENABLED,
+    } = await import('./utils/sexoGratis.utils');
+
+    const now = new Date();
+    const inactiveSince = new Date(
+      now.getTime() - INACTIVITY_EMAIL_EVERY_DAYS * 24 * 60 * 60 * 1000
+    );
+    const warnSince = new Date(now.getTime() - INACTIVITY_WARNING_DAYS * 24 * 60 * 60 * 1000);
+    const pauseSince = new Date(now.getTime() - INACTIVITY_PAUSE_DAYS * 24 * 60 * 60 * 1000);
+    const emailCooldown = new Date(
+      now.getTime() - (INACTIVITY_EMAIL_EVERY_DAYS - 1) * 24 * 60 * 60 * 1000
+    );
+
+    const candidates = await prisma.profile.findMany({
+      where: {
+        isPaused: false,
+        lastSeenAt: { lt: inactiveSince },
+      },
+      include: { user: { select: { email: true } } },
+      take: 300,
+    });
+
+    let sent = 0;
+    for (const p of candidates as any[]) {
+      if (!p.user?.email) continue;
+      // Soft-deleted o email reciente: saltar (columnas vía raw si hace falta)
+      try {
+        const meta = (await prisma.$queryRawUnsafe(
+          `SELECT "deletedAt", "lastInactivityEmailAt" FROM profiles WHERE id = $1`,
+          p.id
+        )) as Array<{ deletedAt: Date | null; lastInactivityEmailAt: Date | null }>;
+        const row = meta[0];
+        if (row?.deletedAt) continue;
+        if (row?.lastInactivityEmailAt && new Date(row.lastInactivityEmailAt) >= emailCooldown) {
+          continue;
+        }
+      } catch {
+        /* columnas no migradas aún */
+      }
+
+      const daysInactive = Math.max(
+        1,
+        Math.floor((now.getTime() - new Date(p.lastSeenAt).getTime()) / (24 * 60 * 60 * 1000))
+      );
+      const warningNearPause = new Date(p.lastSeenAt).getTime() <= warnSince.getTime();
+      try {
+        await sendInactivityReminderEmail(p.user.email, p.title, daysInactive, warningNearPause);
+        try {
+          await prisma.$executeRawUnsafe(
+            `UPDATE profiles SET "lastInactivityEmailAt" = NOW() WHERE id = $1`,
+            p.id
+          );
+        } catch {
+          /* ignore */
+        }
+        sent++;
+      } catch (e) {
+        console.warn(`⚠️ Email inactividad falló (${p.id}):`, e);
+      }
+    }
+
+    if (AUTO_PAUSE_INACTIVE_ENABLED) {
+      const paused = await prisma.profile.updateMany({
+        where: {
+          isPaused: false,
+          lastSeenAt: { lt: pauseSince },
+        },
+        data: { isPaused: true },
+      });
+      if (paused.count > 0) {
+        console.log(`⏸️ Pausados por inactividad (${INACTIVITY_PAUSE_DAYS}d): ${paused.count}`);
+      }
+    } else {
+      console.log('ℹ️ AUTO_PAUSE_INACTIVE desactivado — solo emails de aviso');
+    }
+
+    console.log(`✅ Cron inactividad: ${sent} emails`);
+  } catch (err) {
+    console.error('❌ Error cron inactividad:', err);
+  }
+});
+
+// Cron: marcar offline perfiles con lastSeen antiguo (sesión colgada)
+cron.schedule('*/15 * * * *', async () => {
+  try {
+    const prisma = (await import('./lib/prisma')).default;
+    const stale = new Date(Date.now() - 20 * 60 * 1000);
+    await prisma.profile.updateMany({
+      where: { isOnline: true, lastSeenAt: { lt: stale } },
+      data: { isOnline: false },
+    });
+  } catch (err) {
+    console.error('❌ Error cron stale online:', err);
+  }
+});
+
 // Cron: reanudar campañas pausadas por límite diario (00:05 UTC)
 cron.schedule('5 0 * * *', async () => {
   console.log('⏰ Cron: reanudando campañas WhatsApp pausadas por límite diario...');

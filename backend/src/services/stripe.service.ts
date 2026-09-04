@@ -269,6 +269,36 @@ export const createSexoGratisPremiumPaymentIntent = async (
   return paymentIntent;
 };
 
+/** Payment Intent Premium Escort — 20€ / mes (Tel + WhatsApp públicos) */
+export const createEscortPremiumPaymentIntent = async (
+  userId: string,
+  profileId: string,
+  email: string
+) => {
+  if (!stripe) {
+    throw new Error('Stripe no está configurado. Por favor, configura STRIPE_SECRET_KEY en las variables de entorno.');
+  }
+
+  const customer = await getOrCreateStripeCustomer(userId, email);
+  const price = 20;
+
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: Math.round(price * 100),
+    currency: 'eur',
+    customer: customer.id,
+    metadata: {
+      userId,
+      profileId,
+      type: 'escort_premium',
+      price: price.toString(),
+      days: '30',
+    },
+    description: 'Premium Escorts — 1 mes (20€): teléfono y WhatsApp públicos',
+  });
+
+  return paymentIntent;
+};
+
 // Crear Setup Intent y suscripción para 9Plus (suscripción embebida)
 export const createSubscriptionSetupIntent = async (
   userId: string,
@@ -497,6 +527,32 @@ const handlePaymentIntentSucceeded = async (paymentIntent: Stripe.PaymentIntent)
     });
 
     console.log(`✅ Premium Sexo gratis activado para perfil ${profileId} (${days} días)`);
+  }
+
+  if (type === 'escort_premium') {
+    const profileId = metadata.profileId;
+    const days = parseInt(metadata.days || '30', 10);
+    if (!profileId) return;
+
+    const profile = await prisma.profile.findUnique({ where: { id: profileId } });
+    if (!profile || profile.profileType !== 'escort') return;
+
+    const now = new Date();
+    const premiumBase =
+      profile.premiumUntil && new Date(profile.premiumUntil).getTime() > now.getTime()
+        ? new Date(profile.premiumUntil)
+        : now;
+
+    await prisma.profile.update({
+      where: { id: profileId },
+      data: {
+        premiumUntil: new Date(premiumBase.getTime() + days * 24 * 60 * 60 * 1000),
+        acceptMessages: true,
+        isPaused: false,
+      },
+    });
+
+    console.log(`✅ Premium Escort activado para perfil ${profileId} (${days} días)`);
   }
 };
 

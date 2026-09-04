@@ -97,7 +97,18 @@ export default function ProfileDetailPage() {
       setProfile(response.data)
     } catch (error: any) {
       const status = error.response?.status
-      if (status === 404) {
+      if (status === 410) {
+        showToast('Este anuncio ya no está disponible', 'error')
+        // Soft-delete: no indexar
+        document.title = 'Anuncio no disponible | Caperucitas'
+        let robots = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null
+        if (!robots) {
+          robots = document.createElement('meta')
+          robots.name = 'robots'
+          document.head.appendChild(robots)
+        }
+        robots.content = 'noindex, follow'
+      } else if (status === 404) {
         showToast('Perfil no encontrado', 'error')
       } else {
         showToast('Error al cargar el perfil. Inténtalo de nuevo.', 'error')

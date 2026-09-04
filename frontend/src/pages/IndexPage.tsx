@@ -21,6 +21,7 @@ import {
   getCategoryBySlug,
   getCategoryByGenderId,
   cityToSlug,
+  SITE_URL,
   type SeoSection,
 } from '@/utils/citySeo'
 import { resolveCityFromCoords } from '@/utils/geoCityRedirect'
@@ -261,6 +262,11 @@ export default function IndexPage() {
   const [dismissedSexoGratisBanner, setDismissedSexoGratisBanner] = useState(
     () => localStorage.getItem('cap_dismissedSexoGratisBanner') === '1'
   )
+  /** Escorts: TODOS (gratis+premium) | PREMIUM (solo de pago). Default TODOS. */
+  const [escortListingTab, setEscortListingTab] = useState<'todos' | 'premium'>('todos')
+  const [dismissedEscortPremiumBanner, setDismissedEscortPremiumBanner] = useState(
+    () => localStorage.getItem('cap_dismissedEscortPremiumBanner') === '1'
+  )
 
   const DIST_OPTIONS = [5, 10, 25, 50, 100]
   const roamRef = useRef<HTMLDivElement>(null)
@@ -347,7 +353,7 @@ export default function IndexPage() {
 
   useEffect(() => {
     loadProfiles()
-  }, [selectedGender, selectedSection, seoCity?.name])
+  }, [selectedGender, selectedSection, seoCity?.name, escortListingTab])
 
   // Mide el alto real del header y lo actualiza cuando cambia (filtro edad abierto/cerrado)
   useEffect(() => {
@@ -380,6 +386,9 @@ export default function IndexPage() {
       const params: Record<string, string> = { profileType: selectedSection }
       if (selectedGender !== 'all') params.gender = selectedGender
       if (seoCity) params.city = seoCity.name
+      if (selectedSection === 'escort' && escortListingTab === 'premium') {
+        params.premiumOnly = '1'
+      }
 
       const { profiles: all, total } = await fetchPublicProfiles(params)
       const unique = all.filter(
@@ -415,6 +424,9 @@ export default function IndexPage() {
       if (seoCity && sorted.length === 0) {
         const nearbyParams: Record<string, string> = { profileType: selectedSection }
         if (selectedGender !== 'all') nearbyParams.gender = selectedGender
+        if (selectedSection === 'escort' && escortListingTab === 'premium') {
+          nearbyParams.premiumOnly = '1'
+        }
         const { profiles: nearbyAll } = await fetchPublicProfiles(nearbyParams)
         const nearbyUnique = nearbyAll.filter(
           (p: any, i: number, self: any[]) => i === self.findIndex((x) => x.id === p.id)
@@ -491,33 +503,77 @@ export default function IndexPage() {
 
   return (
     <div className="min-h-screen bg-gray-950">
-      {seoMeta && seoCity && (
+      {seoMeta && seoCity ? (
         <SeoHead
           title={seoMeta.title}
           description={seoMeta.description}
           canonical={getCityCanonical(selectedSection, seoCity, activeCategorySlug)}
           keywords={seoMeta.keywords}
-          jsonLd={{
-            '@context': 'https://schema.org',
-            '@type': 'WebPage',
-            name: seoMeta.title,
-            description: seoMeta.description,
-            url: getCityCanonical(selectedSection, seoCity, activeCategorySlug),
-            inLanguage: 'es-ES',
-            about: {
-              '@type': 'Place',
-              name: seoCity.name,
-              ...(seoCity.lat != null && seoCity.lng != null
-                ? {
-                    geo: {
-                      '@type': 'GeoCoordinates',
-                      latitude: seoCity.lat,
-                      longitude: seoCity.lng,
-                    },
-                  }
-                : {}),
+          jsonLd={[
+            {
+              '@context': 'https://schema.org',
+              '@type': 'WebPage',
+              name: seoMeta.title,
+              description: seoMeta.description,
+              url: getCityCanonical(selectedSection, seoCity, activeCategorySlug),
+              inLanguage: 'es-ES',
+              about: {
+                '@type': 'Place',
+                name: seoCity.name,
+                ...(seoCity.lat != null && seoCity.lng != null
+                  ? {
+                      geo: {
+                        '@type': 'GeoCoordinates',
+                        latitude: seoCity.lat,
+                        longitude: seoCity.lng,
+                      },
+                    }
+                  : {}),
+              },
             },
-          }}
+            ...(seoBody?.faq && seoBody.faq.length > 0
+              ? [
+                  {
+                    '@context': 'https://schema.org',
+                    '@type': 'FAQPage',
+                    mainEntity: seoBody.faq.map((item) => ({
+                      '@type': 'Question',
+                      name: item.q,
+                      acceptedAnswer: {
+                        '@type': 'Answer',
+                        text: item.a,
+                      },
+                    })),
+                  },
+                ]
+              : []),
+            ...(filteredProfiles.length > 0
+              ? [
+                  {
+                    '@context': 'https://schema.org',
+                    '@type': 'ItemList',
+                    name: seoMeta.title,
+                    numberOfItems: Math.min(filteredProfiles.length, 24),
+                    itemListElement: filteredProfiles.slice(0, 24).map((p, i) => ({
+                      '@type': 'ListItem',
+                      position: i + 1,
+                      url: `${SITE_URL}/profile/${p.id}`,
+                      name: p.title || `Perfil ${i + 1}`,
+                    })),
+                  },
+                ]
+              : []),
+          ]}
+        />
+      ) : (
+        <SeoHead
+          title={
+            selectedSection === 'sexo_gratis'
+              ? 'Sexo gratis cerca de ti | Caperucitas'
+              : 'Escorts y acompañantes en España | Caperucitas'
+          }
+          description="Directorio de escorts y sexo gratis consensuado en España. Filtra por ciudad y categoría."
+          canonical={`${SITE_URL}/perfiles`}
         />
       )}
 
@@ -656,6 +712,38 @@ export default function IndexPage() {
             </button>
           </div>
         </div>
+
+        {/* Escorts: tabs TODOS / PREMIUM */}
+        {selectedSection === 'escort' && (
+          <div className="border-t border-gray-800 px-3 py-2 bg-gray-950">
+            <div className="max-w-7xl mx-auto">
+              <div className="grid grid-cols-2 gap-2 p-1 bg-gray-800 rounded-xl max-w-md">
+                <button
+                  type="button"
+                  onClick={() => setEscortListingTab('todos')}
+                  className={`py-2 rounded-lg text-sm font-black transition-all ${
+                    escortListingTab === 'todos'
+                      ? 'bg-red-600 text-white shadow-lg shadow-red-900/40'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  TODOS
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEscortListingTab('premium')}
+                  className={`py-2 rounded-lg text-sm font-black transition-all ${
+                    escortListingTab === 'premium'
+                      ? 'bg-amber-500 text-gray-900 shadow-lg shadow-amber-900/40'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  PREMIUM
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Barra ciudad + edad + compartir */}
         <div className="border-t border-gray-800 px-3 py-2">
@@ -947,6 +1035,38 @@ export default function IndexPage() {
               </div>
             )}
           </header>
+        )}
+
+        {selectedSection === 'escort' && !dismissedEscortPremiumBanner && (
+          <div className="flex items-start gap-2.5 bg-amber-900/20 border border-amber-800/40 rounded-xl px-3 py-3">
+            <Info className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="text-gray-300 text-xs flex-1 leading-relaxed space-y-1.5">
+              <p>
+                <strong className="text-white">Anuncios gratis:</strong> contacto solo por mensaje
+                (sin teléfono ni WhatsApp públicos).
+              </p>
+              <p>
+                <strong className="text-amber-200">Premium 20€/mes:</strong> teléfono y WhatsApp
+                visibles en tu anuncio.
+              </p>
+              <p className="text-gray-400">
+                Pestaña <strong className="text-white">TODOS</strong>: todos los perfiles.{' '}
+                <strong className="text-amber-200">PREMIUM</strong>: solo anuncios con Tel/WhatsApp
+                públicos.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setDismissedEscortPremiumBanner(true)
+                localStorage.setItem('cap_dismissedEscortPremiumBanner', '1')
+              }}
+              className="text-gray-500 hover:text-white flex-shrink-0 p-0.5"
+              aria-label="Cerrar aviso"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         )}
 
         {selectedSection === 'sexo_gratis' && !dismissedSexoGratisBanner && (

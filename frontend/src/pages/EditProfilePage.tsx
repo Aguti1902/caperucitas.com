@@ -14,6 +14,7 @@ import BackNavBar from '@/components/common/BackNavBar'
 import { showToast } from '@/store/toastStore'
 import { uploadProfilePhotos } from '@/utils/uploadProfilePhotos'
 import SexoGratisPremiumPaymentForm from '@/components/payment/SexoGratisPremiumPaymentForm'
+import EscortPremiumPaymentForm from '@/components/payment/EscortPremiumPaymentForm'
 import { sanitizePhoneInput, sanitizeWhatsAppInput } from '@/utils/phoneUtils'
 
 export default function EditProfilePage() {
@@ -31,6 +32,7 @@ export default function EditProfilePage() {
   const [premiumUntil, setPremiumUntil] = useState<string | null>(null)
   const [isRenewing, setIsRenewing] = useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
+  const [showEscortPremiumModal, setShowEscortPremiumModal] = useState(false)
 
   const [formData, setFormData] = useState({
     title: '',
@@ -214,22 +216,13 @@ export default function EditProfilePage() {
       setError('⚠️ Debes tener al menos 1 foto para que tu perfil sea visible')
       return
     }
-    if (
-      formData.profileType === 'escort' &&
-      !formData.phone &&
-      !formData.whatsapp &&
-      !formData.acceptMessages
-    ) {
-      setError('⚠️ Debes añadir teléfono, WhatsApp o activar contacto por mensaje')
-      return
-    }
 
     setIsSaving(true)
     try {
       const { profileType: _lockedType, ...payload } = formData
       await api.put('/profile', {
         ...payload,
-        acceptMessages: formData.profileType === 'sexo_gratis' ? true : formData.acceptMessages,
+        acceptMessages: true,
         age,
         height: formData.height ? parseInt(formData.height) : null,
         hobbies,
@@ -455,22 +448,49 @@ export default function EditProfilePage() {
           </div>
         )}
 
+        {/* Premium Escorts 20€/mes */}
+        {formData.profileType === 'escort' && (
+          <div
+            className={`rounded-xl p-4 border ${
+              isPremium
+                ? 'bg-amber-950/30 border-amber-600/50'
+                : 'bg-gray-800 border-gray-700'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className={`font-semibold text-sm flex items-center gap-1.5 ${isPremium ? 'text-amber-300' : 'text-white'}`}>
+                  <Crown className="w-4 h-4" />
+                  {isPremium ? 'Premium Escorts activo' : 'Premium Escorts'}
+                </p>
+                <p className="text-gray-400 text-xs mt-1 leading-relaxed">
+                  {isPremium && premiumUntil
+                    ? `Hasta el ${new Date(premiumUntil).toLocaleDateString('es-ES')}. Teléfono y WhatsApp públicos.`
+                    : 'Anuncio gratis = solo mensaje. Premium 20€/mes: teléfono y WhatsApp visibles en tu anuncio.'}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="accent"
+                onClick={() => setShowEscortPremiumModal(true)}
+                className="shrink-0 !py-2 !px-3 text-xs"
+              >
+                {isPremium ? 'Ampliar' : 'Contratar 20€'}
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Contacto */}
         <div className="bg-gray-800 rounded-xl p-4">
           <h3 className="text-white font-semibold mb-3">📞 Datos de contacto</h3>
-          {formData.profileType === 'sexo_gratis' && (
-            <p className="text-gray-400 text-xs mb-3 leading-relaxed">
-              Mensaje siempre activo. Teléfono/WhatsApp solo son públicos con Premium
-              {isPremium ? ' (activo ahora).' : ' (ahora ocultos en el listado).'}
-            </p>
-          )}
+          <p className="text-gray-400 text-xs mb-3 leading-relaxed">
+            Mensaje siempre activo. Teléfono/WhatsApp solo son públicos con Premium
+            {isPremium ? ' (activo ahora).' : ' (ahora ocultos en el listado).'}
+          </p>
           <div className="space-y-3">
             <Input
-              label={
-                formData.profileType === 'sexo_gratis'
-                  ? 'Teléfono (público solo con Premium)'
-                  : 'Teléfono (para llamadas)'
-              }
+              label="Teléfono (público solo con Premium)"
               type="tel"
               inputMode="tel"
               value={formData.phone}
@@ -480,11 +500,7 @@ export default function EditProfilePage() {
               placeholder="+34600000000"
             />
             <Input
-              label={
-                formData.profileType === 'sexo_gratis'
-                  ? 'WhatsApp — teléfono o nombre de usuario (público solo con Premium)'
-                  : 'WhatsApp — teléfono o nombre de usuario'
-              }
+              label="WhatsApp — teléfono o nombre de usuario (público solo con Premium)"
               type="text"
               inputMode="text"
               value={formData.whatsapp}
@@ -493,43 +509,10 @@ export default function EditProfilePage() {
               }
               placeholder="Ej: +34600000000 / @tunombreusuario"
             />
-            {formData.profileType === 'sexo_gratis' ? (
-              <div className="bg-purple-900/30 border border-purple-700/50 rounded-xl px-3 py-3">
-                <p className="text-purple-200 text-sm font-semibold">💬 Mensaje: siempre activo</p>
-                <p className="text-gray-400 text-xs mt-1">Gratis y sin publicar tu número.</p>
-              </div>
-            ) : (
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Mensaje</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, acceptMessages: false })}
-                    className={`py-3 rounded-xl font-bold text-sm transition-all ${
-                      !formData.acceptMessages
-                        ? 'bg-gray-600 text-white'
-                        : 'bg-gray-900 text-gray-400 border border-gray-700'
-                    }`}
-                  >
-                    NO
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, acceptMessages: true })}
-                    className={`py-3 rounded-xl font-bold text-sm transition-all ${
-                      formData.acceptMessages
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-gray-900 text-gray-400 border border-gray-700'
-                    }`}
-                  >
-                    SI
-                  </button>
-                </div>
-                <p className="text-gray-500 text-xs mt-2">
-                  Recibirás tus mensajes en tu bandeja de entrada
-                </p>
-              </div>
-            )}
+            <div className="bg-purple-900/30 border border-purple-700/50 rounded-xl px-3 py-3">
+              <p className="text-purple-200 text-sm font-semibold">💬 Mensaje: siempre activo</p>
+              <p className="text-gray-400 text-xs mt-1">Gratis y sin publicar tu número.</p>
+            </div>
           </div>
         </div>
 
@@ -723,6 +706,29 @@ export default function EditProfilePage() {
             onSuccess={async () => {
               setShowPremiumModal(false)
               showToast('✓ Premium activado', 'success')
+              await loadProfile()
+            }}
+          />
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showEscortPremiumModal}
+        onClose={() => setShowEscortPremiumModal(false)}
+        title="Premium Escorts — 20€ / mes"
+        maxWidth="md"
+      >
+        <div className="space-y-3">
+          <ul className="text-gray-300 text-sm space-y-1.5 list-disc pl-5">
+            <li>Teléfono y WhatsApp visibles en tu anuncio</li>
+            <li>Sin Premium solo recibes mensajes internos</li>
+            <li>1 mes de Premium por 20€</li>
+          </ul>
+          <EscortPremiumPaymentForm
+            onCancel={() => setShowEscortPremiumModal(false)}
+            onSuccess={async () => {
+              setShowEscortPremiumModal(false)
+              showToast('✓ Premium Escorts activado', 'success')
               await loadProfile()
             }}
           />

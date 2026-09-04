@@ -14,6 +14,14 @@ export async function ensureProfileSchema(): Promise<void> {
     ALTER TABLE "profiles"
     ADD COLUMN IF NOT EXISTS "premiumUntil" TIMESTAMP(3)
   `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "profiles"
+    ADD COLUMN IF NOT EXISTS "lastInactivityEmailAt" TIMESTAMP(3)
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "profiles"
+    ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP(3)
+  `);
 
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS guest_contact_messages (

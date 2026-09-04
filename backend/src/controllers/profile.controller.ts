@@ -7,10 +7,12 @@ import { normalizeProfilesPhotos, normalizeProfilePhotos } from '../utils/photo.
 import {
   addDays,
   isSexoGratisPremium,
+  isListingPremium,
   sanitizePublicContact,
   SEXO_GRATIS_LISTING_DAYS,
   SEXO_GRATIS_TRIAL_PREMIUM_DAYS,
   SEXO_GRATIS_PAID_PREMIUM_DAYS,
+  ESCORT_PREMIUM_DAYS,
 } from '../utils/sexoGratis.utils';
 
 
@@ -27,9 +29,12 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
           children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp, acceptMessages, profileType } = req.body;
 
     const validProfileType = profileType === 'sexo_gratis' ? 'sexo_gratis' : 'escort';
-    // Sexo gratis: mensaje siempre activo
+    // Sexo gratis y escorts gratis: mensaje siempre activo
     const wantsMessages =
-      validProfileType === 'sexo_gratis' || acceptMessages === true || acceptMessages === 'true';
+      validProfileType === 'sexo_gratis' ||
+      validProfileType === 'escort' ||
+      acceptMessages === true ||
+      acceptMessages === 'true';
 
     // Verificar que no tenga ya un perfil
     const existingProfile = await prisma.profile.findUnique({
@@ -56,7 +61,8 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
             premiumUntil: addDays(now, SEXO_GRATIS_TRIAL_PREMIUM_DAYS),
           }
         : {
-            acceptMessages: wantsMessages,
+            // Escorts: mensajes siempre on (anuncio gratis = solo mensaje hasta Premium)
+            acceptMessages: true,
             listingExpiresAt: null,
             premiumUntil: null,
           };
@@ -132,7 +138,7 @@ export const getMyProfile = async (req: AuthRequest, res: Response) => {
 
     res.json({
       ...profile,
-      isPremium: isSexoGratisPremium(profile),
+      isPremium: isListingPremium(profile),
     });
   } catch (error) {
     console.error('Error al obtener perfil:', error);
@@ -191,9 +197,11 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
         languages: languages || [],
         phone: phone !== undefined ? phone : undefined,
         whatsapp: whatsapp !== undefined ? whatsapp : undefined,
-        // Sexo gratis: mensaje siempre on
+        // Sexo gratis y escorts: mensaje siempre on (anuncio gratis = solo mensaje)
         acceptMessages:
-          existing?.profileType === 'sexo_gratis' ? true : acceptMessagesUpdate,
+          existing?.profileType === 'sexo_gratis' || existing?.profileType === 'escort'
+            ? true
+            : acceptMessagesUpdate,
         isPaused: isPaused !== undefined ? isPaused : undefined,
         lastSeenAt: new Date(),
       },
@@ -595,15 +603,22 @@ const PUBLIC_PROFILE_INCLUDE = {
     where: { type: { in: ['cover', 'public'] } },
     orderBy: [{ type: 'asc' as const }, { createdAt: 'asc' as const }],
   },
+  user: {
+    select: {
+      subscription: { select: { isActive: true } },
+    },
+  },
 };
 
 // Búsqueda pública de perfiles (para visitantes sin cuenta)
 export const publicSearchProfiles = async (req: Request, res: Response) => {
   try {
-    const { gender, city, page, limit, q, profileType } = req.query;
+    const { gender, city, page, limit, q, profileType, premiumOnly } = req.query;
 
     const sectionType = profileType === 'sexo_gratis' ? 'sexo_gratis' : 'escort';
     const now = new Date();
+    const onlyPremium =
+      premiumOnly === '1' || premiumOnly === 'true' || premiumOnly === 'premium';
 
     const where: any = {
       isPaused: false,
@@ -648,7 +663,7 @@ export const publicSearchProfiles = async (req: Request, res: Response) => {
       orderBy:
         sectionType === 'sexo_gratis'
           ? [{ premiumUntil: 'desc' }, { isOnline: 'desc' }, { lastSeenAt: 'desc' }]
-          : [{ isRoaming: 'desc' }, { isOnline: 'desc' }, { lastSeenAt: 'desc' }],
+          : [{ premiumUntil: 'desc' }, { isRoaming: 'desc' }, { isOnline: 'desc' }, { lastSeenAt: 'desc' }],
     };
 
     const limitNum = limit !== undefined && limit !== '' ? Number(limit) : null;
@@ -658,12 +673,30 @@ export const publicSearchProfiles = async (req: Request, res: Response) => {
       queryOptions.take = limitNum;
     }
 
-    const [profiles, total] = await Promise.all([
+    const [profiles, totalAll] = await Promise.all([
       prisma.profile.findMany(queryOptions),
       prisma.profile.count({ where }),
     ]);
 
-    const normalized = (profiles as any[]).map((p) => {
+    // Excluir soft-deleted (deletedAt) sin depender del client Prisma generado
+    let liveProfiles = profiles as any[];
+    try {
+      const ids = liveProfiles.map((p) => p.id);
+      if (ids.length > 0) {
+        const goneRows = (await prisma.$queryRawUnsafe(
+          `SELECT id FROM profiles WHERE id = ANY($1::text[]) AND "deletedAt" IS NOT NULL`,
+          ids
+        )) as Array<{ id: string }>;
+        if (goneRows.length > 0) {
+          const gone = new Set(goneRows.map((r) => r.id));
+          liveProfiles = liveProfiles.filter((p) => !gone.has(p.id));
+        }
+      }
+    } catch {
+      /* columna aún no migrada */
+    }
+
+    let normalized = liveProfiles.map((p) => {
       const base = {
         ...p,
         coverPhoto: p.photos.find((ph: any) => ph.type === 'cover')?.url || p.photos[0]?.url || null,
@@ -672,12 +705,17 @@ export const publicSearchProfiles = async (req: Request, res: Response) => {
       return sanitizePublicContact(base);
     });
 
-    // Premium activos primero (por si premiumUntil ya pasó pero orden SQL lo dejó arriba)
-    if (sectionType === 'sexo_gratis') {
-      normalized.sort((a, b) => Number(b.isPremium) - Number(a.isPremium));
+    // Premium activos primero
+    normalized.sort((a, b) => Number(b.isPremium) - Number(a.isPremium));
+
+    if (onlyPremium) {
+      normalized = normalized.filter((p) => p.isPremium);
     }
 
-    res.json({ profiles: normalized, total });
+    res.json({
+      profiles: normalized,
+      total: onlyPremium ? normalized.length : totalAll,
+    });
   } catch (error) {
     console.error('Error en búsqueda pública:', error);
     res.status(500).json({ error: 'Error al buscar perfiles' });
@@ -696,6 +734,21 @@ export const getPublicProfileById = async (req: Request, res: Response) => {
 
     if (!profile) {
       return res.status(404).json({ error: 'Perfil no encontrado' });
+    }
+
+    // 410 Gone: soft-delete (columna deletedAt; compatible sin prisma generate)
+    try {
+      const goneRows = (await prisma.$queryRawUnsafe(
+        `SELECT id FROM profiles WHERE id = $1 AND "deletedAt" IS NOT NULL LIMIT 1`,
+        id
+      )) as Array<{ id: string }>;
+      if (goneRows.length > 0) {
+        return res.status(410).json({ error: 'Este perfil ya no está disponible', code: 'GONE' });
+      }
+    } catch {
+      if ((profile as any).deletedAt) {
+        return res.status(410).json({ error: 'Este perfil ya no está disponible', code: 'GONE' });
+      }
     }
 
     if (profile.isPaused) {
@@ -796,6 +849,43 @@ export const activateSexoGratisPremium = async (req: AuthRequest, res: Response)
     });
   } catch (error) {
     console.error('Error al activar premium sexo gratis:', error);
+    res.status(500).json({ error: 'Error al activar Premium' });
+  }
+};
+
+/** Activar Premium Escort 20€/mes (pago o simulación si no hay Stripe) */
+export const activateEscortPremium = async (req: AuthRequest, res: Response) => {
+  try {
+    const profile = await prisma.profile.findUnique({
+      where: { userId: req.userId },
+      include: { user: { include: { subscription: true } } },
+    });
+    if (!profile || profile.profileType !== 'escort') {
+      return res.status(400).json({ error: 'Solo perfiles Escort' });
+    }
+
+    const base =
+      profile.premiumUntil && new Date(profile.premiumUntil).getTime() > Date.now()
+        ? new Date(profile.premiumUntil)
+        : new Date();
+
+    const updated = await prisma.profile.update({
+      where: { id: profile.id },
+      data: {
+        premiumUntil: addDays(base, ESCORT_PREMIUM_DAYS),
+        acceptMessages: true,
+        isPaused: false,
+      },
+      include: { user: { include: { subscription: true } } },
+    });
+
+    res.json({
+      message: 'Premium Escorts activado 1 mes',
+      profile: updated,
+      isPremium: isListingPremium(updated),
+    });
+  } catch (error) {
+    console.error('Error al activar premium escort:', error);
     res.status(500).json({ error: 'Error al activar Premium' });
   }
 };

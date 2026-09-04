@@ -337,10 +337,25 @@ export const sendGuestContactMessage = async (req: Request, res: Response) => {
 
     const toProfile = await prisma.profile.findUnique({
       where: { id: toProfileId },
-      select: { id: true, acceptMessages: true, isPaused: true },
+      select: {
+        id: true,
+        title: true,
+        acceptMessages: true,
+        isPaused: true,
+        profileType: true,
+        user: { select: { email: true } },
+      },
     });
 
-    if (!toProfile || toProfile.isPaused || !toProfile.acceptMessages) {
+    // Escorts y Sexo gratis: mensajes siempre permitidos en anuncio (PDF perfiles gratis)
+    const messagesAllowed =
+      !!toProfile &&
+      !toProfile.isPaused &&
+      (toProfile.profileType === 'escort' ||
+        toProfile.profileType === 'sexo_gratis' ||
+        toProfile.acceptMessages);
+
+    if (!toProfile || !messagesAllowed) {
       return res.status(404).json({ error: 'Este perfil no acepta mensajes' });
     }
 
@@ -353,6 +368,22 @@ export const sendGuestContactMessage = async (req: Request, res: Response) => {
         text: cleanText,
       },
     });
+
+    // Email al anunciante (no bloquear la respuesta si falla)
+    const ownerEmail = toProfile.user?.email;
+    if (ownerEmail) {
+      try {
+        const { sendGuestContactMessageEmail } = await import('../utils/email-resend.utils');
+        await sendGuestContactMessageEmail(
+          ownerEmail,
+          toProfile.title || '',
+          cleanName.slice(0, 80),
+          cleanText
+        );
+      } catch (mailErr) {
+        console.warn('⚠️ No se pudo enviar email de mensaje invitado:', mailErr);
+      }
+    }
 
     res.status(201).json({
       message: 'Mensaje enviado correctamente',

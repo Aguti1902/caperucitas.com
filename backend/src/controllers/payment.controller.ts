@@ -6,6 +6,7 @@ import {
   createRoamCheckoutSession,
   createRoamPaymentIntent,
   createSexoGratisPremiumPaymentIntent,
+  createEscortPremiumPaymentIntent,
   createSubscriptionSetupIntent,
   confirmSubscriptionWithPaymentMethod,
   handleStripeWebhook,
@@ -343,6 +344,45 @@ export const createSexoGratisPremiumPaymentIntentController = async (req: AuthRe
     });
   } catch (error: any) {
     console.error('Error Payment Intent Sexo gratis Premium:', error);
+    res.status(500).json({ error: error.message || 'Error al crear pago' });
+  }
+};
+
+/** Payment Intent Premium Escort — 20€ / mes (Tel + WhatsApp públicos) */
+export const createEscortPremiumPaymentIntentController = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.userId || !req.profileId) {
+      return res.status(401).json({ error: 'No autenticado' });
+    }
+
+    const profile = await prisma.profile.findUnique({
+      where: { id: req.profileId },
+      include: { user: true },
+    });
+
+    if (!profile || profile.profileType !== 'escort') {
+      return res.status(400).json({ error: 'Solo disponible para perfiles Escort' });
+    }
+
+    if (!stripe) {
+      const { activateEscortPremium } = await import('./profile.controller');
+      return activateEscortPremium(req, res);
+    }
+
+    const paymentIntent = await createEscortPremiumPaymentIntent(
+      req.userId,
+      req.profileId,
+      profile.user.email
+    );
+
+    res.json({
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+      amountEur: 20,
+      days: 30,
+    });
+  } catch (error: any) {
+    console.error('Error Payment Intent Escort Premium:', error);
     res.status(500).json({ error: error.message || 'Error al crear pago' });
   }
 };
