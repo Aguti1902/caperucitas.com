@@ -267,8 +267,6 @@ export default function IndexPage() {
   const [dismissedEscortPremiumBanner, setDismissedEscortPremiumBanner] = useState(
     () => localStorage.getItem('cap_dismissedEscortPremiumBanner') === '1'
   )
-  /** Al hacer scroll: ocultar fila logo y fijar menú desde ESCORTS / SEXO GRATIS */
-  const [headerCompact, setHeaderCompact] = useState(false)
 
   const DIST_OPTIONS = [5, 10, 25, 50, 100]
   const roamRef = useRef<HTMLDivElement>(null)
@@ -357,7 +355,7 @@ export default function IndexPage() {
     loadProfiles()
   }, [selectedGender, selectedSection, seoCity?.name, escortListingTab])
 
-  // Mide el alto real del header y lo actualiza cuando cambia (filtro edad abierto/cerrado / compact)
+  // Solo logo + ESCORTS/SEXO GRATIS están fixed; medir su alto
   useEffect(() => {
     const el = headerRef.current
     if (!el) return
@@ -367,17 +365,7 @@ export default function IndexPage() {
     observer.observe(el)
     setHeaderHeight(el.offsetHeight)
     return () => observer.disconnect()
-  }, [headerCompact, selectedSection, showAgeFilter, showDistFilter])
-
-  // Compactar header al scroll: el sticky empieza en ESCORTS / SEXO GRATIS
-  useEffect(() => {
-    const onScroll = () => {
-      setHeaderCompact(window.scrollY > 24)
-    }
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+  }, [selectedSection, isAuthenticated, hasProfile])
 
   const sortByDistance = (list: any[], loc: { lat: number; lng: number } | null) => {
     if (!loc) return list
@@ -639,14 +627,9 @@ export default function IndexPage() {
         </div>
       )}
 
-      {/* Header — fixed; al scroll se oculta la fila del logo (sticky desde ESCORTS/SEXO GRATIS) */}
+      {/* Header fijo (verde): solo logo + ESCORTS / SEXO GRATIS */}
       <header ref={headerRef} className="fixed top-0 left-0 right-0 z-50 bg-gray-900/95 backdrop-blur border-b border-gray-800 shadow-lg">
-        <div
-          className={`max-w-7xl mx-auto px-3 flex items-center justify-between overflow-hidden transition-all duration-200 ${
-            headerCompact ? 'h-0 opacity-0 pointer-events-none' : 'h-14 opacity-100'
-          }`}
-          aria-hidden={headerCompact}
-        >
+        <div className="max-w-7xl mx-auto px-3 flex items-center justify-between h-14">
           <Logo size="sm" />
           {isAuthenticated ? (
             <div className="flex items-center gap-2">
@@ -690,8 +673,7 @@ export default function IndexPage() {
           )}
         </div>
 
-        {/* Selector de sección: Escorts / Sexo gratis — punto de anclaje sticky al scroll */}
-        <div className={`border-gray-800 px-3 py-2.5 bg-gray-950/80 ${headerCompact ? 'border-t-0' : 'border-t'}`}>
+        <div className="border-t border-gray-800 px-3 py-2.5 bg-gray-950/80">
           <div className="max-w-7xl mx-auto flex items-center gap-2">
             <div className="grid grid-cols-2 gap-2 p-1 bg-gray-800 rounded-xl flex-1">
               <button
@@ -727,169 +709,6 @@ export default function IndexPage() {
             >
               <Info className="w-4 h-4" />
             </button>
-          </div>
-        </div>
-
-        {/* Escorts: tabs TODOS / PREMIUM */}
-        {selectedSection === 'escort' && (
-          <div className="border-t border-gray-800 px-3 py-2 bg-gray-950">
-            <div className="max-w-7xl mx-auto">
-              <div className="grid grid-cols-2 gap-2 p-1 bg-gray-800 rounded-xl max-w-md">
-                <button
-                  type="button"
-                  onClick={() => setEscortListingTab('todos')}
-                  className={`py-2 rounded-lg text-sm font-black transition-all ${
-                    escortListingTab === 'todos'
-                      ? 'bg-red-600 text-white shadow-lg shadow-red-900/40'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  TODOS
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEscortListingTab('premium')}
-                  className={`py-2 rounded-lg text-sm font-black transition-all ${
-                    escortListingTab === 'premium'
-                      ? 'bg-amber-500 text-gray-900 shadow-lg shadow-amber-900/40'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  PREMIUM
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Barra ciudad + edad + compartir */}
-        <div className="border-t border-gray-800 px-3 py-2">
-          <div className="max-w-7xl mx-auto flex items-center gap-2 flex-wrap">
-            {/* Botón ciudad — abre modal */}
-            <button
-              onClick={() => { setModalSearch(''); setShowCityModal(true) }}
-              className="flex-1 min-w-[130px] max-w-[220px] flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 rounded-full px-3 py-1.5 transition-colors"
-            >
-              <MapPin className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-              <span className={`text-sm truncate ${citySearch ? 'text-white font-medium' : 'text-gray-400'}`}>
-                {citySearch || 'Ciudad...'}
-              </span>
-              {citySearch && (
-                <span
-                  role="button"
-                  onClick={(e) => { e.stopPropagation(); clearCityFilter() }}
-                  className="ml-auto text-gray-400 hover:text-white flex-shrink-0"
-                >
-                  <X className="w-3 h-3" />
-                </span>
-              )}
-            </button>
-            {/* Edad */}
-            <button
-              onClick={() => { setShowAgeFilter(v => !v); setShowDistFilter(false) }}
-              className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${showAgeFilter || minAge || maxAge ? 'bg-yellow-500 text-gray-900' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
-            >
-              EDAD {minAge || maxAge ? `${minAge||'0'}-${maxAge||'99'}` : ''}
-            </button>
-            {/* Distancia */}
-            <button
-              onClick={() => { setShowDistFilter(v => !v); setShowAgeFilter(false) }}
-              className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${maxDistance ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
-              title={userLocation ? 'Filtrar por distancia' : 'Activa la ubicación para usar este filtro'}
-            >
-              {maxDistance ? `≤${maxDistance}km` : 'KM'}
-            </button>
-            {/* Compartir */}
-            <button
-              onClick={handleShare}
-              className="flex-shrink-0 p-2 rounded-full bg-[#25D366] text-white hover:bg-[#1ebe5d] transition-colors"
-              title="Compartir en WhatsApp"
-            >
-              <Share2 className="w-4 h-4" />
-            </button>
-            {/* Búsqueda texto */}
-            <div className="flex items-center bg-gray-800 rounded-full px-3 py-1.5 flex-1 min-w-[100px]">
-              <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-              <input
-                type="text"
-                placeholder="Nombre..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-transparent text-white text-sm pl-2 focus:outline-none w-full"
-              />
-            </div>
-          </div>
-          {/* Filtro edad expandible */}
-          {showAgeFilter && (
-            <div className="max-w-7xl mx-auto flex items-center gap-3 pt-2">
-              <span className="text-gray-400 text-xs">Edad entre:</span>
-              <input
-                type="number"
-                placeholder="Min"
-                min={18} max={99}
-                value={minAge}
-                onChange={(e) => setMinAge(e.target.value)}
-                className="w-16 bg-gray-800 text-white text-sm rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-red-500"
-              />
-              <span className="text-gray-400 text-xs">y</span>
-              <input
-                type="number"
-                placeholder="Max"
-                min={18} max={99}
-                value={maxAge}
-                onChange={(e) => setMaxAge(e.target.value)}
-                className="w-16 bg-gray-800 text-white text-sm rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-red-500"
-              />
-              {(minAge || maxAge) && (
-                <button onClick={() => { setMinAge(''); setMaxAge('') }} className="text-gray-400 hover:text-white text-xs">Limpiar</button>
-              )}
-            </div>
-          )}
-
-          {/* Filtro distancia expandible */}
-          {showDistFilter && (
-            <div className="max-w-7xl mx-auto pt-2">
-              {!userLocation ? (
-                <p className="text-yellow-400 text-xs">⚠️ Activa tu ubicación para filtrar por distancia</p>
-              ) : (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-gray-400 text-xs flex-shrink-0">Máx. distancia:</span>
-                  {DIST_OPTIONS.map(km => (
-                    <button
-                      key={km}
-                      onClick={() => setMaxDistance(maxDistance === km ? null : km)}
-                      className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
-                        maxDistance === km ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                      }`}
-                    >
-                      {km} km
-                    </button>
-                  ))}
-                  {maxDistance && (
-                    <button onClick={() => setMaxDistance(null)} className="text-gray-400 hover:text-white text-xs">
-                      Limpiar
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Filtros de género */}
-        <div className="border-t border-gray-800 px-3 py-2">
-          <div className="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto no-scrollbar">
-            {visibleGenderFilters.map((f) => (
-              <button
-                key={f.id}
-                onClick={() => changeGender(f.id)}
-                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                  selectedGender === f.id ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
           </div>
         </div>
       </header>
