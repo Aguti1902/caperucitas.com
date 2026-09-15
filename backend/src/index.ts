@@ -297,6 +297,11 @@ cron.schedule('0 9 * * *', async () => {
 cron.schedule('15 9 * * *', async () => {
   console.log('⏰ Cron: freemium Sexo gratis (caducidad / avisos)...');
   try {
+    const { isFreeAllPremiumPeriod } = await import('./utils/sexoGratis.utils');
+    if (isFreeAllPremiumPeriod()) {
+      console.log('ℹ️ Promo FREE_ALL_PREMIUM activa — sin pausar ni avisar caducidad');
+      return;
+    }
     const prisma = (await import('./lib/prisma')).default;
     const { sendListingExpiryReminderEmail } = await import('./utils/email-resend.utils');
     const now = new Date();

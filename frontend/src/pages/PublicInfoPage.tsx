@@ -89,7 +89,7 @@ export default function PublicInfoPage() {
                 <li>📸 Sube hasta 7 fotos (1 portada + 6 adicionales)</li>
                 <li>📍 Tu ubicación solo se actualiza cuando tú lo decides</li>
                 <li>⏸️ Pausa tu perfil cuando no estés disponible</li>
-                <li>🆓 <strong className="text-white">Gratis hasta el 1 de enero de 2027</strong></li>
+                <li>🆓 <strong className="text-white">Gratis hasta el 1 de abril de 2027</strong></li>
                 <li>💳 A partir de 2027: 20€/mes para aparecer en búsquedas</li>
               </ul>
             </div>
@@ -136,7 +136,7 @@ export default function PublicInfoPage() {
             </ul>
             <h3 className="text-white font-semibold">Cuentas y pagos</h3>
             <ul>
-              <li>El registro es gratuito hasta el 1 de enero de 2027.</li>
+              <li>El registro es gratuito hasta el 1 de abril de 2027.</li>
               <li>A partir de esa fecha, la suscripción mensual es de 20€/mes.</li>
               <li>Si no se renueva la suscripción, el perfil queda automáticamente pausado.</li>
             </ul>

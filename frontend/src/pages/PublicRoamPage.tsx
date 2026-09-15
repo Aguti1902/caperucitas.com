@@ -130,8 +130,8 @@ export default function PublicRoamPage() {
         <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
           <h2 className="text-lg font-bold text-white mb-3">Anuncio base — Registro</h2>
           <div className="space-y-2 text-sm text-gray-400">
-            <p>✅ <span className="text-white font-medium">Gratis hasta el 1 de enero de 2027</span> — aprovecha para registrarte ahora sin coste.</p>
-            <p>📅 A partir del 1 de enero de 2027: <span className="text-white font-medium">20€/mes</span> para aparecer en los listados de búsqueda.</p>
+            <p>✅ <span className="text-white font-medium">Gratis hasta el 1 de abril de 2027</span> — aprovecha para registrarte ahora sin coste.</p>
+            <p>📅 A partir del 1 de abril de 2027: <span className="text-white font-medium">20€/mes</span> para aparecer en los listados de búsqueda.</p>
             <p>⏸️ Si no renuevas, tu perfil queda pausado automáticamente y no aparece en las búsquedas.</p>
           </div>
         </div>

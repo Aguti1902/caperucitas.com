@@ -93,7 +93,7 @@ export default function InfoPage() {
               <div className="bg-green-900/20 border border-green-700 rounded-xl p-4">
                 <h3 className="text-xl font-semibold text-green-400 mb-2">Perfil Gratis</h3>
                 <p className="text-gray-300 text-sm mb-3">
-                  <strong className="text-white">Gratis hasta el 1 de enero de 2027</strong>
+                  <strong className="text-white">Gratis hasta el 1 de abril de 2027</strong>
                 </p>
                 <ul className="text-gray-300 space-y-1.5 text-sm list-disc list-inside">
                   <li>Perfil completo con fotos (1 portada + 6 adicionales)</li>
@@ -105,7 +105,7 @@ export default function InfoPage() {
               </div>
 
               <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-                <h3 className="text-xl font-semibold text-gray-300 mb-2">A partir del 1 de enero de 2027</h3>
+                <h3 className="text-xl font-semibold text-gray-300 mb-2">A partir del 1 de abril de 2027</h3>
                 <p className="text-yellow-400 font-bold text-lg mb-3">20€/mes</p>
                 <p className="text-gray-400 text-sm">
                   Si al finalizar la suscripción no se ha renovado, el perfil dejará de aparecer en los listados de búsqueda.

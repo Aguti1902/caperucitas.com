@@ -9,6 +9,7 @@ import {
   isSexoGratisPremium,
   isListingPremium,
   sanitizePublicContact,
+  isFreeAllPremiumPeriod,
   SEXO_GRATIS_LISTING_DAYS,
   SEXO_GRATIS_TRIAL_PREMIUM_DAYS,
   SEXO_GRATIS_PAID_PREMIUM_DAYS,
@@ -53,15 +54,15 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
     const profileGender = gender || orientation || 'chica';
 
     const now = new Date();
+    // Promo hasta 1 abr 2027: sin caducidad; Premium para todos (Tel/WA visibles)
     const sexoGratisData =
       validProfileType === 'sexo_gratis'
         ? {
             acceptMessages: true,
-            listingExpiresAt: addDays(now, SEXO_GRATIS_LISTING_DAYS),
-            premiumUntil: addDays(now, SEXO_GRATIS_TRIAL_PREMIUM_DAYS),
+            listingExpiresAt: null,
+            premiumUntil: null,
           }
         : {
-            // Escorts: mensajes siempre on (anuncio gratis = solo mensaje hasta Premium)
             acceptMessages: true,
             listingExpiresAt: null,
             premiumUntil: null,
@@ -628,8 +629,8 @@ export const publicSearchProfiles = async (req: Request, res: Response) => {
       },
     };
 
-    // Sexo gratis: solo anuncios dentro del periodo de 90 días
-    if (sectionType === 'sexo_gratis') {
+    // Sexo gratis: filtro de caducidad (desactivado en promo FREE_ALL_PREMIUM)
+    if (sectionType === 'sexo_gratis' && !isFreeAllPremiumPeriod(now)) {
       where.OR = [
         { listingExpiresAt: { gt: now } },
         { listingExpiresAt: null },
@@ -756,6 +757,7 @@ export const getPublicProfileById = async (req: Request, res: Response) => {
     }
 
     if (
+      !isFreeAllPremiumPeriod() &&
       profile.profileType === 'sexo_gratis' &&
       profile.listingExpiresAt &&
       new Date(profile.listingExpiresAt).getTime() <= Date.now()

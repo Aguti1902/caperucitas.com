@@ -10,6 +10,19 @@ export const SEXO_GRATIS_CAROUSEL_RADIUS_KM = 10
 export const ESCORT_PREMIUM_DAYS = 30
 export const ESCORT_PREMIUM_PRICE_EUR = 20
 
+/**
+ * Promo temporal (PDF 14/sept/2026):
+ * - Todos los perfiles se tratan como PREMIUM (Tel/WA públicos)
+ * - Sin caducidad de anuncios
+ * - Hasta el 1 de abril de 2027 (se puede alargar después)
+ */
+export const FREE_ALL_PREMIUM_UNTIL = new Date('2027-04-01T00:00:00+02:00')
+export const FREE_ALL_PREMIUM_UNTIL_LABEL = '1 de abril de 2027'
+
+export function isFreeAllPremiumPeriod(now: Date = new Date()): boolean {
+  return now.getTime() < FREE_ALL_PREMIUM_UNTIL.getTime()
+}
+
 /** Inactividad: aviso/pausa a los 90 días (pausa automática desactivada por defecto) */
 export const INACTIVITY_PAUSE_DAYS = 90
 export const INACTIVITY_WARNING_DAYS = 83 // ~1 semana antes
@@ -26,6 +39,7 @@ export function isSexoGratisPremium(profile: {
   profileType?: string | null
   premiumUntil?: Date | string | null
 }): boolean {
+  if (isFreeAllPremiumPeriod()) return profile.profileType === 'sexo_gratis'
   if (profile.profileType !== 'sexo_gratis') return false
   if (!profile.premiumUntil) return false
   return new Date(profile.premiumUntil).getTime() > Date.now()
@@ -37,6 +51,9 @@ export function isListingPremium(profile: {
   premiumUntil?: Date | string | null
   user?: { subscription?: { isActive?: boolean | null } | null } | null
 }): boolean {
+  // Promo: todos Premium hasta FREE_ALL_PREMIUM_UNTIL
+  if (isFreeAllPremiumPeriod()) return true
+
   if (profile.profileType === 'sexo_gratis') {
     return isSexoGratisPremium(profile)
   }
@@ -54,6 +71,8 @@ export function isListingActive(profile: {
   isPaused?: boolean
 }): boolean {
   if (profile.isPaused) return false
+  // Promo: sin caducidad de anuncios
+  if (isFreeAllPremiumPeriod()) return true
   if (profile.profileType !== 'sexo_gratis') return true
   if (!profile.listingExpiresAt) return true
   return new Date(profile.listingExpiresAt).getTime() > Date.now()
@@ -62,7 +81,7 @@ export function isListingActive(profile: {
 /**
  * Contacto público:
  * - Sin Premium → no Tel/WhatsApp; mensajes siempre activos (escorts gratis y sexo gratis)
- * - Con Premium → Tel/WhatsApp visibles si existen
+ * - Con Premium (o promo temporal) → Tel/WhatsApp visibles si existen
  */
 export function sanitizePublicContact<T extends Record<string, any>>(profile: T): T & {
   isPremium: boolean

@@ -10,10 +10,10 @@ export const SEXO_GRATIS_INFO = {
   title: 'Nueva sección de Sexo Gratis en Caperucitas.com',
   paragraphs: [
     'En Caperucitas.com estrenamos nuestra nueva sección de Sexo Gratis, donde puedes crear tu perfil y conocer chicas y chicos heterosexuales o gays cerca de ti.',
-    'Crear tu perfil es 100% gratis y, al registrarte, disfrutarás de 1 mes de PREMIUM gratis.',
-    'Con PREMIUM, tendrás máxima visibilidad: tu perfil aparecerá en primera fila y podrás recibir contactos directos por WhatsApp y llamadas, para conectar más rápido.',
-    '¿Prefieres seguir con la opción gratuita? También puedes hacerlo. Tu perfil permanecerá publicado durante 3 meses, podrás renovarlo gratis cada 3 meses y tendrás disponible el contacto mediante mensajes.',
-    '🚀 ¿Quieres más visibilidad y contactos más rápidos? Contrata PREMIUM por solo 20 € cada 3 meses, precio promocional, y aparece en el carrusel de perfiles destacados, en primera fila, para que te vean desde el primer vistazo. Además, podrán contactarte directamente por WhatsApp y llamadas, además de recibir mensajes.',
+    'Crear tu perfil es 100% gratis. Hasta el 1 de abril de 2027 todos los perfiles disfrutan de Premium gratis: teléfono y WhatsApp visibles si los indiques, y sin caducidad del anuncio.',
+    'Con PREMIUM (incluido en la promo), tendrás máxima visibilidad y podrás recibir contactos directos por WhatsApp y llamadas, además de mensajes.',
+    'Más adelante podremos reactivar caducidades o el pago Premium; de momento no hay fecha de caducidad en los perfiles.',
+    '🚀 Cuando termine la promo, podrás contratar PREMIUM por solo 20 € cada 3 meses para seguir con WhatsApp/llamadas y el carrusel de destacados.',
   ],
   redWarning:
     'En esta sección no se puede pedir compensación económica o serás expulsado/a, para ello tienes la sección "escorts". Pero sí puedes poner que ofreces compensación económica a cambio de sexo.',

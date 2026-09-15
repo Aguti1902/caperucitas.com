@@ -396,11 +396,9 @@ export default function EditProfilePage() {
             <div className="bg-emerald-950/40 border border-emerald-700/50 rounded-xl p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-emerald-300 font-semibold text-sm">Anuncio gratuito (90 días)</p>
+                  <p className="text-emerald-300 font-semibold text-sm">Anuncio sin caducidad (promo)</p>
                   <p className="text-gray-400 text-xs mt-1">
-                    {listingExpiresAt
-                      ? `Caduca el ${new Date(listingExpiresAt).toLocaleDateString('es-ES')}`
-                      : 'Sin fecha de caducidad'}
+                    Premium gratis hasta el 1 de abril de 2027: Tel/WhatsApp visibles. Sin fecha de caducidad de momento.
                   </p>
                 </div>
                 <Button
@@ -485,12 +483,11 @@ export default function EditProfilePage() {
         <div className="bg-gray-800 rounded-xl p-4">
           <h3 className="text-white font-semibold mb-3">📞 Datos de contacto</h3>
           <p className="text-gray-400 text-xs mb-3 leading-relaxed">
-            Mensaje siempre activo. Teléfono/WhatsApp solo son públicos con Premium
-            {isPremium ? ' (activo ahora).' : ' (ahora ocultos en el listado).'}
+            Mensaje siempre activo. Teléfono/WhatsApp públicos (Premium gratis hasta el 1 de abril de 2027).
           </p>
           <div className="space-y-3">
             <Input
-              label="Teléfono (público solo con Premium)"
+              label="Teléfono (visible en público)"
               type="tel"
               inputMode="tel"
               value={formData.phone}
@@ -500,7 +497,7 @@ export default function EditProfilePage() {
               placeholder="+34600000000"
             />
             <Input
-              label="WhatsApp — teléfono o nombre de usuario (público solo con Premium)"
+              label="WhatsApp — teléfono o nombre de usuario (visible en público)"
               type="text"
               inputMode="text"
               value={formData.whatsapp}

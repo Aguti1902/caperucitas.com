@@ -176,7 +176,7 @@ export default function LoginPage() {
             Publicar mi perfil
           </Link>
           <p className="text-gray-500 text-xs mt-2">
-            Gratis hasta el 1 de enero de 2027
+            Gratis hasta el 1 de abril de 2027
           </p>
         </div>
       </div>

@@ -40,7 +40,7 @@ export default function TermsPage() {
               <li>Eres responsable de mantener la confidencialidad de tu contraseña</li>
               <li>No puedes crear cuentas falsas ni suplantaciones de terceros</li>
               <li>Una persona física solo puede tener una cuenta activa</li>
-              <li>El registro es <strong className="text-white">gratuito hasta el 1 de enero de 2027</strong>, a partir de entonces requerirá suscripción de 20€/mes</li>
+              <li>El registro es <strong className="text-white">gratuito hasta el 1 de abril de 2027</strong>, a partir de entonces requerirá suscripción de 20€/mes</li>
             </ul>
           </section>
 

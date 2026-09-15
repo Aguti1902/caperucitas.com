@@ -23,6 +23,31 @@ export async function ensureProfileSchema(): Promise<void> {
     ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP(3)
   `);
 
+  // Promo 14/sept/2026: reactivar anuncios pausados solo por caducidad + quitar fechas de caducidad
+  try {
+    const { isFreeAllPremiumPeriod } = await import('./sexoGratis.utils');
+    if (isFreeAllPremiumPeriod()) {
+      const reactivated = await prisma.$executeRawUnsafe(`
+        UPDATE "profiles"
+        SET "isPaused" = false, "listingExpiresAt" = NULL
+        WHERE "profileType" = 'sexo_gratis'
+          AND "isPaused" = true
+          AND "listingExpiresAt" IS NOT NULL
+          AND "listingExpiresAt" < NOW()
+          AND ("deletedAt" IS NULL)
+      `);
+      await prisma.$executeRawUnsafe(`
+        UPDATE "profiles"
+        SET "listingExpiresAt" = NULL
+        WHERE "listingExpiresAt" IS NOT NULL
+          AND ("deletedAt" IS NULL)
+      `);
+      console.log('✅ promo FREE_ALL_PREMIUM: caducidades limpiadas / reactivados', reactivated);
+    }
+  } catch (e) {
+    console.warn('⚠️ promo reactivation skip:', e);
+  }
+
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS guest_contact_messages (
       id TEXT PRIMARY KEY,

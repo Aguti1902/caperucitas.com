@@ -329,23 +329,22 @@ export default function CreateProfilePage() {
             <h3 className="text-white font-semibold mb-3">📞 Datos de contacto</h3>
             {formData.profileType === 'sexo_gratis' ? (
               <p className="text-emerald-200/90 text-xs mb-3 leading-relaxed">
-                El contacto por <strong>Mensaje</strong> está siempre activo y es gratis. Teléfono y WhatsApp
-                son opcionales: solo se muestran en público si tienes Premium (1 mes gratis al crear el perfil,
-                luego 20€ / 3 meses).
+                Contacto por <strong>Mensaje</strong> siempre activo. Teléfono y WhatsApp son opcionales
+                y <strong>públicos</strong> durante la promo (Premium gratis hasta el 1 de abril de 2027).
+                Sin caducidad de anuncio de momento.
               </p>
             ) : (
               <p className="text-gray-400 text-xs mb-3 leading-relaxed">
-                Anuncio <strong className="text-white">gratis</strong>: contacto solo por mensaje (siempre activo).
-                Teléfono/WhatsApp solo son públicos con <strong className="text-amber-300">Premium 20€/mes</strong>
-                (puedes contratarlo después en Editar perfil).
+                Mensaje siempre activo. Teléfono/WhatsApp que indiques serán{' '}
+                <strong className="text-amber-300">públicos</strong> (Premium gratis hasta el 1 de abril de 2027).
               </p>
             )}
             <div className="space-y-3">
               <Input
                 label={
                   formData.profileType === 'sexo_gratis'
-                    ? 'Teléfono (opcional — público solo con Premium)'
-                    : 'Teléfono (público solo con Premium 20€/mes)'
+                    ? 'Teléfono (opcional — visible en público)'
+                    : 'Teléfono (visible en público)'
                 }
                 type="tel"
                 inputMode="tel"
@@ -358,8 +357,8 @@ export default function CreateProfilePage() {
               <Input
                 label={
                   formData.profileType === 'sexo_gratis'
-                    ? 'WhatsApp — teléfono o nombre de usuario (opcional — público solo con Premium)'
-                    : 'WhatsApp — teléfono o nombre de usuario (público solo con Premium)'
+                    ? 'WhatsApp — teléfono o nombre de usuario (opcional — visible)'
+                    : 'WhatsApp — teléfono o nombre de usuario (visible)'
                 }
                 type="text"
                 inputMode="text"

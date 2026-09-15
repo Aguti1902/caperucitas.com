@@ -178,7 +178,7 @@ export default function PlusPage() {
           </div>
         ) : (
           <div className="bg-green-900/20 border border-green-700 rounded-xl p-4 mb-4">
-            <p className="text-green-400 font-bold text-lg">🎉 GRATIS hasta el 1 de enero de 2027</p>
+            <p className="text-green-400 font-bold text-lg">🎉 GRATIS hasta el 1 de abril de 2027</p>
             <p className="text-gray-300 text-sm mt-1">
               Aprovecha el período de lanzamiento. A partir del 1/1/2027 serán <strong className="text-white">20€/mes</strong>.
             </p>

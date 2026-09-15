@@ -267,6 +267,8 @@ export default function IndexPage() {
   const [dismissedEscortPremiumBanner, setDismissedEscortPremiumBanner] = useState(
     () => localStorage.getItem('cap_dismissedEscortPremiumBanner') === '1'
   )
+  /** Al hacer scroll: ocultar fila logo y fijar menú desde ESCORTS / SEXO GRATIS */
+  const [headerCompact, setHeaderCompact] = useState(false)
 
   const DIST_OPTIONS = [5, 10, 25, 50, 100]
   const roamRef = useRef<HTMLDivElement>(null)
@@ -355,7 +357,7 @@ export default function IndexPage() {
     loadProfiles()
   }, [selectedGender, selectedSection, seoCity?.name, escortListingTab])
 
-  // Mide el alto real del header y lo actualiza cuando cambia (filtro edad abierto/cerrado)
+  // Mide el alto real del header y lo actualiza cuando cambia (filtro edad abierto/cerrado / compact)
   useEffect(() => {
     const el = headerRef.current
     if (!el) return
@@ -365,6 +367,16 @@ export default function IndexPage() {
     observer.observe(el)
     setHeaderHeight(el.offsetHeight)
     return () => observer.disconnect()
+  }, [headerCompact, selectedSection, showAgeFilter, showDistFilter])
+
+  // Compactar header al scroll: el sticky empieza en ESCORTS / SEXO GRATIS
+  useEffect(() => {
+    const onScroll = () => {
+      setHeaderCompact(window.scrollY > 24)
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
   const sortByDistance = (list: any[], loc: { lat: number; lng: number } | null) => {
@@ -627,9 +639,14 @@ export default function IndexPage() {
         </div>
       )}
 
-      {/* Header — fixed para que nunca tape el contenido */}
+      {/* Header — fixed; al scroll se oculta la fila del logo (sticky desde ESCORTS/SEXO GRATIS) */}
       <header ref={headerRef} className="fixed top-0 left-0 right-0 z-50 bg-gray-900/95 backdrop-blur border-b border-gray-800 shadow-lg">
-        <div className="max-w-7xl mx-auto px-3 flex items-center justify-between h-14">
+        <div
+          className={`max-w-7xl mx-auto px-3 flex items-center justify-between overflow-hidden transition-all duration-200 ${
+            headerCompact ? 'h-0 opacity-0 pointer-events-none' : 'h-14 opacity-100'
+          }`}
+          aria-hidden={headerCompact}
+        >
           <Logo size="sm" />
           {isAuthenticated ? (
             <div className="flex items-center gap-2">
@@ -673,8 +690,8 @@ export default function IndexPage() {
           )}
         </div>
 
-        {/* Selector de sección: Escorts / Sexo gratis */}
-        <div className="border-t border-gray-800 px-3 py-2.5 bg-gray-950/80">
+        {/* Selector de sección: Escorts / Sexo gratis — punto de anclaje sticky al scroll */}
+        <div className={`border-gray-800 px-3 py-2.5 bg-gray-950/80 ${headerCompact ? 'border-t-0' : 'border-t'}`}>
           <div className="max-w-7xl mx-auto flex items-center gap-2">
             <div className="grid grid-cols-2 gap-2 p-1 bg-gray-800 rounded-xl flex-1">
               <button
@@ -1042,17 +1059,11 @@ export default function IndexPage() {
             <Info className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
             <div className="text-gray-300 text-xs flex-1 leading-relaxed space-y-1.5">
               <p>
-                <strong className="text-white">Anuncios gratis:</strong> contacto solo por mensaje
-                (sin teléfono ni WhatsApp públicos).
-              </p>
-              <p>
-                <strong className="text-amber-200">Premium 20€/mes:</strong> teléfono y WhatsApp
-                visibles en tu anuncio.
+                <strong className="text-amber-200">Premium gratis hasta el 1 de abril de 2027:</strong>{' '}
+                teléfono y WhatsApp visibles si el anunciante los indicó al crear su perfil.
               </p>
               <p className="text-gray-400">
-                Pestaña <strong className="text-white">TODOS</strong>: todos los perfiles.{' '}
-                <strong className="text-amber-200">PREMIUM</strong>: solo anuncios con Tel/WhatsApp
-                públicos.
+                También puedes contactar por mensaje interno. Sin caducidad de anuncios de momento.
               </p>
             </div>
             <button

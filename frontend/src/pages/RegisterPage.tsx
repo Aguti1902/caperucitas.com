@@ -106,7 +106,7 @@ export default function RegisterPage() {
           <Logo size="md" className="mx-auto mb-3" />
           <h2 className="text-2xl font-bold text-white">Publicar mi perfil</h2>
           <p className="text-gray-400 text-sm mt-1">
-            Gratis hasta el 1 de enero de 2027
+            Gratis hasta el 1 de abril de 2027
           </p>
         </div>
 
