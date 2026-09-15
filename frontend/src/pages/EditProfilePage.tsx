@@ -28,7 +28,6 @@ export default function EditProfilePage() {
   const [profilePaused, setProfilePaused] = useState(false)
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false)
   const [isPremium, setIsPremium] = useState(false)
-  const [listingExpiresAt, setListingExpiresAt] = useState<string | null>(null)
   const [premiumUntil, setPremiumUntil] = useState<string | null>(null)
   const [isRenewing, setIsRenewing] = useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
@@ -71,7 +70,6 @@ export default function EditProfilePage() {
       const profile = response.data
       setProfilePaused(profile.isPaused || false)
       setIsPremium(!!profile.isPremium)
-      setListingExpiresAt(profile.listingExpiresAt || null)
       setPremiumUntil(profile.premiumUntil || null)
       setFormData({
         title: profile.title || '',
@@ -107,8 +105,7 @@ export default function EditProfilePage() {
   const handleRenewListing = async () => {
     setIsRenewing(true)
     try {
-      const res = await api.post('/profile/renew-listing')
-      setListingExpiresAt(res.data.profile?.listingExpiresAt || null)
+      await api.post('/profile/renew-listing')
       setProfilePaused(false)
       showToast('✓ Perfil renovado 90 días más', 'success')
       await loadProfile()
