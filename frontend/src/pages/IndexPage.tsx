@@ -821,7 +821,162 @@ export default function IndexPage() {
       {/* Espaciador dinámico — empuja el contenido justo debajo del header fixed */}
       <div style={{ paddingTop: headerHeight }} />
 
-      {/* Banner principal — justo debajo del header, sin márgenes */}
+      {/* Filtros scrolleables (amarillo): TODOS/PREMIUM, ciudad, edad, géneros — suben y desaparecen */}
+      <div className="bg-gray-900 border-b border-gray-800">
+        {selectedSection === 'escort' && (
+          <div className="border-b border-gray-800 px-3 py-2 bg-gray-950">
+            <div className="max-w-7xl mx-auto">
+              <div className="grid grid-cols-2 gap-2 p-1 bg-gray-800 rounded-xl max-w-md">
+                <button
+                  type="button"
+                  onClick={() => setEscortListingTab('todos')}
+                  className={`py-2 rounded-lg text-sm font-black transition-all ${
+                    escortListingTab === 'todos'
+                      ? 'bg-red-600 text-white shadow-lg shadow-red-900/40'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  TODOS
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEscortListingTab('premium')}
+                  className={`py-2 rounded-lg text-sm font-black transition-all ${
+                    escortListingTab === 'premium'
+                      ? 'bg-amber-500 text-gray-900 shadow-lg shadow-amber-900/40'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  PREMIUM
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="px-3 py-2 border-b border-gray-800">
+          <div className="max-w-7xl mx-auto flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => { setModalSearch(''); setShowCityModal(true) }}
+              className="flex-1 min-w-[130px] max-w-[220px] flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 rounded-full px-3 py-1.5 transition-colors"
+            >
+              <MapPin className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+              <span className={`text-sm truncate ${citySearch ? 'text-white font-medium' : 'text-gray-400'}`}>
+                {citySearch || 'Ciudad...'}
+              </span>
+              {citySearch && (
+                <span
+                  role="button"
+                  onClick={(e) => { e.stopPropagation(); clearCityFilter() }}
+                  className="ml-auto text-gray-400 hover:text-white flex-shrink-0"
+                >
+                  <X className="w-3 h-3" />
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => { setShowAgeFilter(v => !v); setShowDistFilter(false) }}
+              className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${showAgeFilter || minAge || maxAge ? 'bg-yellow-500 text-gray-900' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+            >
+              EDAD {minAge || maxAge ? `${minAge||'0'}-${maxAge||'99'}` : ''}
+            </button>
+            <button
+              onClick={() => { setShowDistFilter(v => !v); setShowAgeFilter(false) }}
+              className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${maxDistance ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+              title={userLocation ? 'Filtrar por distancia' : 'Activa la ubicación para usar este filtro'}
+            >
+              {maxDistance ? `≤${maxDistance}km` : 'KM'}
+            </button>
+            <button
+              onClick={handleShare}
+              className="flex-shrink-0 p-2 rounded-full bg-[#25D366] text-white hover:bg-[#1ebe5d] transition-colors"
+              title="Compartir en WhatsApp"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+            <div className="flex items-center bg-gray-800 rounded-full px-3 py-1.5 flex-1 min-w-[100px]">
+              <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+              <input
+                type="text"
+                placeholder="Nombre..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-transparent text-white text-sm pl-2 focus:outline-none w-full"
+              />
+            </div>
+          </div>
+          {showAgeFilter && (
+            <div className="max-w-7xl mx-auto flex items-center gap-3 pt-2">
+              <span className="text-gray-400 text-xs">Edad entre:</span>
+              <input
+                type="number"
+                placeholder="Min"
+                min={18} max={99}
+                value={minAge}
+                onChange={(e) => setMinAge(e.target.value)}
+                className="w-16 bg-gray-800 text-white text-sm rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-red-500"
+              />
+              <span className="text-gray-400 text-xs">y</span>
+              <input
+                type="number"
+                placeholder="Max"
+                min={18} max={99}
+                value={maxAge}
+                onChange={(e) => setMaxAge(e.target.value)}
+                className="w-16 bg-gray-800 text-white text-sm rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-red-500"
+              />
+              {(minAge || maxAge) && (
+                <button onClick={() => { setMinAge(''); setMaxAge('') }} className="text-gray-400 hover:text-white text-xs">Limpiar</button>
+              )}
+            </div>
+          )}
+          {showDistFilter && (
+            <div className="max-w-7xl mx-auto pt-2">
+              {!userLocation ? (
+                <p className="text-yellow-400 text-xs">⚠️ Activa tu ubicación para filtrar por distancia</p>
+              ) : (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-gray-400 text-xs flex-shrink-0">Máx. distancia:</span>
+                  {DIST_OPTIONS.map(km => (
+                    <button
+                      key={km}
+                      onClick={() => setMaxDistance(maxDistance === km ? null : km)}
+                      className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
+                        maxDistance === km ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                      }`}
+                    >
+                      {km} km
+                    </button>
+                  ))}
+                  {maxDistance && (
+                    <button onClick={() => setMaxDistance(null)} className="text-gray-400 hover:text-white text-xs">
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="px-3 py-2">
+          <div className="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto no-scrollbar">
+            {visibleGenderFilters.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => changeGender(f.id)}
+                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+                  selectedGender === f.id ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Banner principal — scrollea con el resto */}
       <a href="/" className="w-full block overflow-hidden">
         <img
           src="/logo-caperucitas.jpeg"
