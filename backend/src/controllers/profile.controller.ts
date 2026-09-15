@@ -53,20 +53,12 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
     // gender viene del campo orientation (chica/chico/trans/casa)
     const profileGender = gender || orientation || 'chica';
 
-    const now = new Date();
     // Promo hasta 1 abr 2027: sin caducidad; Premium para todos (Tel/WA visibles)
-    const sexoGratisData =
-      validProfileType === 'sexo_gratis'
-        ? {
-            acceptMessages: true,
-            listingExpiresAt: null,
-            premiumUntil: null,
-          }
-        : {
-            acceptMessages: true,
-            listingExpiresAt: null,
-            premiumUntil: null,
-          };
+    const sexoGratisData = {
+      acceptMessages: true,
+      listingExpiresAt: null as Date | null,
+      premiumUntil: null as Date | null,
+    };
 
     // Crear perfil
     const profile = await prisma.profile.create({
