@@ -11,7 +11,6 @@ import {
   sanitizePublicContact,
   isFreeAllPremiumPeriod,
   SEXO_GRATIS_LISTING_DAYS,
-  SEXO_GRATIS_TRIAL_PREMIUM_DAYS,
   SEXO_GRATIS_PAID_PREMIUM_DAYS,
   ESCORT_PREMIUM_DAYS,
 } from '../utils/sexoGratis.utils';
