@@ -5,7 +5,7 @@ import LoadingSpinner from '@/components/common/LoadingSpinner'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import ProtectedImage from '@/components/common/ProtectedImage'
-import { Trash2, Mail, MessageCircle } from 'lucide-react'
+import { Trash2, Mail, MessageCircle, Phone } from 'lucide-react'
 import { showToast } from '@/store/toastStore'
 import { useAuthStore } from '@/store/authStore'
 import { useNotificationStore } from '@/store/notificationStore'
@@ -44,7 +44,6 @@ export default function InboxPage() {
       setConversations(convs)
       setGuestMessages(guests)
 
-      // Marcar como leídos al entrar en el buzón y quitar el badge
       await api.put('/messages/guest-inbox/read').catch(() => {})
       setGuestMessages((prev) => prev.map((m) => ({ ...m, isRead: true })))
 
@@ -103,7 +102,7 @@ export default function InboxPage() {
   const empty = conversations.length === 0 && guestMessages.length === 0
 
   return (
-    <div className="max-w-4xl mx-auto pb-8">
+    <div className="max-w-4xl mx-auto pb-24">
       <div className="px-4 py-6">
         <h1 className="text-3xl font-bold text-white mb-2">Buzón</h1>
         <p className="text-gray-400 text-sm">
@@ -251,14 +250,23 @@ export default function InboxPage() {
       )}
 
       {selectedGuest && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4">
+        <div
+          className="fixed inset-0 flex items-end sm:items-center justify-center p-4"
+          style={{ zIndex: 10050 }}
+        >
           <button
             type="button"
             className="absolute inset-0 bg-black/70"
             aria-label="Cerrar"
             onClick={() => setSelectedGuest(null)}
           />
-          <div className="relative w-full max-w-md bg-gray-950 border border-purple-700/50 rounded-2xl p-5 shadow-xl">
+          <div
+            className="relative w-full max-w-md bg-gray-950 border border-purple-700/50 rounded-2xl p-5 shadow-xl overflow-y-auto"
+            style={{
+              maxHeight: 'min(85vh, calc(100dvh - 80px))',
+              paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))',
+            }}
+          >
             <h3 className="text-white font-bold text-lg mb-1">{selectedGuest.name}</h3>
             <p className="text-xs text-gray-500 mb-3">
               {formatDistanceToNow(new Date(selectedGuest.createdAt), { addSuffix: true, locale: es })}
@@ -272,14 +280,23 @@ export default function InboxPage() {
             <p className="text-gray-200 text-sm whitespace-pre-wrap mb-4">{selectedGuest.text}</p>
             <div className="flex flex-col gap-2">
               {selectedGuest.phone && (
-                <button
-                  type="button"
-                  onClick={() => openWhatsAppReply(selectedGuest.phone)}
-                  className="w-full py-3 rounded-xl bg-green-600 hover:bg-green-500 text-white font-semibold flex items-center justify-center gap-2"
-                >
-                  <MessageCircle className="w-5 h-5" />
-                  Responder por WhatsApp
-                </button>
+                <>
+                  <a
+                    href={`tel:${selectedGuest.phone}`}
+                    className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold flex items-center justify-center gap-2"
+                  >
+                    <Phone className="w-5 h-5" />
+                    Llamar
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => openWhatsAppReply(selectedGuest.phone)}
+                    className="w-full py-3 rounded-xl bg-green-600 hover:bg-green-500 text-white font-semibold flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    Responder por WhatsApp
+                  </button>
+                </>
               )}
               <div className="flex gap-2">
                 <button

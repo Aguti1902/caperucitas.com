@@ -170,10 +170,14 @@ export default function ProfileDetailPage() {
   const hasPrev = currentIndex.current > 0 && profileIds.current.length > 1
   const hasNext = currentIndex.current < profileIds.current.length - 1 && profileIds.current.length > 1
 
-  const waMessage = `Hola, he visto tu perfil en Caperucitas.com y quiero quedar contigo, ¿estás disponible?`
-  const whatsappHref =
-    getWhatsAppLink(profile.whatsapp, waMessage) ||
-    getWhatsAppLink(profile.phone, waMessage)
+  // Solo WhatsApp si el perfil tiene campo whatsapp (NO reutilizar el teléfono de llamada)
+  const profileUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/profile/${profile.id}`
+      : `https://www.caperucitas.com/profile/${profile.id}`
+  const waMessage =
+    `Hola, he visto tu perfil en Caperucitas.com y quiero quedar contigo, ¿estás disponible?\n${profileUrl}`
+  const whatsappHref = getWhatsAppLink(profile.whatsapp, waMessage)
 
   return (
     <div

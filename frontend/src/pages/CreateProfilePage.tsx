@@ -15,7 +15,7 @@ const GENDER_OPTIONS = [
   { id: 'chica', label: '👩 Chica', color: 'bg-pink-500' },
   { id: 'chico', label: '👨 Chico', color: 'bg-blue-500' },
   { id: 'trans', label: '🏳️‍⚧️ Trans', color: 'bg-purple-500' },
-  { id: 'casa', label: '🏠 Casa / Piso', color: 'bg-orange-500' },
+  { id: 'casa', label: '🏠 Piso / Plaza', color: 'bg-orange-500' },
   { id: 'gay', label: '🌈 Gay', color: 'bg-green-500' },
   { id: 'masajes', label: '💆 Masajes', color: 'bg-teal-500' },
 ]
@@ -54,7 +54,7 @@ export default function CreateProfilePage() {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState<Array<{ file: File; type: 'cover' | 'public' }>>([])
   const [photoPreview, setPhotoPreview] = useState<Array<{ url: string; type: 'cover' | 'public' }>>([])
-  const [isDetectingLocation, setIsDetectingLocation] = useState(true)
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false)
   const [locationError, setLocationError] = useState('')
 
   useEffect(() => {
@@ -63,7 +63,7 @@ export default function CreateProfilePage() {
       setFormData(prev => ({ ...prev, gender: savedGender }))
       localStorage.removeItem('userGender')
     }
-    handleDetectLocation()
+    // No detectar ubicación por defecto: solo al pulsar el botón o elegir ciudad manualmente
   }, [])
 
   const handleDetectLocation = async () => {
@@ -74,7 +74,6 @@ export default function CreateProfilePage() {
       setFormData(prev => ({ ...prev, city: result.city, latitude: result.latitude, longitude: result.longitude }))
     } catch {
       setLocationError('No se pudo obtener tu ubicación. Selecciona tu ciudad manualmente.')
-      setFormData(prev => ({ ...prev, city: 'Madrid', latitude: 40.4168, longitude: -3.7038 }))
     } finally {
       setIsDetectingLocation(false)
     }
@@ -131,6 +130,10 @@ export default function CreateProfilePage() {
     if (isNaN(age) || age < 18 || age > 99) { showError('⚠️ La edad debe estar entre 18 y 99 años'); return }
     if (formData.profileType === 'sexo_gratis' && !acceptedSexoGratisRules) {
       showError('⚠️ Debes aceptar las normas de la sección Sexo gratis')
+      return
+    }
+    if (!formData.city.trim() || formData.latitude == null || formData.longitude == null) {
+      showError('⚠️ Indica tu ubicación: pulsa Detectar o elige la ciudad manualmente')
       return
     }
     if (selectedFiles.length === 0) { showError('⚠️ Debes subir al menos 1 foto para publicar tu perfil'); return }

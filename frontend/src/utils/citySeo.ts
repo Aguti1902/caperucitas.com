@@ -19,7 +19,7 @@ export const SEO_CATEGORIES = [
   { id: 'gay', slug: 'gays', label: 'Gays', labelSingular: 'gay' },
   { id: 'trans', slug: 'trans', label: 'Trans', labelSingular: 'trans' },
   { id: 'masajes', slug: 'masajes', label: 'Masajes', labelSingular: 'masajes' },
-  { id: 'casa', slug: 'casas', label: 'Casas/Pisos', labelSingular: 'casa' },
+  { id: 'casa', slug: 'casas', label: 'Pisos/Plazas', labelSingular: 'piso/plaza' },
 ] as const
 
 const COORDS_BY_SLUG = new Map(

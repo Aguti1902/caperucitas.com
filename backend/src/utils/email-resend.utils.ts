@@ -53,7 +53,6 @@ export const sendVerificationEmail = async (email: string, token: string): Promi
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
           .header { background: #c8102e; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
           .content { background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; }
-          .button { display: inline-block; background: #c8102e; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }
           .footer { text-align: center; margin-top: 20px; color: #999; font-size: 12px; }
         </style>
       </head>
@@ -65,12 +64,17 @@ export const sendVerificationEmail = async (email: string, token: string): Promi
           <div class="content">
             <p>Hola,</p>
             <p>Gracias por registrarte en <strong>Caperucitas.com</strong>.</p>
-            <p>Para activar tu anuncio, verifica tu cuenta haciendo clic en el botón:</p>
-            <div style="text-align: center;">
-              <a href="${verificationUrl}" class="button">Verificar mi cuenta</a>
+            <p>Para activar tu anuncio, verifica tu cuenta haciendo clic en el botón azul:</p>
+            <div style="text-align: center; margin: 28px 0;">
+              <a href="${verificationUrl}"
+                 style="display:inline-block;background:#2563eb;color:#ffffff !important;padding:16px 32px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:18px;border:2px solid #1d4ed8;">
+                VERIFICAR MI CUENTA
+              </a>
             </div>
-            <p>O copia este enlace en tu navegador:</p>
-            <p style="word-break: break-all; color: #666; font-size: 13px;">${verificationUrl}</p>
+            <p>O copia este enlace <span style="color:#2563eb;font-weight:bold;">azul</span> en tu navegador:</p>
+            <p style="word-break: break-all; font-size: 14px;">
+              <a href="${verificationUrl}" style="color:#2563eb !important; text-decoration:underline; font-weight:bold;">${verificationUrl}</a>
+            </p>
             <p><strong>Este enlace expira en 24 horas.</strong></p>
             <p style="color: #999; font-size: 13px;">Si no creaste esta cuenta, ignora este email.</p>
           </div>
@@ -98,12 +102,13 @@ export const sendWelcomeEmail = async (email: string, name: string): Promise<voi
   console.log(`\n🎉 Enviando email de bienvenida a: ${email}`);
   
   const resend = getResendClient();
-  const fromEmail = process.env.RESEND_FROM_EMAIL || '9citas <onboarding@resend.dev>';
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'Caperucitas <noreply@caperucitas.com>';
+  const frontendUrl = (process.env.FRONTEND_URL || 'https://www.caperucitas.com').split(',')[0].trim();
 
   const result = await resend.emails.send({
     from: fromEmail,
     to: email,
-    subject: '¡Bienvenido a 9citas!',
+    subject: '¡Bienvenido/a a Caperucitas.com!',
     html: `
       <!DOCTYPE html>
       <html>
@@ -112,7 +117,7 @@ export const sendWelcomeEmail = async (email: string, name: string): Promise<voi
         <style>
           body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #fc4d5c 0%, #ff6b7a 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .header { background: #c8102e; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
           .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
           .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
         </style>
@@ -120,24 +125,23 @@ export const sendWelcomeEmail = async (email: string, name: string): Promise<voi
       <body>
         <div class="container">
           <div class="header">
-            <h1>¡Bienvenido a 9citas!</h1>
+            <h1>¡Bienvenido/a a Caperucitas.com!</h1>
           </div>
           <div class="content">
             <p>Hola <strong>${name}</strong>,</p>
-            <p>¡Tu cuenta ha sido verificada exitosamente!</p>
-            <p>Ya puedes empezar a:</p>
+            <p>¡Tu cuenta en <strong>Caperucitas.com</strong> ha sido verificada correctamente!</p>
+            <p>Ya puedes:</p>
             <ul>
-              <li>📸 Subir tus fotos</li>
-              <li>👥 Explorar perfiles cerca de ti</li>
-              <li>💬 Chatear con otros usuarios</li>
-              <li>❤️ Dar me gusta y hacer match</li>
+              <li>📸 Subir tus fotos y publicar tu anuncio</li>
+              <li>👥 Aparecer en los listados cerca de ti</li>
+              <li>💬 Recibir mensajes y contactos</li>
             </ul>
             <p style="text-align: center; margin-top: 30px;">
-              <a href="${process.env.FRONTEND_URL || 'https://9citas.com'}" style="display: inline-block; background: #fc4d5c; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px;">Empezar a conectar</a>
+              <a href="${frontendUrl}/perfiles" style="display: inline-block; background: #c8102e; color: #ffffff !important; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Ir a Caperucitas</a>
             </p>
           </div>
           <div class="footer">
-            <p>© 2024 9citas.com - Conoce chicas y chicos cerca de ti</p>
+            <p>© ${new Date().getFullYear()} Caperucitas.com</p>
           </div>
         </div>
       </body>
@@ -152,16 +156,16 @@ export const sendWelcomeEmail = async (email: string, name: string): Promise<voi
 export const sendPasswordResetEmail = async (email: string, token: string): Promise<void> => {
   console.log(`\n🔑 Enviando email de recuperación de contraseña a: ${email}`);
 
-  const frontendUrl = process.env.FRONTEND_URL || 'https://9citas.com';
+  const frontendUrl = (process.env.FRONTEND_URL || 'https://www.caperucitas.com').split(',')[0].trim();
   const resetUrl = `${frontendUrl}/reset-password/${token}`;
-  const fromEmail = process.env.RESEND_FROM_EMAIL || '9citas <onboarding@resend.dev>';
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'Caperucitas <noreply@caperucitas.com>';
 
   const resend = getResendClient();
 
   const result = await resend.emails.send({
     from: fromEmail,
     to: email,
-    subject: 'Recupera tu contraseña de 9citas',
+    subject: 'Recupera tu contraseña de Caperucitas.com',
     html: `
       <!DOCTYPE html>
       <html>

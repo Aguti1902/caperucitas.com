@@ -14,7 +14,7 @@ const GENDER_OPTIONS = [
   { id: 'chica', label: '👩 Chica', desc: 'Perfil femenino' },
   { id: 'chico', label: '👨 Chico', desc: 'Perfil masculino' },
   { id: 'trans', label: '🏳️‍⚧️ Trans', desc: 'Perfil trans' },
-  { id: 'casa', label: '🏠 Casa / Piso', desc: 'Perfil de local o piso' },
+  { id: 'casa', label: '🏠 Piso / Plaza', desc: 'Perfil de local, piso o plaza' },
   { id: 'gay', label: '🌈 Gay', desc: 'Perfil gay' },
   { id: 'masajes', label: '💆 Masajes', desc: 'Servicios de masajes' },
 ]

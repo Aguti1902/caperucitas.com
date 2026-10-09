@@ -9,7 +9,7 @@ const CATEGORIES = {
   gays: { label: 'Gays', gender: 'gay' },
   trans: { label: 'Trans', gender: 'trans' },
   masajes: { label: 'Masajes', gender: 'masajes' },
-  casas: { label: 'Casas/Pisos', gender: 'casa' },
+  casas: { label: 'Pisos/Plazas', gender: 'casa' },
 }
 
 function slugToName(slug) {

@@ -154,7 +154,7 @@ export default function InfoPage() {
               <p><strong className="text-white">1. Mayoría de edad:</strong> Debes tener al menos 18 años para publicar o usar Caperucitas.com.</p>
               <p><strong className="text-white">2. Fotos reales:</strong> Usa fotos tuyas reales y actuales. Queda prohibida la suplantación de identidad.</p>
               <p><strong className="text-white">3. Contenido apropiado:</strong> Las fotos de portada no pueden mostrar contenido explícito.</p>
-              <p><strong className="text-white">4. Categoría correcta:</strong> Regístrate en la categoría que te corresponde (Chica, Chico, Trans o Casa/Piso).</p>
+              <p><strong className="text-white">4. Categoría correcta:</strong> Regístrate en la categoría que te corresponde (Chica, Chico, Trans o Piso/Plaza).</p>
               <p><strong className="text-white">5. Respeto:</strong> Evita mensajes ofensivos, xenófobos o discriminatorios.</p>
             </div>
           </section>

@@ -32,7 +32,7 @@ const GENDER_LABELS: Record<string, { label: string; color: string }> = {
   chica: { label: 'Chica', color: 'bg-pink-600' },
   chico: { label: 'Chico', color: 'bg-blue-600' },
   trans: { label: 'Trans', color: 'bg-purple-600' },
-  casa: { label: 'Casa/Piso', color: 'bg-orange-600' },
+  casa: { label: 'Piso/Plaza', color: 'bg-orange-600' },
   gay: { label: 'Gay', color: 'bg-green-600' },
   masajes: { label: 'Masajes', color: 'bg-teal-600' },
 }
@@ -44,7 +44,7 @@ const GENDER_FILTERS = [
   { id: 'trans', label: 'Trans' },
   { id: 'gay', label: 'Gay' },
   { id: 'masajes', label: 'Masajes' },
-  { id: 'casa', label: 'Casas/Pisos' },
+  { id: 'casa', label: 'Pisos/Plazas' },
 ]
 
 /** En Sexo gratis no se muestran Trans / Masajes / Casas-Pisos */
@@ -1416,7 +1416,12 @@ function ProfileCard({ profile, onClick, compact = false }: { profile: any; onCl
           )}
           {profile.whatsapp && (
             <a
-              href={getWhatsAppLink(profile.whatsapp) || '#'}
+              href={
+                getWhatsAppLink(
+                  profile.whatsapp,
+                  `Hola, he visto tu perfil en Caperucitas.com y quiero quedar contigo, ¿estás disponible?\n${typeof window !== 'undefined' ? window.location.origin : 'https://www.caperucitas.com'}/profile/${profile.id}`
+                ) || '#'
+              }
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
