@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/seo-daily-cron",
+      "schedule": "20 6 * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/putas/:path*",

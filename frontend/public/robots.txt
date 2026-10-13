@@ -10,3 +10,4 @@ Disallow: /create-profile
 Disallow: /edit-profile
 
 Sitemap: https://www.caperucitas.com/sitemap.xml
+Sitemap: https://caperucitascom-production.up.railway.app/api/seo/sitemap-priority.xml

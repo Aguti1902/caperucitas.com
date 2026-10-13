@@ -85,6 +85,7 @@ import adminRoutes from './routes/admin.routes';
 import privatePhotoRoutes from './routes/privatePhoto.routes';
 import reportRoutes from './routes/report.routes';
 import paymentRoutes from './routes/payment.routes';
+import seoRoutes from './routes/seo.routes';
 
 // Importar servicios
 import { setupSocketHandlers } from './services/socket.service';
@@ -248,6 +249,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/private-photos', privatePhotoRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/seo', seoRoutes);
 
 // Ruta de health check
 app.get('/api/health', (req, res) => {
@@ -449,7 +451,7 @@ cron.schedule('*/15 * * * *', async () => {
   }
 });
 
-// Cron: reanudar campañas pausadas por límite diario (00:05 UTC)
+// Cron: reanudar campañas WhatsApp pausadas por límite diario (00:05 UTC)
 cron.schedule('5 0 * * *', async () => {
   console.log('⏰ Cron: reanudando campañas WhatsApp pausadas por límite diario...');
   try {
@@ -457,6 +459,17 @@ cron.schedule('5 0 * * *', async () => {
     await resumeDailyPausedCampaigns();
   } catch (err) {
     console.error('❌ Error cron WhatsApp daily resume:', err);
+  }
+});
+
+// Cron SEO diario (06:15 UTC): cobertura ciudades + IndexNow + informe
+cron.schedule('15 6 * * *', async () => {
+  console.log('⏰ Cron: SEO diario…');
+  try {
+    const { runSeoDailyJob } = await import('./services/seo-daily.service');
+    await runSeoDailyJob();
+  } catch (err) {
+    console.error('❌ Error cron SEO diario:', err);
   }
 });
 
