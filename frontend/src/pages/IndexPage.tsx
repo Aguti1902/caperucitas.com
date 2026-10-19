@@ -5,7 +5,7 @@ import LoadingSpinner from '@/components/common/LoadingSpinner'
 import SeoHead from '@/components/common/SeoHead'
 import { fetchPublicProfiles } from '@/services/profile.api'
 import { useAuthStore } from '@/store/authStore'
-import { MapPin, Search, Phone, MessageCircle, Zap, Share2, Info, Home, ChevronLeft, ChevronRight, X, Crown, Mail } from 'lucide-react'
+import { MapPin, Search, Phone, MessageCircle, Zap, Share2, Info, Home, ChevronLeft, ChevronRight, X, Crown, Mail, LogOut, Eye } from 'lucide-react'
 import { getProfileCoverPhoto } from '@/utils/profileUtils'
 import { formatLastSeen } from '@/utils/timeUtils'
 import { useUnreadMessages } from '@/hooks/useUnreadMessages'
@@ -71,9 +71,41 @@ export default function IndexPage() {
     citySlug?: string
     categorySlug?: string
   }>()
-  const { isAuthenticated, hasProfile } = useAuthStore()
+  const { isAuthenticated, hasProfile, logout } = useAuthStore()
   const unreadMessagesCount = useNotificationStore((s) => s.unreadMessagesCount)
   useUnreadMessages(isAuthenticated && hasProfile)
+
+  /**
+   * Vista de listado — SOLO preferencia local (localStorage).
+   * Misma URL canónica / same SEO: no query ni rutas distintas → sin contenido duplicado.
+   */
+  type ListingView = 'rapida' | 'extensa'
+  const [listingView, setListingView] = useState<ListingView>(() => {
+    try {
+      return localStorage.getItem('cap_listingView') === 'extensa' ? 'extensa' : 'rapida'
+    } catch {
+      return 'rapida'
+    }
+  })
+  const changeListingView = (view: ListingView) => {
+    setListingView(view)
+    try {
+      localStorage.setItem('cap_listingView', view)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const handleSalir = async () => {
+    if (isAuthenticated) {
+      try {
+        await logout()
+      } catch {
+        /* ignore */
+      }
+    }
+    navigate('/')
+  }
 
   const routeSection: SeoSection | null = location.pathname.startsWith('/sexo-gratis/')
     ? 'sexo_gratis'
@@ -633,6 +665,15 @@ export default function IndexPage() {
           <Logo size="sm" />
           {isAuthenticated ? (
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSalir}
+                className="text-gray-300 hover:text-white text-sm font-semibold px-2 py-2 transition-colors inline-flex items-center gap-1"
+                title="Salir"
+              >
+                <LogOut className="w-4 h-4" />
+                Salir
+              </button>
               {hasProfile && (
                 <button
                   onClick={() => navigate('/app/inbox')}
@@ -657,6 +698,14 @@ export default function IndexPage() {
             </div>
           ) : (
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSalir}
+                className="text-gray-300 hover:text-white text-sm font-semibold px-2 py-2 transition-colors"
+                title="Salir"
+              >
+                Salir
+              </button>
               <button
                 onClick={() => navigate('/login')}
                 className="bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold px-3 py-2 rounded-lg transition-colors"
@@ -853,6 +902,36 @@ export default function IndexPage() {
             </div>
           </div>
         )}
+
+        {/* Selector de vista — misma URL (SEO: sin páginas duplicadas) */}
+        <div className="border-b border-gray-800 px-3 py-2 bg-gray-950/90">
+          <div className="max-w-7xl mx-auto">
+            <div className="grid grid-cols-2 gap-2 p-1 bg-gray-800 rounded-xl max-w-md">
+              <button
+                type="button"
+                onClick={() => changeListingView('rapida')}
+                className={`py-2 rounded-lg text-sm font-black transition-all ${
+                  listingView === 'rapida'
+                    ? 'bg-yellow-400 text-gray-900 shadow-lg shadow-yellow-900/30'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                VISTA RÁPIDA
+              </button>
+              <button
+                type="button"
+                onClick={() => changeListingView('extensa')}
+                className={`py-2 rounded-lg text-sm font-black transition-all ${
+                  listingView === 'extensa'
+                    ? 'bg-yellow-400 text-gray-900 shadow-lg shadow-yellow-900/30'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                VISTA EXTENSA
+              </button>
+            </div>
+          </div>
+        </div>
 
         <div className="px-3 py-2 border-b border-gray-800">
           <div className="max-w-7xl mx-auto flex items-center gap-2 flex-wrap">
@@ -1228,24 +1307,53 @@ export default function IndexPage() {
                     <h2 className="text-white font-bold text-sm mb-3">
                       {seoBody?.nearbyTitle || 'Explora otros perfiles cerca de ti'}
                     </h2>
-                    <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 md:gap-3">
-                      {nearbyProfiles.map((profile, index) => (
-                        <ProfileCard
-                          key={profile.id}
-                          profile={profile}
-                          onClick={() => {
-                            sessionStorage.setItem(
-                              'browseProfiles',
-                              JSON.stringify(nearbyProfiles.map((p) => p.id))
-                            )
-                            sessionStorage.setItem('browseIndex', String(index))
-                            navigate(`/profile/${profile.id}`)
-                          }}
-                        />
-                      ))}
-                    </div>
+                    {listingView === 'extensa' ? (
+                      <div className="divide-y divide-gray-800 border border-gray-800 rounded-xl overflow-hidden bg-gray-950">
+                        {nearbyProfiles.map((profile, index) => (
+                          <ProfileCardExtensa
+                            key={profile.id}
+                            profile={profile}
+                            onClick={() => {
+                              sessionStorage.setItem(
+                                'browseProfiles',
+                                JSON.stringify(nearbyProfiles.map((p) => p.id))
+                              )
+                              sessionStorage.setItem('browseIndex', String(index))
+                              navigate(`/profile/${profile.id}`)
+                            }}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 md:gap-3">
+                        {nearbyProfiles.map((profile, index) => (
+                          <ProfileCard
+                            key={profile.id}
+                            profile={profile}
+                            onClick={() => {
+                              sessionStorage.setItem(
+                                'browseProfiles',
+                                JSON.stringify(nearbyProfiles.map((p) => p.id))
+                              )
+                              sessionStorage.setItem('browseIndex', String(index))
+                              navigate(`/profile/${profile.id}`)
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </section>
                 )}
+              </div>
+            ) : listingView === 'extensa' ? (
+              <div className="divide-y divide-gray-800 border border-gray-800 rounded-xl overflow-hidden bg-gray-950">
+                {filteredProfiles.map((profile, index) => (
+                  <ProfileCardExtensa
+                    key={profile.id}
+                    profile={profile}
+                    onClick={() => handleProfileClick(profile.id, index)}
+                  />
+                ))}
               </div>
             ) : (
               <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 md:gap-3">
@@ -1332,6 +1440,130 @@ export default function IndexPage() {
         </button>
       </nav>
     </div>
+  )
+}
+
+function truncateText(text: string | null | undefined, max: number): string {
+  if (!text) return ''
+  const t = text.trim()
+  if (t.length <= max) return t
+  return `${t.slice(0, max - 1).trimEnd()}…`
+}
+
+/** VISTA EXTENSA — listado horizontal (foto izq. + textos). Misma URL que VISTA RÁPIDA. */
+function ProfileCardExtensa({ profile, onClick }: { profile: any; onClick: () => void }) {
+  const coverPhoto = getProfileCoverPhoto(profile)
+  const genderMeta = profile.gender ? GENDER_LABELS[profile.gender] : null
+  const about = truncateText(profile.aboutMe, 80)
+  const offer = truncateText(profile.lookingFor, 185)
+  const cityLabel = (profile.city || 'España').split(',')[0].trim()
+  const profileUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/profile/${profile.id}`
+      : `https://www.caperucitas.com/profile/${profile.id}`
+  const waHref = getWhatsAppLink(
+    profile.whatsapp,
+    `Hola, he visto tu perfil en Caperucitas.com y quiero quedar contigo, ¿estás disponible?\n${profileUrl}`
+  )
+
+  return (
+    <article
+      className="flex gap-3 p-3 cursor-pointer hover:bg-gray-900/80 transition-colors"
+      onClick={onClick}
+    >
+      <div className="w-28 sm:w-32 flex-shrink-0 aspect-[3/4] rounded-lg overflow-hidden bg-gray-800">
+        {coverPhoto ? (
+          <img
+            src={coverPhoto.url}
+            alt={profile.title}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-3xl">👤</div>
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0 flex flex-col gap-1">
+        {/* Fila 1: nombre + edad + PREMIUM */}
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-blue-400 font-black text-sm sm:text-base uppercase leading-tight">
+            {profile.title}
+            {profile.age != null ? `, ${profile.age}` : ''}
+          </h3>
+          {profile.isPremium && (
+            <div className="flex-shrink-0 flex flex-col items-center text-amber-400">
+              <Crown className="w-4 h-4" />
+              <span className="text-[8px] font-black tracking-wide">PREMIUM</span>
+            </div>
+          )}
+        </div>
+
+        {/* Fila 2: Sobre mí (máx. 80) */}
+        {about && (
+          <p className="text-blue-300/80 text-xs leading-snug">{about}</p>
+        )}
+
+        {/* Fila 3: Lo que ofrezco (máx. 185) */}
+        {offer && (
+          <p className="text-white text-xs sm:text-sm leading-snug">{offer}</p>
+        )}
+
+        {/* Fila 4: ciudad / última conexión · categoría · contactos */}
+        <div className="mt-auto pt-2 flex flex-wrap items-end gap-2">
+          <div className="min-w-0 mr-1">
+            <div className="flex items-center gap-1 text-gray-400 text-[11px]">
+              <Eye className="w-3 h-3 flex-shrink-0" />
+              <span className="truncate">{cityLabel}</span>
+            </div>
+            <p className={`text-[10px] mt-0.5 ${profile.isOnline ? 'text-green-400' : 'text-gray-500'}`}>
+              {profile.isOnline ? 'En línea' : formatLastSeen(profile.lastSeenAt)}
+            </p>
+          </div>
+
+          {genderMeta && (
+            <span className={`${genderMeta.color} text-white text-[10px] font-bold px-2 py-0.5 rounded-full`}>
+              {genderMeta.label}
+            </span>
+          )}
+
+          <div className="flex flex-wrap gap-1.5 ml-auto" onClick={(e) => e.stopPropagation()}>
+            {profile.phone && (
+              <a
+                href={`tel:${profile.phone}`}
+                className="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-full"
+              >
+                <Phone className="w-3 h-3" />
+                Llamar
+              </a>
+            )}
+            {waHref && (
+              <a
+                href={waHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-full"
+              >
+                <MessageCircle className="w-3 h-3" />
+                WhatsApp
+              </a>
+            )}
+            {profile.acceptMessages && (
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = `/profile/${profile.id}`
+                }}
+                className="inline-flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-full"
+              >
+                <MessageCircle className="w-3 h-3" />
+                Mensaje
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </article>
   )
 }
 
