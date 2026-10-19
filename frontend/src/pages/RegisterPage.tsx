@@ -7,6 +7,10 @@ import Button from '@/components/common/Button'
 import { Eye, EyeOff, CheckCircle } from 'lucide-react'
 import ReCAPTCHA from 'react-google-recaptcha'
 import BackNavBar from '@/components/common/BackNavBar'
+import ComparteYGanaPromo, {
+  hasClaimedComparteYGana,
+  PROMO_UNTIL_LABEL,
+} from '@/components/common/ComparteYGanaPromo'
 
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
 
@@ -35,10 +39,18 @@ export default function RegisterPage() {
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [showPromo, setShowPromo] = useState(false)
+  const [promoClaimed, setPromoClaimed] = useState(() => hasClaimedComparteYGana())
+
+  const freeUntilLabel = promoClaimed ? PROMO_UNTIL_LABEL : '1 de abril de 2027'
 
   const handleGenderSelect = (gender: string) => {
     setSelectedGender(gender)
     setStep(2)
+    // Pop-up de promoción al entrar en el alta (si aún no ha participado)
+    if (!hasClaimedComparteYGana()) {
+      setShowPromo(true)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -106,8 +118,13 @@ export default function RegisterPage() {
           <Logo size="md" className="mx-auto mb-3" />
           <h2 className="text-2xl font-bold text-white">Publicar mi perfil</h2>
           <p className="text-gray-400 text-sm mt-1">
-            Gratis hasta el 1 de abril de 2027
+            Gratis hasta el {freeUntilLabel}
           </p>
+          {promoClaimed && (
+            <p className="text-emerald-400 text-xs font-semibold mt-1">
+              ✓ Promoción «Comparte y Gana» activada
+            </p>
+          )}
         </div>
 
         {/* Video 1 — siempre visible */}
@@ -300,10 +317,25 @@ export default function RegisterPage() {
               </p>
             </div>
 
+            {!promoClaimed && (
+              <button
+                type="button"
+                onClick={() => setShowPromo(true)}
+                className="w-full text-center text-sm text-yellow-300 hover:text-yellow-200 font-semibold underline underline-offset-2"
+              >
+                🎁 Ver promoción Comparte y Gana
+              </button>
+            )}
           </div>
         )}
       </div>
       </div>
+
+      <ComparteYGanaPromo
+        open={showPromo}
+        onClose={() => setShowPromo(false)}
+        onPromoClaimed={() => setPromoClaimed(true)}
+      />
     </div>
   )
 }
