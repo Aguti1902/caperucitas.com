@@ -47,10 +47,8 @@ export default function RegisterPage() {
   const handleGenderSelect = (gender: string) => {
     setSelectedGender(gender)
     setStep(2)
-    // Pop-up de promoción al entrar en el alta (si aún no ha participado)
-    if (!hasClaimedComparteYGana()) {
-      setShowPromo(true)
-    }
+    // Remate PDF: el pop-up Comparte y Gana debe salir CADA vez que se registren
+    setShowPromo(true)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -317,15 +315,13 @@ export default function RegisterPage() {
               </p>
             </div>
 
-            {!promoClaimed && (
-              <button
-                type="button"
-                onClick={() => setShowPromo(true)}
-                className="w-full text-center text-sm text-yellow-300 hover:text-yellow-200 font-semibold underline underline-offset-2"
-              >
-                🎁 Ver promoción Comparte y Gana
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setShowPromo(true)}
+              className="w-full text-center text-sm text-yellow-300 hover:text-yellow-200 font-semibold underline underline-offset-2"
+            >
+              🎁 {promoClaimed ? 'Volver a ver Comparte y Gana' : 'Ver promoción Comparte y Gana'}
+            </button>
           </div>
         )}
       </div>

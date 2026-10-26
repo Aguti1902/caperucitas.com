@@ -286,6 +286,33 @@ export default function ProfileDetailPage() {
         )}
       </div>
 
+      {/* Miniaturas de fotos — remate PDF */}
+      {publicPhotos.length > 1 && (
+        <div className="px-3 pt-3 pb-1">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+            {publicPhotos.map((photo: any, i: number) => (
+              <button
+                key={photo.id || photo.url || i}
+                type="button"
+                onClick={() => setCurrentPhotoIndex(i)}
+                className={`relative flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border-2 transition-all ${
+                  i === currentPhotoIndex
+                    ? 'border-red-500 ring-2 ring-red-500/40'
+                    : 'border-gray-700 opacity-80 hover:opacity-100'
+                }`}
+                aria-label={`Ver foto ${i + 1}`}
+              >
+                <ProtectedImage
+                  src={photo.url}
+                  alt={`${profile.title} foto ${i + 1}`}
+                  className="w-full h-full object-cover"
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Info del perfil */}
       <div className="px-4 py-5 space-y-5">
         {/* Nombre, edad y ubicación */}

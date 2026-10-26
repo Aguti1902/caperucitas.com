@@ -41,6 +41,7 @@ const BlogIndexPage = lazy(() => import('./pages/BlogIndexPage'))
 const BlogPostPage = lazy(() => import('./pages/BlogPostPage'))
 const InboxPage = lazy(() => import('./pages/InboxPage'))
 const ChatPage = lazy(() => import('./pages/ChatPage'))
+const GlobalChatPage = lazy(() => import('./pages/GlobalChatPage'))
 
 function PageLoader() {
   return (
@@ -113,6 +114,7 @@ function App() {
           <Route path="/terminos" element={<TermsPage />} />
           <Route path="/cookies" element={<CookiesPage />} />
           <Route path="/normas" element={<NormasPage />} />
+          <Route path="/chat-global" element={<GlobalChatPage />} />
           <Route path="/login/:orientation" element={<LoginPage />} />
           <Route path="/register/:orientation" element={<RegisterPage />} />
           <Route

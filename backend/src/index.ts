@@ -86,6 +86,7 @@ import privatePhotoRoutes from './routes/privatePhoto.routes';
 import reportRoutes from './routes/report.routes';
 import paymentRoutes from './routes/payment.routes';
 import seoRoutes from './routes/seo.routes';
+import globalChatRoutes from './routes/globalChat.routes';
 
 // Importar servicios
 import { setupSocketHandlers } from './services/socket.service';
@@ -250,6 +251,7 @@ app.use('/api/private-photos', privatePhotoRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/seo', seoRoutes);
+app.use('/api/global-chat', globalChatRoutes);
 
 // Ruta de health check
 app.get('/api/health', (req, res) => {
@@ -510,6 +512,14 @@ async function bootstrap() {
     await ensureProfileSchema();
   } catch (err: any) {
     console.warn('⚠️ Profile schema al arrancar:', err?.message);
+  }
+
+  try {
+    const { ensureGlobalChatSchema } = await import('./utils/global-chat-migrate.utils');
+    await ensureGlobalChatSchema();
+    console.log('✅ Global chat schema listo');
+  } catch (err: any) {
+    console.warn('⚠️ Global chat schema al arrancar:', err?.message);
   }
 
   try {

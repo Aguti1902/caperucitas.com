@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react'
-import { MessageCircle, Users, X } from 'lucide-react'
+import { CheckCircle2, MessageCircle, Users, X } from 'lucide-react'
 
-const SHARE_TEXT =
-  '¡Descubre Caperucitas.com! Conoce personas cerca de ti y chatea con gente de tu zona: https://www.caperucitas.com\n\nAdemás, si publicas ahora tu perfil, puedes beneficiarte de una promoción para mantener tu inscripción gratuita hasta el 1 de julio de 2027.'
+export const SHARE_TEXT =
+  '¿Eres escort o buscas encuentros cerca de ti? Entra en Caperucitas.com\n\n' +
+  'Si eres escort, publica tu perfil, gana visibilidad y llega a personas interesadas en conocerte.\n' +
+  'Además, aprovecha nuestra promoción y disfruta de la inscripción gratuita hasta el 1 de julio de 2027.\n\n' +
+  '¿Buscas sexo gratis, conocer gente o encontrar compañía cerca de ti? Descubre perfiles de tu zona y encuentra personas con las que conectar.\n\n' +
+  'Escorts y contactos cerca de ti, de forma discreta y sencilla.\n\n' +
+  'Entra ahora en https://www.caperucitas.com\n\n' +
+  'Caperucitas.com — Tanto si buscas contactos como si quieres promocionar tu perfil, ¡te esperamos!'
 
 export const PROMO_STORAGE_KEY = 'cap_promoShareUntil'
 /** Quien participa en la promo queda gratis hasta julio 2027 (según PDF: no verificamos envíos) */
 export const PROMO_UNTIL_ISO = '2027-07-01'
 export const PROMO_UNTIL_LABEL = '1 de julio de 2027'
 
-type Phase = 'intro' | 'options' | 'countdown' | null
+type Phase = 'intro' | 'options' | 'countdown' | 'success'
 
 interface Props {
   open: boolean
@@ -42,37 +48,54 @@ export function claimComparteYGanaPromo() {
 export default function ComparteYGanaPromo({ open, onClose, onPromoClaimed }: Props) {
   const [phase, setPhase] = useState<Phase>('intro')
   const [secondsLeft, setSecondsLeft] = useState(120)
+  const [successSeconds, setSuccessSeconds] = useState(5)
 
   useEffect(() => {
     if (!open) {
       setPhase('intro')
       setSecondsLeft(120)
+      setSuccessSeconds(5)
       return
     }
     setPhase('intro')
     setSecondsLeft(120)
+    setSuccessSeconds(5)
   }, [open])
+
+  const finishWithSuccess = () => {
+    claimComparteYGanaPromo()
+    onPromoClaimed?.()
+    setSuccessSeconds(5)
+    setPhase('success')
+  }
 
   useEffect(() => {
     if (!open || phase !== 'countdown') return
     if (secondsLeft <= 0) {
-      claimComparteYGanaPromo()
-      onPromoClaimed?.()
-      onClose()
+      finishWithSuccess()
       return
     }
     const t = window.setTimeout(() => setSecondsLeft((s) => s - 1), 1000)
     return () => window.clearTimeout(t)
-  }, [open, phase, secondsLeft, onClose, onPromoClaimed])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, phase, secondsLeft])
 
-  if (!open || !phase) return null
+  useEffect(() => {
+    if (!open || phase !== 'success') return
+    if (successSeconds <= 0) {
+      onClose()
+      return
+    }
+    const t = window.setTimeout(() => setSuccessSeconds((s) => s - 1), 1000)
+    return () => window.clearTimeout(t)
+  }, [open, phase, successSeconds, onClose])
+
+  if (!open) return null
 
   const mm = String(Math.floor(secondsLeft / 60)).padStart(2, '0')
   const ss = String(secondsLeft % 60).padStart(2, '0')
 
   const startShare = (_tier: 10 | 20) => {
-    // Ambas opciones abren el mismo WhatsApp; se destaca la de 20 contactos en la UI.
-    // Al participar (sin verificar envíos) queda gratis hasta el 1 de julio de 2027.
     openWhatsAppShare()
     claimComparteYGanaPromo()
     onPromoClaimed?.()
@@ -88,8 +111,12 @@ export default function ComparteYGanaPromo({ open, onClose, onPromoClaimed }: Pr
         aria-label="Cerrar"
         onClick={() => {
           if (phase === 'countdown') {
-            claimComparteYGanaPromo()
-            onPromoClaimed?.()
+            finishWithSuccess()
+            return
+          }
+          if (phase === 'success') {
+            onClose()
+            return
           }
           onClose()
         }}
@@ -193,7 +220,6 @@ export default function ComparteYGanaPromo({ open, onClose, onPromoClaimed }: Pr
           </div>
 
           <div className="px-4 pb-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Opción 10 */}
             <button
               type="button"
               onClick={() => startShare(10)}
@@ -218,7 +244,6 @@ export default function ComparteYGanaPromo({ open, onClose, onPromoClaimed }: Pr
               </div>
             </button>
 
-            {/* Opción 20 — destacada */}
             <button
               type="button"
               onClick={() => startShare(20)}
@@ -255,11 +280,7 @@ export default function ComparteYGanaPromo({ open, onClose, onPromoClaimed }: Pr
         <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border-2 border-red-600 overflow-hidden">
           <button
             type="button"
-            onClick={() => {
-              claimComparteYGanaPromo()
-              onPromoClaimed?.()
-              onClose()
-            }}
+            onClick={finishWithSuccess}
             className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 z-10"
             aria-label="Cerrar"
           >
@@ -301,16 +322,36 @@ export default function ComparteYGanaPromo({ open, onClose, onPromoClaimed }: Pr
           <div className="px-5 py-3">
             <button
               type="button"
-              onClick={() => {
-                claimComparteYGanaPromo()
-                onPromoClaimed?.()
-                onClose()
-              }}
+              onClick={finishWithSuccess}
               className="w-full text-sm text-gray-500 hover:text-gray-800 font-semibold py-2"
             >
               Ya he compartido — continuar registro
             </button>
           </div>
+        </div>
+      )}
+
+      {phase === 'success' && (
+        <div className="relative w-full max-w-md bg-gradient-to-b from-emerald-600 to-emerald-900 border border-emerald-400/50 rounded-2xl shadow-2xl overflow-hidden px-6 py-8 text-center space-y-4">
+          <CheckCircle2 className="w-16 h-16 text-yellow-300 mx-auto" />
+          <p className="text-white font-black text-2xl leading-tight">
+            ¡Promoción conseguida!
+          </p>
+          <p className="text-emerald-100 text-sm leading-relaxed">
+            Tu inscripción queda gratuita hasta el{' '}
+            <strong className="text-white">1 de julio de 2027</strong>.
+            Continúa con el registro…
+          </p>
+          <div className="inline-flex items-center justify-center bg-black/30 text-white font-black text-lg px-4 py-2 rounded-xl tabular-nums">
+            {successSeconds}s
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full bg-white text-emerald-800 font-black py-3 rounded-xl hover:bg-emerald-50 transition-colors"
+          >
+            Continuar ahora
+          </button>
         </div>
       )}
     </div>

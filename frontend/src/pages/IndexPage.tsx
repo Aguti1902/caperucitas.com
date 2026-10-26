@@ -5,7 +5,8 @@ import LoadingSpinner from '@/components/common/LoadingSpinner'
 import SeoHead from '@/components/common/SeoHead'
 import { fetchPublicProfiles } from '@/services/profile.api'
 import { useAuthStore } from '@/store/authStore'
-import { MapPin, Search, Phone, MessageCircle, Zap, Share2, Info, Home, ChevronLeft, ChevronRight, X, Crown, Mail, LogOut, Eye } from 'lucide-react'
+import { MapPin, Search, Phone, MessageCircle, Zap, Share2, Info, Home, ChevronLeft, ChevronRight, X, Crown, Mail, LogOut, Eye, Wifi, ChevronDown, MessagesSquare } from 'lucide-react'
+import VisitorRecommendPromo from '@/components/common/VisitorRecommendPromo'
 import { getProfileCoverPhoto } from '@/utils/profileUtils'
 import { formatLastSeen } from '@/utils/timeUtils'
 import { useUnreadMessages } from '@/hooks/useUnreadMessages'
@@ -51,7 +52,28 @@ const GENDER_FILTERS = [
 const SEXO_GRATIS_HIDDEN_GENDERS = new Set(['trans', 'masajes', 'casa'])
 
 type ProfileSection = 'escort' | 'sexo_gratis'
+/** Filtro de actividad / antigüedad — por defecto TODOS (evitar listados vacíos) */
+type ActivityFilter = 'all' | 'online' | '2m' | '4m'
 
+const ACTIVITY_OPTIONS: { id: ActivityFilter; label: string; color: string }[] = [
+  { id: 'all', label: 'TODOS', color: 'bg-red-600 text-white' },
+  { id: 'online', label: 'EN LÍNEA', color: 'bg-emerald-500 text-white' },
+  { id: '2m', label: 'ÚLTIMOS 2 MESES', color: 'bg-sky-500 text-white' },
+  { id: '4m', label: 'ÚLTIMOS 4 MESES', color: 'bg-violet-500 text-white' },
+]
+
+function cityNameMatches(profileCity: string | undefined, target: string): boolean {
+  if (!profileCity || !target) return false
+  const a = profileCity.toLowerCase()
+  const b = target.toLowerCase()
+  return a.includes(b) || b.includes(a.split(',')[0].trim())
+}
+
+function monthsAgo(n: number): Date {
+  const d = new Date()
+  d.setMonth(d.getMonth() - n)
+  return d
+}
 
 /** Haversine: distancia en km entre dos puntos lat/lng */
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -129,6 +151,8 @@ export default function IndexPage() {
   const [roamProfiles, setRoamProfiles] = useState<any[]>([])
   const [premiumCarouselProfiles, setPremiumCarouselProfiles] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all')
+  const [showActivityMenu, setShowActivityMenu] = useState(false)
   const [selectedGender, setSelectedGender] = useState(() => routeCategory?.id || 'all')
   const [selectedSection, setSelectedSection] = useState<ProfileSection>(() => {
     if (routeSection) return routeSection
@@ -412,17 +436,42 @@ export default function IndexPage() {
     })
   }
 
+  /**
+   * Búsqueda por ciudad (remate PDF):
+   * 1) perfiles de esa ciudad
+   * 2) recomendados (premium / roaming)
+   * 3) resto por proximidad
+   * Así las páginas SEO nunca quedan vacías.
+   */
+  const sortForCitySearch = (
+    list: any[],
+    cityName: string,
+    loc: { lat: number; lng: number } | null
+  ) => {
+    const byDist = sortByDistance(list, loc)
+    const city: any[] = []
+    const recommended: any[] = []
+    const rest: any[] = []
+    for (const p of byDist) {
+      if (cityNameMatches(p.city, cityName)) city.push(p)
+      else if (p.isPremium || p.isRoaming) recommended.push(p)
+      else rest.push(p)
+    }
+    return [...city, ...recommended, ...rest]
+  }
+
   const loadProfiles = async (loc?: { lat: number; lng: number } | null) => {
     setIsLoading(true)
     try {
+      // Sin filtrar por ciudad en API: traemos todos y ordenamos en cliente
+      // (ciudad → recomendados → proximidad) para evitar páginas vacías.
       const params: Record<string, string> = { profileType: selectedSection }
       if (selectedGender !== 'all') params.gender = selectedGender
-      if (seoCity) params.city = seoCity.name
       if (selectedSection === 'escort' && escortListingTab === 'premium') {
         params.premiumOnly = '1'
       }
 
-      const { profiles: all, total } = await fetchPublicProfiles(params)
+      const { profiles: all } = await fetchPublicProfiles(params)
       const unique = all.filter(
         (p: any, i: number, self: any[]) => i === self.findIndex((x) => x.id === p.id)
       )
@@ -433,9 +482,17 @@ export default function IndexPage() {
             (seoCity?.lat != null && seoCity?.lng != null
               ? { lat: seoCity.lat, lng: seoCity.lng }
               : null)
-      const sorted = sortByDistance(unique, currentLoc)
+
+      const sorted = seoCity
+        ? sortForCitySearch(unique, seoCity.name, currentLoc)
+        : sortByDistance(unique, currentLoc)
+
+      const cityExactCount = seoCity
+        ? sorted.filter((p) => cityNameMatches(p.city, seoCity.name)).length
+        : sorted.length
+
       setProfiles(sorted)
-      setProfileTotal(seoCity ? total : sorted.length)
+      setProfileTotal(seoCity ? cityExactCount : sorted.length)
       setRoamProfiles(
         selectedSection === 'escort' ? sorted.filter((p: any) => p.isRoaming) : []
       )
@@ -452,22 +509,8 @@ export default function IndexPage() {
         setPremiumCarouselProfiles([])
       }
 
-      // Si no hay perfiles en la ciudad: cargar cercanos (evita thin content)
-      if (seoCity && sorted.length === 0) {
-        const nearbyParams: Record<string, string> = { profileType: selectedSection }
-        if (selectedGender !== 'all') nearbyParams.gender = selectedGender
-        if (selectedSection === 'escort' && escortListingTab === 'premium') {
-          nearbyParams.premiumOnly = '1'
-        }
-        const { profiles: nearbyAll } = await fetchPublicProfiles(nearbyParams)
-        const nearbyUnique = nearbyAll.filter(
-          (p: any, i: number, self: any[]) => i === self.findIndex((x) => x.id === p.id)
-        )
-        const nearbySorted = sortByDistance(nearbyUnique, currentLoc).slice(0, 18)
-        setNearbyProfiles(nearbySorted)
-      } else {
-        setNearbyProfiles([])
-      }
+      // Si la ciudad tiene pocos exactos, los no-ciudad ya vienen mezclados como recomendados/proximidad
+      setNearbyProfiles([])
     } catch {
       setProfiles([])
       setProfileTotal(0)
@@ -481,7 +524,11 @@ export default function IndexPage() {
   // Reordenar perfiles existentes cuando se obtiene la ubicación del usuario
   useEffect(() => {
     if (userLocation && profiles.length > 0) {
-      setProfiles(prev => sortByDistance(prev, userLocation))
+      setProfiles((prev) =>
+        seoCity
+          ? sortForCitySearch(prev, seoCity.name, userLocation)
+          : sortByDistance(prev, userLocation)
+      )
       setRoamProfiles(prev => sortByDistance(prev, userLocation))
       setPremiumCarouselProfiles(prev =>
         sortByDistance(
@@ -502,6 +549,12 @@ export default function IndexPage() {
     if (maxDistance && userLocation && p.latitude != null && p.longitude != null) {
       const dist = haversineKm(userLocation.lat, userLocation.lng, p.latitude, p.longitude)
       if (dist > maxDistance) return false
+    }
+    if (activityFilter === 'online' && !p.isOnline) return false
+    if (activityFilter === '2m' || activityFilter === '4m') {
+      const cutoff = monthsAgo(activityFilter === '2m' ? 2 : 4)
+      const ref = p.lastSeenAt || p.createdAt || p.updatedAt
+      if (!ref || new Date(ref).getTime() < cutoff.getTime()) return false
     }
     return true
   })
@@ -872,9 +925,10 @@ export default function IndexPage() {
 
       {/* Filtros scrolleables (amarillo): TODOS/PREMIUM, ciudad, edad, géneros — suben y desaparecen */}
       <div className="bg-gray-900 border-b border-gray-800">
-        {selectedSection === 'escort' && (
-          <div className="border-b border-gray-800 px-3 py-2 bg-gray-950">
-            <div className="max-w-7xl mx-auto">
+        {/* Tabs listado + filtros actividad (EN LÍNEA / 2m / 4m / TODOS) */}
+        <div className="border-b border-gray-800 px-3 py-2 bg-gray-950">
+          <div className="max-w-7xl mx-auto space-y-2">
+            {selectedSection === 'escort' && (
               <div className="grid grid-cols-2 gap-2 p-1 bg-gray-800 rounded-xl max-w-md">
                 <button
                   type="button"
@@ -899,9 +953,73 @@ export default function IndexPage() {
                   PREMIUM
                 </button>
               </div>
+            )}
+
+            {/* Remate PDF: EN LÍNEA abre desplegable con antigüedad; por defecto TODOS */}
+            <div className="relative flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setShowActivityMenu((v) => !v)}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all ${
+                  ACTIVITY_OPTIONS.find((o) => o.id === activityFilter)?.color ||
+                  'bg-gray-800 text-gray-300'
+                }`}
+              >
+                <Wifi className="w-3.5 h-3.5" />
+                {ACTIVITY_OPTIONS.find((o) => o.id === activityFilter)?.label || 'TODOS'}
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showActivityMenu ? 'rotate-180' : ''}`} />
+              </button>
+
+              {ACTIVITY_OPTIONS.filter((o) => o.id !== activityFilter).slice(0, 3).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => {
+                    setActivityFilter(opt.id)
+                    setShowActivityMenu(false)
+                  }}
+                  className={`hidden sm:inline-flex px-3 py-2 rounded-xl text-[10px] font-black transition-all ${
+                    activityFilter === opt.id ? opt.color : 'bg-gray-800 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+
+              {showActivityMenu && (
+                <div className="absolute left-0 top-full mt-1 z-40 w-56 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl overflow-hidden">
+                  {ACTIVITY_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        setActivityFilter(opt.id)
+                        setShowActivityMenu(false)
+                      }}
+                      className={`w-full text-left px-4 py-3 text-xs font-black transition-colors ${
+                        activityFilter === opt.id
+                          ? opt.color
+                          : 'text-gray-300 hover:bg-gray-800'
+                      }`}
+                    >
+                      {opt.label}
+                      {opt.id === 'all' && (
+                        <span className="block text-[10px] font-normal text-gray-400 mt-0.5">
+                          Incluye todos los perfiles (recomendado)
+                        </span>
+                      )}
+                      {opt.id === 'online' && (
+                        <span className="block text-[10px] font-normal text-gray-400 mt-0.5">
+                          Solo conectados ahora
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-        )}
+        </div>
 
         {/* Selector de vista — misma URL (SEO: sin páginas duplicadas) */}
         <div className="border-b border-gray-800 px-3 py-2 bg-gray-950/90">
@@ -1439,6 +1557,20 @@ export default function IndexPage() {
           <span className="text-[10px]">Info</span>
         </button>
       </nav>
+
+      {/* Chat global flotante (visitantes) */}
+      <button
+        type="button"
+        onClick={() => navigate('/chat-global')}
+        className="fixed bottom-20 right-3 z-50 flex items-center gap-2 bg-pink-600 hover:bg-pink-500 text-white font-black text-sm px-4 py-3 rounded-full shadow-xl shadow-pink-900/40"
+        aria-label="Chat global"
+      >
+        <MessagesSquare className="w-5 h-5" />
+        Chat
+      </button>
+
+      {/* Pop-up recomendar (visitantes) — 1 vez por semana */}
+      <VisitorRecommendPromo />
     </div>
   )
 }

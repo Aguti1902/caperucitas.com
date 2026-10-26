@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 import SeoHead from '@/components/common/SeoHead'
 import SexoGratisInfoModal, { SEXO_GRATIS_INFO } from '@/components/common/SexoGratisInfoModal'
+import VisitorRecommendPromo from '@/components/common/VisitorRecommendPromo'
 import { SITE_URL } from '@/utils/citySeo'
 
 export default function LandingPage() {
@@ -187,6 +188,7 @@ export default function LandingPage() {
       </main>
 
       <SexoGratisInfoModal isOpen={showSexoGratisInfo} onClose={() => setShowSexoGratisInfo(false)} />
+      <VisitorRecommendPromo />
     </div>
   )
 }
