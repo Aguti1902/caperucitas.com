@@ -1,16 +1,38 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Check, CheckCheck, MessagesSquare, Send, Smile, Users, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  Check,
+  CheckCheck,
+  ImagePlus,
+  MessagesSquare,
+  Reply,
+  Send,
+  Smile,
+  Trash2,
+  Users,
+  X,
+} from 'lucide-react'
 import { api } from '@/services/api'
 import BackNavBar from '@/components/common/BackNavBar'
 import { formatLastSeen } from '@/utils/timeUtils'
+
+interface Reaction {
+  emoji: string
+  count: number
+}
 
 interface ChatMsg {
   id: string
   nickname: string
   body: string
   guestId?: string | null
+  imageUrl?: string | null
+  replyToId?: string | null
+  replyTo?: { id?: string; nickname?: string; body?: string } | null
+  reactions?: Reaction[]
   createdAt: string
+  mine?: boolean
 }
 
 interface DmMsg {
@@ -19,6 +41,10 @@ interface DmMsg {
   toGuestId: string
   fromNickname: string
   body: string
+  imageUrl?: string | null
+  replyToId?: string | null
+  replyTo?: { id?: string; nickname?: string; body?: string } | null
+  reactions?: Reaction[]
   createdAt: string
   readAt?: string | null
   mine?: boolean
@@ -36,6 +62,7 @@ interface PresenceUser {
 const NICK_KEY = 'cap_globalChatNick'
 const GUEST_KEY = 'cap_globalChatGuestId'
 const EMOJIS = ['😀', '🔥', '❤️', '💋', '😈', '👀', '👍', '😂', '🥵', '✨', '📍', '✅']
+const REACT_EMOJIS = ['❤️', '🔥', '😂', '👍', '💋', '😮', '😢']
 
 function getOrCreateGuestId(): string {
   try {
@@ -49,6 +76,17 @@ function getOrCreateGuestId(): string {
     return id
   } catch {
     return `g_${Date.now()}`
+  }
+}
+
+function notifyBrowser(title: string, body: string) {
+  try {
+    if (typeof Notification === 'undefined') return
+    if (Notification.permission === 'granted') {
+      new Notification(title, { body, icon: '/logo-caperucitas.jpeg' })
+    }
+  } catch {
+    /* ignore */
   }
 }
 
@@ -71,12 +109,18 @@ export default function GlobalChatPage() {
   const [showEmoji, setShowEmoji] = useState(false)
   const [showOnline, setShowOnline] = useState(false)
   const [dmPeer, setDmPeer] = useState<PresenceUser | null>(null)
+  const [replyTo, setReplyTo] = useState<{ id: string; nickname: string; body: string } | null>(null)
+  const [menuMsg, setMenuMsg] = useState<{ id: string; mine: boolean; channel: 'public' | 'dm' } | null>(
+    null
+  )
   const bottomRef = useRef<HTMLDivElement>(null)
   const typingTimer = useRef<number | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const knownDmIds = useRef<Set<string>>(new Set())
+  const notifAsked = useRef(false)
 
   const nick = nickname.trim() || 'Anónimo'
   const onlineCount = users.filter((u) => u.isOnline && u.guestId !== guestId).length
-
   const peerTyping = Boolean(
     dmPeer &&
       users.some(
@@ -84,14 +128,26 @@ export default function GlobalChatPage() {
       )
   )
 
+  const askNotifications = () => {
+    if (notifAsked.current) return
+    notifAsked.current = true
+    try {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {})
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
   const loadPublic = useCallback(async () => {
     try {
-      const res = await api.get('/global-chat')
+      const res = await api.get('/global-chat', { params: { guestId } })
       setMessages(res.data.messages || [])
     } catch {
       /* ignore */
     }
-  }, [])
+  }, [guestId])
 
   const loadDms = useCallback(async () => {
     if (!dmPeer) return
@@ -99,7 +155,14 @@ export default function GlobalChatPage() {
       const res = await api.get('/global-chat/dms', {
         params: { guestId, with: dmPeer.guestId },
       })
-      setDms(res.data.messages || [])
+      const list: DmMsg[] = res.data.messages || []
+      for (const m of list) {
+        if (!m.mine && !knownDmIds.current.has(m.id)) {
+          notifyBrowser(`Mensaje de ${m.fromNickname}`, m.body || '📷 Foto')
+        }
+        knownDmIds.current.add(m.id)
+      }
+      setDms(list)
     } catch {
       /* ignore */
     }
@@ -115,27 +178,33 @@ export default function GlobalChatPage() {
           typingTo,
         })
         setUsers(res.data.users || [])
+        if ((res.data.unreadDms || 0) > 0 && !dmPeer) {
+          // aviso suave si hay privados sin leer
+        }
       } catch {
         /* ignore */
       }
     },
-    [guestId, nick]
+    [guestId, nick, dmPeer]
   )
 
   useEffect(() => {
+    askNotifications()
     loadPublic()
     heartbeat(false, null)
     const t = window.setInterval(() => {
       loadPublic()
       heartbeat(false, dmPeer?.guestId || null)
       if (dmPeer) loadDms()
-    }, 4000)
+    }, 3500)
     return () => window.clearInterval(t)
   }, [loadPublic, heartbeat, loadDms, dmPeer])
 
   useEffect(() => {
-    if (dmPeer) loadDms()
-    else setDms([])
+    if (dmPeer) {
+      knownDmIds.current = new Set()
+      loadDms()
+    } else setDms([])
   }, [dmPeer, loadDms])
 
   useEffect(() => {
@@ -146,32 +215,36 @@ export default function GlobalChatPage() {
     if (!dmPeer) return
     heartbeat(true, dmPeer.guestId)
     if (typingTimer.current) window.clearTimeout(typingTimer.current)
-    typingTimer.current = window.setTimeout(() => {
-      heartbeat(false, null)
-    }, 2000)
+    typingTimer.current = window.setTimeout(() => heartbeat(false, null), 2000)
   }
 
-  const send = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    const body = text.trim()
-    if (!body) return
+  const sendPayload = async (payload: { body?: string; imageUrl?: string }) => {
     setSending(true)
+    setError('')
     try {
       localStorage.setItem(NICK_KEY, nick)
+      const common = {
+        guestId,
+        nickname: nick,
+        body: payload.body || '',
+        imageUrl: payload.imageUrl,
+        replyToId: replyTo?.id,
+      }
       if (dmPeer) {
         const res = await api.post('/global-chat/dms', {
-          guestId,
+          ...common,
           toGuestId: dmPeer.guestId,
-          nickname: nick,
-          body,
         })
-        if (res.data.message) setDms((prev) => [...prev, res.data.message])
+        if (res.data.message) {
+          knownDmIds.current.add(res.data.message.id)
+          setDms((prev) => [...prev, res.data.message])
+        }
       } else {
-        const res = await api.post('/global-chat', { nickname: nick, body, guestId })
+        const res = await api.post('/global-chat', common)
         if (res.data.message) setMessages((prev) => [...prev, res.data.message])
       }
       setText('')
+      setReplyTo(null)
       setShowEmoji(false)
       heartbeat(false, null)
     } catch (err: any) {
@@ -181,11 +254,62 @@ export default function GlobalChatPage() {
     }
   }
 
+  const send = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const body = text.trim()
+    if (!body) return
+    await sendPayload({ body })
+  }
+
+  const uploadPhoto = async (file: File) => {
+    setError('')
+    setSending(true)
+    try {
+      const fd = new FormData()
+      fd.append('image', file)
+      const res = await api.post('/global-chat/upload', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      await sendPayload({ imageUrl: res.data.imageUrl, body: text.trim() })
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'No se pudo subir la foto')
+      setSending(false)
+    }
+  }
+
+  const reactTo = async (messageId: string, channel: 'public' | 'dm', emoji: string) => {
+    try {
+      const res = await api.post('/global-chat/react', { guestId, messageId, channel, emoji })
+      const reactions = res.data.reactions || []
+      if (channel === 'dm') {
+        setDms((prev) => prev.map((m) => (m.id === messageId ? { ...m, reactions } : m)))
+      } else {
+        setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, reactions } : m)))
+      }
+    } catch {
+      /* ignore */
+    }
+    setMenuMsg(null)
+  }
+
+  const deleteMsg = async (messageId: string, channel: 'public' | 'dm') => {
+    try {
+      await api.post('/global-chat/delete', { guestId, messageId, channel })
+      if (channel === 'dm') setDms((prev) => prev.filter((m) => m.id !== messageId))
+      else setMessages((prev) => prev.filter((m) => m.id !== messageId))
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'No se pudo borrar')
+    }
+    setMenuMsg(null)
+  }
+
   const openPrivate = (user: PresenceUser) => {
     if (user.guestId === guestId) return
     setDmPeer(user)
     setShowOnline(false)
     setText('')
+    setReplyTo(null)
+    askNotifications()
   }
 
   const openPrivateFromMsg = (msg: ChatMsg) => {
@@ -201,7 +325,26 @@ export default function GlobalChatPage() {
     )
   }
 
-  const activeList = dmPeer ? dms : messages
+  const renderReactions = (reactions: Reaction[] | undefined, id: string, channel: 'public' | 'dm') => {
+    if (!reactions?.length) return null
+    return (
+      <div className="flex flex-wrap gap-1 mt-1.5">
+        {reactions.map((r) => (
+          <button
+            key={r.emoji}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              reactTo(id, channel, r.emoji)
+            }}
+            className="text-xs bg-black/30 rounded-full px-1.5 py-0.5"
+          >
+            {r.emoji} {r.count}
+          </button>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col">
@@ -212,8 +355,10 @@ export default function GlobalChatPage() {
           <button
             type="button"
             onClick={() => {
-              if (dmPeer) setDmPeer(null)
-              else navigate('/perfiles')
+              if (dmPeer) {
+                setDmPeer(null)
+                setReplyTo(null)
+              } else navigate('/perfiles')
             }}
             className="text-gray-400 hover:text-white"
             aria-label="Volver"
@@ -226,7 +371,6 @@ export default function GlobalChatPage() {
                 <h1 className="text-white font-black text-lg flex items-center gap-2 truncate">
                   <span
                     className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                      dmPeer.isOnline ||
                       users.find((u) => u.guestId === dmPeer.guestId)?.isOnline
                         ? 'bg-emerald-400'
                         : 'bg-gray-500'
@@ -252,7 +396,7 @@ export default function GlobalChatPage() {
                   Chat global
                 </h1>
                 <p className="text-gray-400 text-xs">
-                  {onlineCount} en línea · toca un apodo para chat privado
+                  {onlineCount} en línea · privado, fotos, reacciones y más
                 </p>
               </>
             )}
@@ -279,26 +423,30 @@ export default function GlobalChatPage() {
             <div className="text-center text-gray-500 text-sm py-12 space-y-2">
               <p>Aún no hay mensajes. ¡Sé el primero!</p>
               <p className="text-xs text-gray-600">
-                Chat abierto. Puedes hablar en privado tocando un apodo o la lista de conectados.
+                Toca un apodo para privado · mantén pulsado un mensaje para reaccionar / responder /
+                borrar
               </p>
-            </div>
-          )}
-
-          {dmPeer && dms.length === 0 && (
-            <div className="text-center text-gray-500 text-sm py-10">
-              Empieza el chat privado con {dmPeer.nickname}
             </div>
           )}
 
           {!dmPeer &&
             messages.map((m) => (
-              <button
+              <div
                 key={m.id}
-                type="button"
-                onClick={() => openPrivateFromMsg(m)}
-                className="w-full text-left bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 hover:border-pink-700/50 transition-colors"
+                className="w-full text-left bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5"
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  setMenuMsg({ id: m.id, mine: Boolean(m.mine || m.guestId === guestId), channel: 'public' })
+                }}
+                onClick={() => {
+                  if (menuMsg?.id === m.id) setMenuMsg(null)
+                }}
               >
-                <div className="flex items-baseline justify-between gap-2 mb-1">
+                <button
+                  type="button"
+                  onClick={() => openPrivateFromMsg(m)}
+                  className="flex items-baseline justify-between gap-2 mb-1 w-full text-left"
+                >
                   <span className="text-pink-400 font-bold text-sm inline-flex items-center gap-1.5">
                     <span
                       className={`w-2 h-2 rounded-full ${
@@ -315,38 +463,98 @@ export default function GlobalChatPage() {
                       minute: '2-digit',
                     })}
                   </span>
-                </div>
+                </button>
+                {m.replyTo && (
+                  <div className="text-[11px] text-gray-400 border-l-2 border-pink-600 pl-2 mb-1 truncate">
+                    ↳ {m.replyTo.nickname}: {m.replyTo.body}
+                  </div>
+                )}
+                {m.imageUrl && (
+                  <a href={m.imageUrl} target="_blank" rel="noopener noreferrer" className="block mb-1">
+                    <img src={m.imageUrl} alt="foto" className="rounded-lg max-h-56 object-cover" />
+                  </a>
+                )}
                 <p className="text-gray-200 text-sm whitespace-pre-wrap break-words">{m.body}</p>
-              </button>
-            ))}
-
-          {dmPeer &&
-            dms.map((m) => (
-              <div
-                key={m.id}
-                className={`max-w-[85%] rounded-xl px-3 py-2 ${
-                  m.mine || m.fromGuestId === guestId
-                    ? 'ml-auto bg-pink-700/80 text-white'
-                    : 'bg-gray-900 border border-gray-800 text-gray-100'
-                }`}
-              >
-                <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
-                <div className="flex items-center justify-end gap-1 mt-1">
-                  <span className="text-[10px] opacity-70">
-                    {new Date(m.createdAt).toLocaleTimeString('es-ES', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                  {(m.mine || m.fromGuestId === guestId) &&
-                    (m.readAt ? (
-                      <CheckCheck className="w-3.5 h-3.5 text-sky-300" />
-                    ) : (
-                      <Check className="w-3.5 h-3.5 opacity-70" />
-                    ))}
+                {renderReactions(m.reactions, m.id, 'public')}
+                <div className="flex gap-2 mt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setReplyTo({ id: m.id, nickname: m.nickname, body: m.body })}
+                    className="text-[10px] text-gray-500 hover:text-pink-400 inline-flex items-center gap-0.5"
+                  >
+                    <Reply className="w-3 h-3" /> Responder
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMenuMsg({ id: m.id, mine: Boolean(m.mine || m.guestId === guestId), channel: 'public' })}
+                    className="text-[10px] text-gray-500 hover:text-yellow-300"
+                  >
+                    Reaccionar
+                  </button>
                 </div>
               </div>
             ))}
+
+          {dmPeer && dms.length === 0 && (
+            <div className="text-center text-gray-500 text-sm py-10">
+              Empieza el chat privado con {dmPeer.nickname}
+            </div>
+          )}
+
+          {dmPeer &&
+            dms.map((m) => {
+              const mine = m.mine || m.fromGuestId === guestId
+              return (
+                <div
+                  key={m.id}
+                  className={`max-w-[85%] rounded-xl px-3 py-2 ${
+                    mine ? 'ml-auto bg-pink-700/80 text-white' : 'bg-gray-900 border border-gray-800 text-gray-100'
+                  }`}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    setMenuMsg({ id: m.id, mine: Boolean(mine), channel: 'dm' })
+                  }}
+                >
+                  {m.replyTo && (
+                    <div className="text-[11px] opacity-80 border-l-2 border-white/40 pl-2 mb-1 truncate">
+                      ↳ {m.replyTo.nickname}: {m.replyTo.body}
+                    </div>
+                  )}
+                  {m.imageUrl && (
+                    <a href={m.imageUrl} target="_blank" rel="noopener noreferrer" className="block mb-1">
+                      <img src={m.imageUrl} alt="foto" className="rounded-lg max-h-56 object-cover" />
+                    </a>
+                  )}
+                  <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
+                  {renderReactions(m.reactions, m.id, 'dm')}
+                  <div className="flex items-center justify-between gap-2 mt-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setReplyTo({ id: m.id, nickname: m.fromNickname, body: m.body })
+                      }
+                      className="text-[10px] opacity-70 hover:opacity-100 inline-flex items-center gap-0.5"
+                    >
+                      <Reply className="w-3 h-3" /> Responder
+                    </button>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] opacity-70">
+                        {new Date(m.createdAt).toLocaleTimeString('es-ES', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                      {mine &&
+                        (m.readAt ? (
+                          <CheckCheck className="w-3.5 h-3.5 text-sky-300" />
+                        ) : (
+                          <Check className="w-3.5 h-3.5 opacity-70" />
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
 
           {peerTyping && (
             <p className="text-gray-400 text-xs italic px-1">{dmPeer?.nickname} está escribiendo…</p>
@@ -355,10 +563,44 @@ export default function GlobalChatPage() {
         </div>
       </div>
 
-      <form
-        onSubmit={send}
-        className="border-t border-gray-800 bg-gray-900 px-3 py-3 safe-area-bottom"
-      >
+      {menuMsg && (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center">
+          <button type="button" className="absolute inset-0 bg-black/50" onClick={() => setMenuMsg(null)} />
+          <div className="relative w-full max-w-md bg-gray-900 border border-gray-700 rounded-t-2xl p-4 space-y-3">
+            <p className="text-white font-bold text-sm">Reaccionar</p>
+            <div className="flex flex-wrap gap-2">
+              {REACT_EMOJIS.map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  onClick={() => reactTo(menuMsg.id, menuMsg.channel, e)}
+                  className="text-2xl bg-gray-800 rounded-xl px-3 py-2"
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+            {menuMsg.mine && (
+              <button
+                type="button"
+                onClick={() => deleteMsg(menuMsg.id, menuMsg.channel)}
+                className="w-full inline-flex items-center justify-center gap-2 bg-red-700/80 hover:bg-red-600 text-white font-bold py-3 rounded-xl"
+              >
+                <Trash2 className="w-4 h-4" /> Borrar mensaje
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setMenuMsg(null)}
+              className="w-full text-gray-400 py-2 text-sm"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={send} className="border-t border-gray-800 bg-gray-900 px-3 py-3 safe-area-bottom">
         <div className="max-w-2xl mx-auto space-y-2">
           {error && <p className="text-red-400 text-xs text-center">{error}</p>}
           {!dmPeer && (
@@ -370,6 +612,17 @@ export default function GlobalChatPage() {
               maxLength={24}
               className="w-full bg-gray-800 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-pink-500"
             />
+          )}
+          {replyTo && (
+            <div className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2 text-xs text-gray-300">
+              <Reply className="w-3.5 h-3.5 text-pink-400 flex-shrink-0" />
+              <span className="flex-1 truncate">
+                Respondiendo a <strong>{replyTo.nickname}</strong>: {replyTo.body}
+              </span>
+              <button type="button" onClick={() => setReplyTo(null)} className="text-gray-500">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           )}
           {showEmoji && (
             <div className="flex flex-wrap gap-1 bg-gray-800 rounded-lg p-2">
@@ -394,6 +647,26 @@ export default function GlobalChatPage() {
             >
               <Smile className="w-5 h-5" />
             </button>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="bg-gray-800 hover:bg-gray-700 text-sky-300 rounded-lg px-3"
+              aria-label="Enviar foto"
+              disabled={sending}
+            >
+              <ImagePlus className="w-5 h-5" />
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) uploadPhoto(f)
+                e.target.value = ''
+              }}
+            />
             <input
               type="text"
               value={text}
@@ -401,7 +674,7 @@ export default function GlobalChatPage() {
                 setText(e.target.value.slice(0, 400))
                 onTyping()
               }}
-              placeholder={dmPeer ? `Mensaje privado a ${dmPeer.nickname}…` : 'Escribe un mensaje…'}
+              placeholder={dmPeer ? `Privado a ${dmPeer.nickname}…` : 'Escribe un mensaje…'}
               maxLength={400}
               className="flex-1 bg-gray-800 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-pink-500"
             />
@@ -414,7 +687,6 @@ export default function GlobalChatPage() {
               <Send className="w-5 h-5" />
             </button>
           </div>
-          {activeList.length === 0 && null}
         </div>
       </form>
 
@@ -454,7 +726,9 @@ export default function GlobalChatPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-white text-sm font-bold truncate">{u.nickname}</p>
                       <p className="text-gray-500 text-[11px]">
-                        {u.isOnline ? 'En línea · tocar para chat privado' : formatLastSeen(u.lastSeenAt)}
+                        {u.isOnline
+                          ? 'En línea · tocar para chat privado'
+                          : formatLastSeen(u.lastSeenAt)}
                       </p>
                     </div>
                   </button>

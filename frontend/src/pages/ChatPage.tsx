@@ -30,7 +30,10 @@ export default function ChatPage() {
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [myPhotos, setMyPhotos] = useState<any[]>([])
   const [isFavorite, setIsFavorite] = useState(false)
+  const [peerTyping, setPeerTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const typingTimeoutRef = useRef<number | null>(null)
+  const lastTypingEmit = useRef(0)
 
   useEffect(() => {
     // NO hacer scroll al inicio - mantener posición
@@ -104,12 +107,27 @@ export default function ChatPage() {
       })
     }
 
+    const handleTyping = (data: any) => {
+      if (data?.fromProfileId === profileId) {
+        setPeerTyping(true)
+        if (typingTimeoutRef.current) window.clearTimeout(typingTimeoutRef.current)
+        typingTimeoutRef.current = window.setTimeout(() => setPeerTyping(false), 3000)
+      }
+    }
+    const handleStopTyping = (data: any) => {
+      if (data?.fromProfileId === profileId) setPeerTyping(false)
+    }
+
     socket.on('new_message', handleNewMessage)
     socket.on('message_sent', handleMessageSent)
+    socket.on('user_typing', handleTyping)
+    socket.on('user_stop_typing', handleStopTyping)
 
     return () => {
       socket.off('new_message', handleNewMessage)
       socket.off('message_sent', handleMessageSent)
+      socket.off('user_typing', handleTyping)
+      socket.off('user_stop_typing', handleStopTyping)
     }
   }, [profileId, decrementUnreadMessagesCount])
 
@@ -374,8 +392,14 @@ export default function ChatPage() {
           </div>
           <div className="text-left">
             <h2 className="font-semibold text-white">{profile.title}</h2>
-            {profile.isOnline && (
-              <p className="text-xs text-success">Online</p>
+            {profile.isOnline ? (
+              <p className="text-xs text-success">En línea</p>
+            ) : (
+              <p className="text-xs text-gray-500">
+                {profile.lastSeenAt
+                  ? `Última conexión: ${formatDistanceToNow(new Date(profile.lastSeenAt), { addSuffix: true, locale: es })}`
+                  : 'Desconectado'}
+              </p>
             )}
           </div>
         </button>
@@ -493,6 +517,9 @@ export default function ChatPage() {
             )
           })
         )}
+        {peerTyping && (
+          <p className="text-gray-400 text-xs italic px-1">{profile?.title || 'Usuario'} está escribiendo…</p>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -536,7 +563,21 @@ export default function ChatPage() {
           <input
             type="text"
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            onChange={(e) => {
+              setNewMessage(e.target.value)
+              const socket = getSocket()
+              if (socket && profileId) {
+                const now = Date.now()
+                if (now - lastTypingEmit.current > 1200) {
+                  lastTypingEmit.current = now
+                  socket.emit('typing', { toProfileId: profileId })
+                }
+                if (typingTimeoutRef.current) window.clearTimeout(typingTimeoutRef.current)
+                typingTimeoutRef.current = window.setTimeout(() => {
+                  socket.emit('stop_typing', { toProfileId: profileId })
+                }, 2000)
+              }
+            }}
             placeholder="Escribe un mensaje..."
             className="flex-1 bg-gray-800 text-white rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm min-w-0"
             disabled={isSending}

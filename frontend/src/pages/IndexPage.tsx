@@ -348,6 +348,7 @@ export default function IndexPage() {
   const [showDistFilter, setShowDistFilter] = useState(false)
   const [showSexoGratisInfo, setShowSexoGratisInfo] = useState(false)
   const [showIndexInfoMenu, setShowIndexInfoMenu] = useState(false)
+  const [chatUnread, setChatUnread] = useState(0)
   const [dismissedSexoGratisBanner, setDismissedSexoGratisBanner] = useState(
     () => localStorage.getItem('cap_dismissedSexoGratisBanner') === '1'
   )
@@ -449,6 +450,31 @@ export default function IndexPage() {
   useEffect(() => {
     loadProfiles()
   }, [selectedGender, selectedSection, seoCity?.name, escortListingTab])
+
+  // Badge de privados sin leer en el chat global
+  useEffect(() => {
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const guestId = localStorage.getItem('cap_globalChatGuestId')
+        if (!guestId) {
+          if (!cancelled) setChatUnread(0)
+          return
+        }
+        const { api } = await import('@/services/api')
+        const res = await api.get('/global-chat/unread', { params: { guestId } })
+        if (!cancelled) setChatUnread(res.data.unread || 0)
+      } catch {
+        /* ignore */
+      }
+    }
+    poll()
+    const t = window.setInterval(poll, 8000)
+    return () => {
+      cancelled = true
+      window.clearInterval(t)
+    }
+  }, [])
 
   // Solo logo + ESCORTS/SEXO GRATIS están fixed; medir su alto
   useEffect(() => {
@@ -1618,7 +1644,14 @@ export default function IndexPage() {
         className="fixed bottom-20 right-3 z-50 flex items-center gap-2 bg-pink-600 hover:bg-pink-500 text-white font-black text-sm px-4 py-3 rounded-full shadow-xl shadow-pink-900/40"
         aria-label="Chat global"
       >
-        <MessagesSquare className="w-5 h-5" />
+        <span className="relative">
+          <MessagesSquare className="w-5 h-5" />
+          {chatUnread > 0 && (
+            <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-yellow-400 text-gray-900 text-[10px] font-black flex items-center justify-center">
+              {chatUnread > 99 ? '99+' : chatUnread}
+            </span>
+          )}
+        </span>
         Chat
       </button>
 
