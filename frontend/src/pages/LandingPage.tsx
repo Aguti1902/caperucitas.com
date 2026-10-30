@@ -98,6 +98,10 @@ export default function LandingPage() {
               <Link to="/putas/valencia" className="text-xs text-gray-400 hover:text-white underline">Putas Valencia</Link>
               <Link to="/blog" className="text-xs text-yellow-400 hover:text-yellow-300 underline">Blog / Guías</Link>
               <Link to="/ciudades" className="text-xs text-emerald-400 hover:text-emerald-300 underline">Todas las ciudades</Link>
+              <Link to="/como-funciona-caperucitas-y-sus-ventajas" className="text-xs text-pink-400 hover:text-pink-300 underline">Cómo funciona</Link>
+              <Link to="/info-escorts" className="text-xs text-red-400 hover:text-red-300 underline">Info escorts</Link>
+              <Link to="/info-sexo-gratis" className="text-xs text-emerald-300 hover:text-emerald-200 underline">Info sexo gratis</Link>
+              <Link to="/publicistas-escorts" className="text-xs text-amber-400 hover:text-amber-300 underline">Publicistas</Link>
             </div>
           </div>
 

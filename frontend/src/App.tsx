@@ -42,6 +42,10 @@ const BlogPostPage = lazy(() => import('./pages/BlogPostPage'))
 const InboxPage = lazy(() => import('./pages/InboxPage'))
 const ChatPage = lazy(() => import('./pages/ChatPage'))
 const GlobalChatPage = lazy(() => import('./pages/GlobalChatPage'))
+const InfoVisitantesPage = lazy(() => import('./pages/InfoVisitantesPage'))
+const InfoEscortsPage = lazy(() => import('./pages/InfoEscortsPage'))
+const InfoSexoGratisPage = lazy(() => import('./pages/InfoSexoGratisPage'))
+const InfoPublicistasPage = lazy(() => import('./pages/InfoPublicistasPage'))
 
 function PageLoader() {
   return (
@@ -110,6 +114,10 @@ function App() {
           <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
           <Route path="/roam" element={<PublicRoamPage />} />
           <Route path="/info" element={<PublicInfoPage />} />
+          <Route path="/como-funciona-caperucitas-y-sus-ventajas" element={<InfoVisitantesPage />} />
+          <Route path="/info-escorts" element={<InfoEscortsPage />} />
+          <Route path="/info-sexo-gratis" element={<InfoSexoGratisPage />} />
+          <Route path="/publicistas-escorts" element={<InfoPublicistasPage />} />
           <Route path="/privacidad" element={<PrivacyPage />} />
           <Route path="/terminos" element={<TermsPage />} />
           <Route path="/cookies" element={<CookiesPage />} />

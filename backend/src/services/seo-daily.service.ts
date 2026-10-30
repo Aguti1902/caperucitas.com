@@ -175,6 +175,10 @@ function buildUrlsToNotify(analysis: Awaited<ReturnType<typeof analyzeCityCovera
     `${SITE_URL}/perfiles`,
     `${SITE_URL}/ciudades`,
     `${SITE_URL}/blog`,
+    `${SITE_URL}/como-funciona-caperucitas-y-sus-ventajas`,
+    `${SITE_URL}/info-escorts`,
+    `${SITE_URL}/info-sexo-gratis`,
+    `${SITE_URL}/publicistas-escorts`,
   ]);
 
   for (const c of analysis.topCities.slice(0, 60)) {

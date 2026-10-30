@@ -60,6 +60,28 @@ export default function PublicInfoPage() {
               <h1 className="text-2xl font-bold text-white">¿Cómo funciona Caperucitas.com?</h1>
             </div>
 
+            <div className="grid gap-3">
+              {[
+                { to: '/como-funciona-caperucitas-y-sus-ventajas', emoji: '🧭', label: 'Info visitantes', desc: 'Cómo navegar y usar la web' },
+                { to: '/info-escorts', emoji: '💋', label: 'Info escorts', desc: 'Publicar perfil y Premium' },
+                { to: '/info-sexo-gratis', emoji: '💚', label: 'Info sexo gratis', desc: 'Encuentros sin ánimo de lucro' },
+                { to: '/publicistas-escorts', emoji: '📣', label: 'Info publicistas', desc: 'Anuncia a tus clientes' },
+              ].map((item) => (
+                <button
+                  key={item.to}
+                  type="button"
+                  onClick={() => navigate(item.to)}
+                  className="text-left bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl px-4 py-3 transition-colors"
+                >
+                  <p className="text-white font-bold text-sm">
+                    <span className="mr-2">{item.emoji}</span>
+                    {item.label}
+                  </p>
+                  <p className="text-gray-400 text-xs mt-0.5">{item.desc}</p>
+                </button>
+              ))}
+            </div>
+
             <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800 space-y-4">
               <h2 className="text-xl font-bold text-white">Para clientes</h2>
               <ul className="space-y-2 text-sm">

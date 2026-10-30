@@ -7,6 +7,7 @@ import { fetchPublicProfiles } from '@/services/profile.api'
 import { useAuthStore } from '@/store/authStore'
 import { MapPin, Search, Phone, MessageCircle, Zap, Share2, Info, Home, ChevronLeft, ChevronRight, X, Crown, Mail, LogOut, Eye, Wifi, ChevronDown, MessagesSquare } from 'lucide-react'
 import VisitorRecommendPromo from '@/components/common/VisitorRecommendPromo'
+import IndexInfoMenu from '@/components/common/IndexInfoMenu'
 import { getProfileCoverPhoto } from '@/utils/profileUtils'
 import { formatLastSeen } from '@/utils/timeUtils'
 import { useUnreadMessages } from '@/hooks/useUnreadMessages'
@@ -315,6 +316,7 @@ export default function IndexPage() {
   const [maxDistance, setMaxDistance] = useState<number | null>(null)
   const [showDistFilter, setShowDistFilter] = useState(false)
   const [showSexoGratisInfo, setShowSexoGratisInfo] = useState(false)
+  const [showIndexInfoMenu, setShowIndexInfoMenu] = useState(false)
   const [dismissedSexoGratisBanner, setDismissedSexoGratisBanner] = useState(
     () => localStorage.getItem('cap_dismissedSexoGratisBanner') === '1'
   )
@@ -712,67 +714,79 @@ export default function IndexPage() {
         </div>
       )}
 
-      {/* Header fijo (verde): solo logo + ESCORTS / SEXO GRATIS */}
+      {/* Header fijo Index: INFO + Entrar/Mi cuenta + ESCORTS/SEXO GRATIS (el resto scrollea) */}
       <header ref={headerRef} className="fixed top-0 left-0 right-0 z-50 bg-gray-900/95 backdrop-blur border-b border-gray-800 shadow-lg">
-        <div className="max-w-7xl mx-auto px-3 flex items-center justify-between h-14">
+        <div className="max-w-7xl mx-auto px-3 flex items-center justify-between h-14 gap-2">
           <Logo size="sm" />
-          {isAuthenticated ? (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleSalir}
-                className="text-gray-300 hover:text-white text-sm font-semibold px-2 py-2 transition-colors inline-flex items-center gap-1"
-                title="Salir"
-              >
-                <LogOut className="w-4 h-4" />
-                Salir
-              </button>
-              {hasProfile && (
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowIndexInfoMenu(true)}
+              className="inline-flex items-center gap-1 bg-gray-800 hover:bg-gray-700 text-emerald-300 text-sm font-black px-2.5 sm:px-3 py-2 rounded-lg transition-colors"
+              title="Menú de información"
+              aria-label="Abrir menú Info"
+            >
+              <Info className="w-4 h-4" />
+              <span className="hidden xs:inline sm:inline">Info</span>
+            </button>
+            {isAuthenticated ? (
+              <>
                 <button
-                  onClick={() => navigate('/app/inbox')}
-                  className="relative bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold px-3 py-2 rounded-lg transition-colors inline-flex items-center gap-1.5"
-                  title="Buzón"
+                  type="button"
+                  onClick={handleSalir}
+                  className="text-gray-300 hover:text-white text-sm font-semibold px-2 py-2 transition-colors inline-flex items-center gap-1"
+                  title="Salir"
                 >
-                  <Mail className="w-4 h-4" />
-                  <span className="hidden sm:inline">Buzón</span>
-                  {unreadMessagesCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                      {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
-                    </span>
-                  )}
+                  <LogOut className="w-4 h-4" />
+                  <span className="hidden sm:inline">Salir</span>
                 </button>
-              )}
-              <button
-                onClick={handleEscortAccess}
-                className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
-              >
-                Mi cuenta
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleSalir}
-                className="text-gray-300 hover:text-white text-sm font-semibold px-2 py-2 transition-colors"
-                title="Salir"
-              >
-                Salir
-              </button>
-              <button
-                onClick={() => navigate('/login')}
-                className="bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold px-3 py-2 rounded-lg transition-colors"
-              >
-                Entrar
-              </button>
-              <button
-                onClick={() => navigate('/register')}
-                className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-3 py-2 rounded-lg transition-colors"
-              >
-                Crear cuenta
-              </button>
-            </div>
-          )}
+                {hasProfile && (
+                  <button
+                    onClick={() => navigate('/app/inbox')}
+                    className="relative bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold px-2.5 sm:px-3 py-2 rounded-lg transition-colors inline-flex items-center gap-1.5"
+                    title="Buzón"
+                  >
+                    <Mail className="w-4 h-4" />
+                    <span className="hidden sm:inline">Buzón</span>
+                    {unreadMessagesCount > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                        {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                      </span>
+                    )}
+                  </button>
+                )}
+                <button
+                  onClick={handleEscortAccess}
+                  className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-3 sm:px-4 py-2 rounded-lg transition-colors"
+                >
+                  Mi cuenta
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handleSalir}
+                  className="text-gray-300 hover:text-white text-sm font-semibold px-2 py-2 transition-colors hidden sm:inline"
+                  title="Salir"
+                >
+                  Salir
+                </button>
+                <button
+                  onClick={() => navigate('/login')}
+                  className="bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold px-3 py-2 rounded-lg transition-colors"
+                >
+                  Entrar
+                </button>
+                <button
+                  onClick={() => navigate('/register')}
+                  className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-3 py-2 rounded-lg transition-colors hidden sm:inline"
+                >
+                  Crear cuenta
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="border-t border-gray-800 px-3 py-2.5 bg-gray-950/80">
@@ -806,14 +820,16 @@ export default function IndexPage() {
               type="button"
               onClick={() => setShowSexoGratisInfo(true)}
               className="flex-shrink-0 w-9 h-9 rounded-full bg-gray-800 hover:bg-gray-700 text-emerald-400 flex items-center justify-center transition-colors"
-              title="Información sobre Sexo gratis"
-              aria-label="Información sobre Sexo gratis"
+              title="Información rápida sobre Sexo gratis"
+              aria-label="Información rápida sobre Sexo gratis"
             >
               <Info className="w-4 h-4" />
             </button>
           </div>
         </div>
       </header>
+
+      <IndexInfoMenu open={showIndexInfoMenu} onClose={() => setShowIndexInfoMenu(false)} />
 
       <SexoGratisInfoModal
         isOpen={showSexoGratisInfo}
@@ -1550,7 +1566,7 @@ export default function IndexPage() {
           <span className="text-[10px]">Compartir</span>
         </button>
         <button
-          onClick={() => navigate('/info')}
+          onClick={() => setShowIndexInfoMenu(true)}
           className="flex flex-col items-center gap-0.5 text-gray-400 hover:text-white transition-colors px-4"
         >
           <Info className="w-6 h-6" />
