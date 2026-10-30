@@ -87,6 +87,40 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
+/** Filtros del listado — persisten en sessionStorage al abrir un perfil y al Volver */
+const BROWSE_FILTERS_KEY = 'cap_browseFilters'
+
+type BrowseFiltersSnapshot = {
+  selectedSection?: ProfileSection
+  selectedGender?: string
+  activityFilter?: ActivityFilter
+  escortListingTab?: 'todos' | 'premium'
+  searchQuery?: string
+  minAge?: string
+  maxAge?: string
+  maxDistance?: number | null
+  citySearch?: string
+  returnPath?: string
+}
+
+function loadBrowseFilters(): BrowseFiltersSnapshot | null {
+  try {
+    const raw = sessionStorage.getItem(BROWSE_FILTERS_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as BrowseFiltersSnapshot
+  } catch {
+    return null
+  }
+}
+
+function saveBrowseFilters(snapshot: BrowseFiltersSnapshot) {
+  try {
+    sessionStorage.setItem(BROWSE_FILTERS_KEY, JSON.stringify(snapshot))
+  } catch {
+    /* ignore */
+  }
+}
+
 export default function IndexPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -146,22 +180,36 @@ export default function IndexPage() {
     [citySlug]
   )
 
+  // Restaurar filtros al volver desde un perfil (sessionStorage)
+  const savedBrowse = useMemo(() => loadBrowseFilters(), [])
+
   const [profiles, setProfiles] = useState<any[]>([])
   const [profileTotal, setProfileTotal] = useState(0)
   const [nearbyProfiles, setNearbyProfiles] = useState<any[]>([])
   const [roamProfiles, setRoamProfiles] = useState<any[]>([])
   const [premiumCarouselProfiles, setPremiumCarouselProfiles] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all')
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>(() => {
+    const a = savedBrowse?.activityFilter
+    return a === 'online' || a === '2m' || a === '4m' || a === 'all' ? a : 'all'
+  })
   const [showActivityMenu, setShowActivityMenu] = useState(false)
-  const [selectedGender, setSelectedGender] = useState(() => routeCategory?.id || 'all')
+  const [selectedGender, setSelectedGender] = useState(() => {
+    if (routeCategory?.id) return routeCategory.id
+    if (savedBrowse?.selectedGender) return savedBrowse.selectedGender
+    return 'all'
+  })
   const [selectedSection, setSelectedSection] = useState<ProfileSection>(() => {
     if (routeSection) return routeSection
+    if (savedBrowse?.selectedSection === 'sexo_gratis' || savedBrowse?.selectedSection === 'escort') {
+      return savedBrowse.selectedSection
+    }
     const saved = localStorage.getItem('cap_profileSection')
     return saved === 'sexo_gratis' ? 'sexo_gratis' : 'escort'
   })
   const [citySearch, setCitySearch] = useState<string>(() => {
     if (seoCity) return seoCity.name
+    if (savedBrowse?.citySearch) return savedBrowse.citySearch
     return ''
   })
   const [showCityModal, setShowCityModal] = useState(false)
@@ -340,11 +388,13 @@ export default function IndexPage() {
       { enableHighAccuracy: true, timeout: 8000 }
     )
   }
-  const [searchQuery, setSearchQuery] = useState('')
-  const [minAge, setMinAge] = useState('')
-  const [maxAge, setMaxAge] = useState('')
+  const [searchQuery, setSearchQuery] = useState(() => savedBrowse?.searchQuery || '')
+  const [minAge, setMinAge] = useState(() => savedBrowse?.minAge || '')
+  const [maxAge, setMaxAge] = useState(() => savedBrowse?.maxAge || '')
   const [showAgeFilter, setShowAgeFilter] = useState(false)
-  const [maxDistance, setMaxDistance] = useState<number | null>(null)
+  const [maxDistance, setMaxDistance] = useState<number | null>(() =>
+    typeof savedBrowse?.maxDistance === 'number' ? savedBrowse.maxDistance : null
+  )
   const [showDistFilter, setShowDistFilter] = useState(false)
   const [showSexoGratisInfo, setShowSexoGratisInfo] = useState(false)
   const [showIndexInfoMenu, setShowIndexInfoMenu] = useState(false)
@@ -353,7 +403,9 @@ export default function IndexPage() {
     () => localStorage.getItem('cap_dismissedSexoGratisBanner') === '1'
   )
   /** Escorts: TODOS (gratis+premium) | PREMIUM (solo de pago). Default TODOS. */
-  const [escortListingTab, setEscortListingTab] = useState<'todos' | 'premium'>('todos')
+  const [escortListingTab, setEscortListingTab] = useState<'todos' | 'premium'>(() =>
+    savedBrowse?.escortListingTab === 'premium' ? 'premium' : 'todos'
+  )
   const [dismissedEscortPremiumBanner, setDismissedEscortPremiumBanner] = useState(
     () => localStorage.getItem('cap_dismissedEscortPremiumBanner') === '1'
   )
@@ -371,8 +423,10 @@ export default function IndexPage() {
     if (routeSection) setSelectedSection(routeSection)
   }, [routeSection])
 
+  // Solo sincronizar género desde la URL cuando hay categoría SEO.
+  // En /perfiles NO forzar 'all' — conserva el filtro restaurado al Volver.
   useEffect(() => {
-    setSelectedGender(routeCategory?.id || 'all')
+    if (routeCategory?.id) setSelectedGender(routeCategory.id)
   }, [routeCategory?.id])
 
   useEffect(() => {
@@ -384,6 +438,34 @@ export default function IndexPage() {
       setShowGeoPopup(false)
     }
   }, [seoCity?.slug])
+
+  // Persistir filtros de listado (al Volver desde un perfil se restauran)
+  useEffect(() => {
+    saveBrowseFilters({
+      selectedSection,
+      selectedGender,
+      activityFilter,
+      escortListingTab,
+      searchQuery,
+      minAge,
+      maxAge,
+      maxDistance,
+      citySearch,
+      returnPath: `${location.pathname}${location.search}`,
+    })
+  }, [
+    selectedSection,
+    selectedGender,
+    activityFilter,
+    escortListingTab,
+    searchQuery,
+    minAge,
+    maxAge,
+    maxDistance,
+    citySearch,
+    location.pathname,
+    location.search,
+  ])
 
   const visibleGenderFilters = useMemo(
     () =>
@@ -627,6 +709,19 @@ export default function IndexPage() {
   const handleProfileClick = (profileId: string, index: number) => {
     sessionStorage.setItem('browseProfiles', JSON.stringify(filteredProfiles.map(p => p.id)))
     sessionStorage.setItem('browseIndex', String(index))
+    // Snapshot explícito antes de salir (Index se desmonta al navegar)
+    saveBrowseFilters({
+      selectedSection,
+      selectedGender,
+      activityFilter,
+      escortListingTab,
+      searchQuery,
+      minAge,
+      maxAge,
+      maxDistance,
+      citySearch,
+      returnPath: `${location.pathname}${location.search}`,
+    })
     navigate(`/profile/${profileId}`)
   }
 

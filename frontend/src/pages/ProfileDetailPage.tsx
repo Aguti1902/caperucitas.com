@@ -193,13 +193,22 @@ export default function ProfileDetailPage() {
         <button
           onClick={() => {
             // Remate nov-2026: volver a resultados sin reabrir el popup de ubicación
+            // y con los filtros de listado intactos (cap_browseFilters en sessionStorage)
+            let returnPath = '/perfiles'
             try {
               sessionStorage.setItem('cap_geoDone', '1')
+              const raw = sessionStorage.getItem('cap_browseFilters')
+              if (raw) {
+                const saved = JSON.parse(raw)
+                if (typeof saved?.returnPath === 'string' && saved.returnPath.startsWith('/')) {
+                  returnPath = saved.returnPath
+                }
+              }
             } catch {
               /* ignore */
             }
             if (window.history.length > 1) navigate(-1)
-            else navigate('/perfiles')
+            else navigate(returnPath)
           }}
           className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors text-sm"
         >
@@ -515,7 +524,23 @@ export default function ProfileDetailPage() {
 
           {/* Volver a búsqueda */}
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => {
+              let returnPath = '/perfiles'
+              try {
+                sessionStorage.setItem('cap_geoDone', '1')
+                const raw = sessionStorage.getItem('cap_browseFilters')
+                if (raw) {
+                  const saved = JSON.parse(raw)
+                  if (typeof saved?.returnPath === 'string' && saved.returnPath.startsWith('/')) {
+                    returnPath = saved.returnPath
+                  }
+                }
+              } catch {
+                /* ignore */
+              }
+              if (window.history.length > 1) navigate(-1)
+              else navigate(returnPath)
+            }}
             className="w-full py-4 rounded-xl border-2 border-white text-white font-bold text-lg hover:bg-white hover:text-gray-950 transition-all mt-2"
           >
             ← Volver a la búsqueda
