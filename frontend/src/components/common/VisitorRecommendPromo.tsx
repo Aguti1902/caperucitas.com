@@ -76,7 +76,7 @@ export default function VisitorRecommendPromo({ forceOpen }: Props) {
         onClick={dismiss}
       />
 
-      {/* Compacto: NO RECOMENDAR siempre visible sin scroll */}
+      {/* Compacto: sin botón copiar URL; texto original que invita a colaborar */}
       <div className="relative w-full sm:max-w-md bg-white sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
         <button
           type="button"
@@ -87,22 +87,29 @@ export default function VisitorRecommendPromo({ forceOpen }: Props) {
           <X className="w-4 h-4" />
         </button>
 
-        <div className="relative bg-gradient-to-br from-red-700 via-red-600 to-pink-700 px-4 pt-5 pb-5 text-center">
-          <p className="text-white font-black text-xl sm:text-2xl leading-tight drop-shadow">
+        <div className="relative bg-gradient-to-br from-red-700 via-red-600 to-pink-700 px-4 pt-5 pb-5 text-center overflow-hidden">
+          <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/10" />
+          <div className="absolute -left-6 bottom-0 w-24 h-24 rounded-full bg-black/10" />
+          <p className="relative text-white font-black text-xl sm:text-2xl leading-tight drop-shadow">
             ¡Ayúdanos a seguir creciendo!
           </p>
-          <Heart className="w-6 h-6 text-white mx-auto mt-2 fill-white" />
+          <Heart className="relative w-6 h-6 text-white mx-auto mt-2 fill-white" />
         </div>
 
         <div className="px-4 py-3 space-y-2.5 text-center flex-1 overflow-y-auto">
           <p className="text-gray-800 text-sm leading-snug">
             ¿Te gusta <strong className="text-red-600">Caperucitas.com</strong>? Recomiéndanos a
-            tus amigos.
+            tus amigos y ayúdanos a llegar a más personas.
           </p>
-          <div className="flex items-center gap-2 bg-pink-100 text-left rounded-xl px-3 py-2">
-            <Megaphone className="w-4 h-4 text-red-600 flex-shrink-0" />
-            <p className="text-gray-800 text-xs font-semibold leading-snug">
-              Comparte y ayúdanos a seguir adelante.
+          <p className="text-gray-600 text-sm leading-snug">
+            Con tu apoyo podremos seguir mejorando y mantener nuestra web gratuita para nuestros
+            visitantes. ¡No dejes que este proyecto se detenga!
+          </p>
+
+          <div className="flex items-start gap-2 bg-pink-100 text-left rounded-xl px-3 py-2.5">
+            <Megaphone className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-gray-800 text-sm font-semibold leading-snug">
+              Comparte, recomienda y ayúdanos a seguir adelante.
             </p>
           </div>
 
@@ -115,9 +122,9 @@ export default function VisitorRecommendPromo({ forceOpen }: Props) {
             Recomendar por WhatsApp
           </button>
 
-          <p className="text-gray-600 text-xs font-medium flex items-center justify-center gap-1">
-            <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" />
-            ¡Gracias por formar parte!
+          <p className="text-gray-700 text-sm font-semibold flex items-center justify-center gap-1.5">
+            <Heart className="w-4 h-4 text-red-500 fill-red-500" />
+            ¡Gracias por formar parte de Caperucitas.com!
           </p>
         </div>
 
