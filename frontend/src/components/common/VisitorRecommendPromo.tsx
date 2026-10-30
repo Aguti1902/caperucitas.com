@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Heart, Link2, Megaphone, MessageCircle, X } from 'lucide-react'
+import { Ban, Heart, Megaphone, MessageCircle, X } from 'lucide-react'
 
 const STORAGE_KEY = 'cap_visitorRecommendAt'
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
@@ -37,17 +37,14 @@ function markVisitorRecommendSeen() {
 }
 
 interface Props {
-  /** Si true, fuerza mostrar (útil para tests). Por defecto decide por localStorage semanal. */
   forceOpen?: boolean
 }
 
 export default function VisitorRecommendPromo({ forceOpen }: Props) {
   const [open, setOpen] = useState(false)
-  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (forceOpen || shouldShowVisitorRecommend()) {
-      // Pequeño delay para no tapar la primera pintura
       const t = window.setTimeout(() => setOpen(true), 1200)
       return () => window.clearTimeout(t)
     }
@@ -68,20 +65,10 @@ export default function VisitorRecommendPromo({ forceOpen }: Props) {
     setOpen(false)
   }
 
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText('https://www.caperucitas.com')
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 2000)
-    } catch {
-      shareWhatsApp()
-    }
-  }
-
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[10050] flex items-center justify-center p-3 sm:p-4">
+    <div className="fixed inset-0 z-[10050] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <button
         type="button"
         className="absolute inset-0 bg-black/80"
@@ -89,73 +76,58 @@ export default function VisitorRecommendPromo({ forceOpen }: Props) {
         onClick={dismiss}
       />
 
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto">
+      {/* Compacto: NO RECOMENDAR siempre visible sin scroll */}
+      <div className="relative w-full sm:max-w-md bg-white sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
         <button
           type="button"
           onClick={dismiss}
-          className="absolute top-3 right-3 z-10 bg-black/40 hover:bg-black/60 text-white rounded-full p-1.5"
+          className="absolute top-2.5 right-2.5 z-10 bg-black/40 hover:bg-black/60 text-white rounded-full p-1.5"
           aria-label="Cerrar"
         >
           <X className="w-4 h-4" />
         </button>
 
-        {/* Cabecera visual */}
-        <div className="relative bg-gradient-to-br from-red-700 via-red-600 to-pink-700 px-5 pt-8 pb-10 text-center overflow-hidden">
-          <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-white/10" />
-          <div className="absolute -left-6 bottom-0 w-28 h-28 rounded-full bg-black/10" />
-          <p className="relative text-white font-black text-2xl sm:text-3xl leading-tight drop-shadow">
+        <div className="relative bg-gradient-to-br from-red-700 via-red-600 to-pink-700 px-4 pt-5 pb-5 text-center">
+          <p className="text-white font-black text-xl sm:text-2xl leading-tight drop-shadow">
             ¡Ayúdanos a seguir creciendo!
           </p>
-          <Heart className="relative w-8 h-8 text-white mx-auto mt-3 fill-white" />
+          <Heart className="w-6 h-6 text-white mx-auto mt-2 fill-white" />
         </div>
 
-        <div className="px-5 py-5 space-y-4 text-center">
-          <p className="text-gray-800 text-sm sm:text-base leading-relaxed">
+        <div className="px-4 py-3 space-y-2.5 text-center flex-1 overflow-y-auto">
+          <p className="text-gray-800 text-sm leading-snug">
             ¿Te gusta <strong className="text-red-600">Caperucitas.com</strong>? Recomiéndanos a
-            tus amigos y ayúdanos a llegar a más personas.
+            tus amigos.
           </p>
-          <p className="text-gray-600 text-sm leading-relaxed">
-            Con tu apoyo podremos seguir mejorando y mantener nuestra web gratuita para nuestros
-            visitantes. ¡No dejes que este proyecto se detenga!
-          </p>
-
-          <div className="flex items-start gap-2 bg-pink-100 text-left rounded-xl px-3 py-3">
-            <Megaphone className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-gray-800 text-sm font-semibold">
-              Comparte, recomienda y ayúdanos a seguir adelante.
+          <div className="flex items-center gap-2 bg-pink-100 text-left rounded-xl px-3 py-2">
+            <Megaphone className="w-4 h-4 text-red-600 flex-shrink-0" />
+            <p className="text-gray-800 text-xs font-semibold leading-snug">
+              Comparte y ayúdanos a seguir adelante.
             </p>
           </div>
 
           <button
             type="button"
-            onClick={copyLink}
-            className="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold py-3.5 rounded-full transition-colors"
-          >
-            <Link2 className="w-5 h-5" />
-            {copied ? '¡Enlace copiado!' : 'https://www.caperucitas.com'}
-          </button>
-
-          <button
-            type="button"
             onClick={shareWhatsApp}
-            className="w-full inline-flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#1ebe5d] text-white font-black py-3.5 rounded-full transition-colors"
+            className="w-full inline-flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#1ebe5d] text-white font-black py-3 rounded-full transition-colors"
           >
             <MessageCircle className="w-5 h-5" />
             Recomendar por WhatsApp
           </button>
 
-          <p className="text-gray-700 text-sm font-semibold flex items-center justify-center gap-1.5">
-            <Heart className="w-4 h-4 text-red-500 fill-red-500" />
-            ¡Gracias por formar parte de Caperucitas.com!
+          <p className="text-gray-600 text-xs font-medium flex items-center justify-center gap-1">
+            <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" />
+            ¡Gracias por formar parte!
           </p>
         </div>
 
-        <div className="bg-black px-5 py-4">
+        <div className="bg-black px-4 py-3 flex-shrink-0">
           <button
             type="button"
             onClick={dismiss}
-            className="w-full border-2 border-lime-400 text-lime-400 hover:bg-lime-400 hover:text-black font-black py-3 rounded-xl transition-colors tracking-wide"
+            className="w-full inline-flex items-center justify-center gap-2 border-2 border-lime-400 text-lime-400 hover:bg-lime-400 hover:text-black font-black py-3 rounded-xl transition-colors tracking-wide"
           >
+            <Ban className="w-4 h-4" />
             NO RECOMENDAR
           </button>
         </div>

@@ -171,14 +171,41 @@ export default function IndexPage() {
     if (seoCity?.lat != null && seoCity?.lng != null) {
       return { lat: seoCity.lat, lng: seoCity.lng }
     }
+    // Remate nov-2026: mantener ubicación al volver desde un perfil
+    try {
+      const raw = sessionStorage.getItem('cap_sessionLoc')
+      if (raw) return JSON.parse(raw)
+    } catch {
+      /* ignore */
+    }
     return null
   })
-  const [showGeoPopup, setShowGeoPopup] = useState(() => !seoCity)
+  const [showGeoPopup, setShowGeoPopup] = useState(() => {
+    if (seoCity) return false
+    try {
+      if (sessionStorage.getItem('cap_geoDone') === '1') return false
+      if (sessionStorage.getItem('cap_sessionLoc')) return false
+    } catch {
+      /* ignore */
+    }
+    return true
+  })
   const [geoDetecting, setGeoDetecting] = useState(false)
   const [nominatimResults, setNominatimResults] = useState<{ name: string; displayName: string; lat: number; lng: number }[]>([])
   const [isSearchingCity, setIsSearchingCity] = useState(false)
 
-  // Limpiar persistencia antigua de ciudad/geo (evita que se quede Barcelona al reabrir)
+  const persistSessionLocation = (loc: { lat: number; lng: number } | null) => {
+    try {
+      if (loc) {
+        sessionStorage.setItem('cap_sessionLoc', JSON.stringify(loc))
+        sessionStorage.setItem('cap_geoDone', '1')
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Limpiar persistencia antigua de ciudad/geo entre sesiones (localStorage), no sessionStorage
   useEffect(() => {
     localStorage.removeItem('cap_citySearch')
     localStorage.removeItem('cap_userLocation')
@@ -207,7 +234,10 @@ export default function IndexPage() {
   }, [modalSearch])
 
   const goToCity = async (name: string, lat: number, lng: number) => {
-    setUserLocation({ lat, lng })
+    const loc = { lat, lng }
+    setUserLocation(loc)
+    persistSessionLocation(loc)
+    setShowGeoPopup(false)
     setShowCityModal(false)
     setNominatimResults([])
 
@@ -245,6 +275,7 @@ export default function IndexPage() {
    */
   const applyGpsLocation = async (loc: { lat: number; lng: number }) => {
     setUserLocation(loc)
+    persistSessionLocation(loc)
     // Sin ciudad manual → no filtrar; se ven todos ordenados por cercanía
     setCitySearch('')
     setShowGeoPopup(false)
@@ -375,6 +406,12 @@ export default function IndexPage() {
     setUserLocation(null)
     localStorage.removeItem('cap_citySearch')
     localStorage.removeItem('cap_userLocation')
+    try {
+      sessionStorage.removeItem('cap_sessionLoc')
+      sessionStorage.removeItem('cap_geoDone')
+    } catch {
+      /* ignore */
+    }
     // Si estamos en URL de ciudad SEO, salir a /perfiles para dejar de filtrar
     if (seoCity || location.pathname.startsWith('/putas/') || location.pathname.startsWith('/sexo-gratis/')) {
       navigate('/perfiles')
@@ -945,7 +982,7 @@ export default function IndexPage() {
         <div className="border-b border-gray-800 px-3 py-2 bg-gray-950">
           <div className="max-w-7xl mx-auto space-y-2">
             {selectedSection === 'escort' && (
-              <div className="grid grid-cols-2 gap-2 p-1 bg-gray-800 rounded-xl max-w-md">
+              <div className="grid grid-cols-2 gap-2 p-1 bg-gray-800 rounded-xl w-full">
                 <button
                   type="button"
                   onClick={() => setEscortListingTab('todos')}
@@ -1040,7 +1077,7 @@ export default function IndexPage() {
         {/* Selector de vista — misma URL (SEO: sin páginas duplicadas) */}
         <div className="border-b border-gray-800 px-3 py-2 bg-gray-950/90">
           <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-2 gap-2 p-1 bg-gray-800 rounded-xl max-w-md">
+            <div className="grid grid-cols-2 gap-2 p-1 bg-gray-800 rounded-xl w-full">
               <button
                 type="button"
                 onClick={() => changeListingView('rapida')}

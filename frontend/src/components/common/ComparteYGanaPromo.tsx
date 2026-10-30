@@ -123,7 +123,7 @@ export default function ComparteYGanaPromo({ open, onClose, onPromoClaimed }: Pr
       />
 
       {phase === 'intro' && (
-        <div className="relative w-full max-w-md bg-gray-950 border border-red-700/60 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+        <div className="relative w-full max-w-md bg-gray-950 border border-red-700/60 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
           <button
             type="button"
             onClick={onClose}
@@ -133,60 +133,31 @@ export default function ComparteYGanaPromo({ open, onClose, onPromoClaimed }: Pr
             <X className="w-5 h-5" />
           </button>
 
-          <div className="px-5 pt-8 pb-5 text-center space-y-3">
-            <p className="text-red-500 font-black text-3xl tracking-wide">¡STOP!</p>
-            <p className="text-white font-bold text-lg leading-snug">
+          <div className="px-4 pt-6 pb-3 text-center space-y-2 overflow-y-auto flex-1">
+            <p className="text-red-500 font-black text-2xl tracking-wide">¡STOP!</p>
+            <p className="text-white font-bold text-base leading-snug">
               ¡NO PAGUES POR TU INSCRIPCIÓN!
             </p>
-            <div className="mx-auto w-24 h-24 rounded-full border-4 border-red-600 flex items-center justify-center bg-red-950/40">
-              <span className="text-red-400 font-black text-xl">STOP</span>
+            <div className="mx-auto w-16 h-16 rounded-full border-4 border-red-600 flex items-center justify-center bg-red-950/40">
+              <span className="text-red-400 font-black text-sm">STOP</span>
             </div>
-            <p className="text-white font-bold text-base pt-1">
-              ¿Quieres ampliar tu inscripción GRATIS?
+            <p className="text-white font-bold text-sm pt-0.5">
+              ¿Quieres ampliar tu inscripción GRATIS hasta el{' '}
+              <strong className="text-yellow-300">1 de julio de 2027</strong>?
             </p>
-            <p className="text-gray-300 text-sm leading-relaxed">
-              ¡Consigue mantener tu inscripción gratuita hasta el{' '}
-              <strong className="text-white">1 de julio de 2027</strong>!
+            <p className="text-gray-400 text-xs text-left">
+              Comparte Caperucitas.com con 10–20 contactos por WhatsApp y participa en la promoción.
             </p>
-            <div className="h-px bg-red-800/60 my-2" />
-            <p className="text-gray-400 text-sm text-left">Es muy fácil. Solo tienes que:</p>
-            <ol className="text-left space-y-3 text-sm">
-              <li className="flex gap-3">
-                <span className="flex-shrink-0 w-7 h-7 rounded-full bg-red-600 text-white font-black flex items-center justify-center text-xs">
-                  1
-                </span>
-                <div>
-                  <p className="text-white font-semibold">Recomendar Caperucitas.com</p>
-                  <p className="text-gray-400 text-xs mt-0.5">
-                    Comparte nuestra web con 10–20 contactos tuyos por WhatsApp.
-                  </p>
-                </div>
-              </li>
-              <li className="flex gap-3">
-                <span className="flex-shrink-0 w-7 h-7 rounded-full bg-red-600 text-white font-black flex items-center justify-center text-xs">
-                  2
-                </span>
-                <div>
-                  <p className="text-white font-semibold">Comparte y participa</p>
-                  <p className="text-gray-400 text-xs mt-0.5">
-                    Sigue las instrucciones para completar la promoción.
-                  </p>
-                </div>
-              </li>
-            </ol>
           </div>
 
-          <div className="px-5 pb-5 space-y-3">
+          <div className="px-4 pb-4 pt-2 space-y-2 flex-shrink-0 border-t border-gray-800 bg-gray-950">
             <button
               type="button"
               onClick={() => setPhase('options')}
-              className="w-full bg-red-600 hover:bg-red-500 text-white font-black py-3.5 rounded-xl transition-colors text-sm sm:text-base"
+              className="w-full bg-red-600 hover:bg-red-500 text-white font-black py-3 rounded-xl transition-colors text-sm"
             >
               🚀 QUIERO MI INSCRIPCIÓN GRATIS
             </button>
-            <p className="text-[10px] text-gray-500 text-center">
-              Promoción sujeta a las condiciones publicadas en la web.
-            </p>
             <button
               type="button"
               onClick={onClose}

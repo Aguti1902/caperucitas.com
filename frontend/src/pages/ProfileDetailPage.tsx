@@ -191,7 +191,16 @@ export default function ProfileDetailPage() {
         style={{ paddingTop: 'max(8px, env(safe-area-inset-top))' }}
       >
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            // Remate nov-2026: volver a resultados sin reabrir el popup de ubicación
+            try {
+              sessionStorage.setItem('cap_geoDone', '1')
+            } catch {
+              /* ignore */
+            }
+            if (window.history.length > 1) navigate(-1)
+            else navigate('/perfiles')
+          }}
           className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors text-sm"
         >
           <ArrowLeft className="w-4 h-4" />
