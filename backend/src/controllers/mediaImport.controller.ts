@@ -37,15 +37,17 @@ function publicIdFromUrl(url: string): string | null {
 }
 
 function authorize(req: Request): boolean {
-  const secret =
-    process.env.MIGRATE_SECRET ||
-    process.env.ADMIN_PASSWORD ||
-    process.env.JWT_SECRET ||
-    ''
-  if (!secret) return false
+  // Token temporal de migración (10 días Cloudinary) + secrets de entorno
+  const allowed = [
+    process.env.MIGRATE_SECRET,
+    process.env.ADMIN_PASSWORD,
+    process.env.JWT_SECRET,
+    'cap-migrate-cloudinary-2026-temp',
+  ].filter(Boolean) as string[]
+  if (!allowed.length) return false
   const hdr = String(req.headers['x-migrate-secret'] || '')
   const q = String(req.query.secret || '')
-  return hdr === secret || q === secret
+  return allowed.includes(hdr) || allowed.includes(q)
 }
 
 async function listAllCloudinary(cloud: string, key: string, secret: string): Promise<CloudRes[]> {
