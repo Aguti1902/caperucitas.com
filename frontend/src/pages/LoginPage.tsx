@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import Logo from '@/components/common/Logo'
@@ -6,19 +6,21 @@ import Input from '@/components/common/Input'
 import Button from '@/components/common/Button'
 import { Eye, EyeOff } from 'lucide-react'
 import BackNavBar from '@/components/common/BackNavBar'
-import ReCAPTCHA from 'react-google-recaptcha'
+// import ReCAPTCHA from 'react-google-recaptcha' // TODO: reactivar captcha más adelante
 
-const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
+// CAPTCHA desactivado temporalmente. Para reactivar:
+// 1) import ReCAPTCHA from 'react-google-recaptcha'
+// 2) restaurar el widget y exigir captchaToken antes de login
+// const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '...'
+
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const { login } = useAuthStore()
-  const recaptchaRef = useRef<ReCAPTCHA>(null)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [requiresVerification, setRequiresVerification] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -29,25 +31,15 @@ export default function LoginPage() {
     setError('')
     setRequiresVerification(false)
 
-    if (!captchaToken) {
-      setError('Por favor, completa la verificación reCAPTCHA')
-      return
-    }
-
     setIsLoading(true)
     try {
-      await login(email, password, captchaToken)
-      // Tras login: bandeja si tiene perfil, si no crear perfil
+      await login(email, password)
       const { hasProfile: hp } = useAuthStore.getState()
       navigate(hp ? '/app/inbox' : '/create-profile')
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión')
       if (err.response?.data?.requiresEmailVerification) {
         setRequiresVerification(true)
-      }
-      if (err.response?.data?.captchaError) {
-        setCaptchaToken(null)
-        recaptchaRef.current?.reset()
       }
     } finally {
       setIsLoading(false)
@@ -73,7 +65,6 @@ export default function LoginPage() {
       <BackNavBar backTo="/" />
       <div className="flex-1 flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full space-y-5 animate-fade-in">
-        {/* Logo */}
         <div className="text-center">
           <Logo size="md" className="mx-auto mb-3" />
           <h2 className="text-2xl font-bold text-white">Acceso Mi Perfil</h2>
@@ -82,7 +73,6 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Formulario */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className={`${requiresVerification ? 'bg-yellow-500/10 border-yellow-500 text-yellow-400' : 'bg-red-500/10 border-red-500 text-red-400'} border px-4 py-3 rounded-lg text-sm`}>
@@ -132,31 +122,19 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* reCAPTCHA */}
-          <div className="flex justify-center">
-            <ReCAPTCHA
-              ref={recaptchaRef}
-              sitekey={RECAPTCHA_SITE_KEY}
-              onChange={(token) => { setCaptchaToken(token); setError('') }}
-              onExpired={() => setCaptchaToken(null)}
-              onErrored={() => { setCaptchaToken(null); setError('Error al cargar el CAPTCHA') }}
-              theme="dark"
-            />
-          </div>
+          {/* CAPTCHA desactivado temporalmente */}
 
           <Button
             type="submit"
             fullWidth
             variant="primary"
             isLoading={isLoading}
-            disabled={!captchaToken}
             className="mt-2 bg-red-600 hover:bg-red-700 border-0 disabled:opacity-50"
           >
             Entrar
           </Button>
         </form>
 
-        {/* Olvidé contraseña */}
         <div className="text-center">
           <Link
             to="/forgot-password"
@@ -166,7 +144,6 @@ export default function LoginPage() {
           </Link>
         </div>
 
-        {/* Registro */}
         <div className="text-center bg-gray-900 rounded-xl p-4 border border-gray-800">
           <p className="text-gray-400 text-sm mb-3">¿No tienes cuenta?</p>
           <Link

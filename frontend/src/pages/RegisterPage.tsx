@@ -1,18 +1,22 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import Logo from '@/components/common/Logo'
 import Input from '@/components/common/Input'
 import Button from '@/components/common/Button'
 import { Eye, EyeOff, CheckCircle } from 'lucide-react'
-import ReCAPTCHA from 'react-google-recaptcha'
+// import ReCAPTCHA from 'react-google-recaptcha' // TODO: reactivar captcha más adelante
 import BackNavBar from '@/components/common/BackNavBar'
 import ComparteYGanaPromo, {
   hasClaimedComparteYGana,
   PROMO_UNTIL_LABEL,
 } from '@/components/common/ComparteYGanaPromo'
 
-const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
+// CAPTCHA desactivado temporalmente. Para reactivar:
+// 1) import ReCAPTCHA from 'react-google-recaptcha'
+// 2) restaurar el widget y la validación de captchaToken
+// const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '...'
+
 
 const GENDER_OPTIONS = [
   { id: 'chica', label: '👩 Chica', desc: 'Perfil femenino' },
@@ -26,7 +30,6 @@ const GENDER_OPTIONS = [
 export default function RegisterPage() {
   const navigate = useNavigate()
   const { register } = useAuthStore()
-  const recaptchaRef = useRef<ReCAPTCHA>(null)
 
   const [step, setStep] = useState<1 | 2>(1)
   const [selectedGender, setSelectedGender] = useState('')
@@ -35,7 +38,6 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -75,16 +77,10 @@ export default function RegisterPage() {
       return
     }
 
-    if (!captchaToken) {
-      setError('Por favor, completa la verificación reCAPTCHA')
-      return
-    }
-
     setIsLoading(true)
 
     try {
-      // Usamos la orientación como el género seleccionado para compatibilidad con el backend
-      const result = await register(email, password, selectedGender, captchaToken || undefined)
+      const result = await register(email, password, selectedGender)
       
       localStorage.setItem('userGender', selectedGender)
       
@@ -97,10 +93,6 @@ export default function RegisterPage() {
       }
     } catch (err: any) {
       setError(err.message || 'Error al registrar usuario')
-      if (recaptchaRef.current) {
-        recaptchaRef.current.reset()
-        setCaptchaToken(null)
-      }
     } finally {
       setIsLoading(false)
     }
@@ -266,17 +258,7 @@ export default function RegisterPage() {
                 </p>
               </div>
 
-              {/* CAPTCHA */}
-              <div className="flex justify-center">
-                <ReCAPTCHA
-                  ref={recaptchaRef}
-                  sitekey={RECAPTCHA_SITE_KEY}
-                  onChange={(token) => { setCaptchaToken(token); setError('') }}
-                  onExpired={() => setCaptchaToken(null)}
-                  onErrored={() => { setCaptchaToken(null); setError('Error al cargar CAPTCHA') }}
-                  theme="dark"
-                />
-              </div>
+              {/* CAPTCHA desactivado temporalmente — reactivar con CAPTCHA_ENABLED=true */}
 
               {/* Términos */}
               <label className="flex items-start gap-3 cursor-pointer">
