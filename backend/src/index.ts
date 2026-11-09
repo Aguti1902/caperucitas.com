@@ -121,11 +121,19 @@ const globalLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 80,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Demasiados intentos de autenticación. Espera 15 minutos.' },
-  skip: () => process.env.NODE_ENV === 'development',
+  skip: (req) => {
+    if (process.env.NODE_ENV === 'development') return true
+    // No limitar verificación de email ni rutas de sesión (solo login/registro sensibles)
+    const p = (req.originalUrl || req.path || '').split('?')[0]
+    if (p.includes('/verify-email')) return true
+    if (p.includes('/resend-verification')) return true
+    if (p.endsWith('/refresh') || p.endsWith('/logout') || p.endsWith('/me')) return true
+    return false
+  },
 });
 
 // Configurar Socket.IO
