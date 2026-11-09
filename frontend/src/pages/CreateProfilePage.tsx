@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '@/services/api'
 import { uploadProfilePhotos } from '@/utils/uploadProfilePhotos'
-import { sanitizePhoneInput, sanitizeWhatsAppInput } from '@/utils/phoneUtils'
 import { useAuthStore } from '@/store/authStore'
 import Input from '@/components/common/Input'
 import Textarea from '@/components/common/Textarea'
 import Button from '@/components/common/Button'
+import ContactPhoneFields from '@/components/common/ContactPhoneFields'
 import { detectLocation } from '@/utils/geolocation'
 import CitySelector from '@/components/common/CitySelector'
 import BackNavBar from '@/components/common/BackNavBar'
@@ -343,33 +343,20 @@ export default function CreateProfilePage() {
               </p>
             )}
             <div className="space-y-3">
-              <Input
-                label={
+              <ContactPhoneFields
+                phone={formData.phone}
+                whatsapp={formData.whatsapp}
+                onChange={({ phone, whatsapp }) => setFormData({ ...formData, phone, whatsapp })}
+                phoneLabel={
                   formData.profileType === 'sexo_gratis'
                     ? 'Teléfono (opcional — visible en público)'
                     : 'Teléfono (visible en público)'
                 }
-                type="tel"
-                inputMode="tel"
-                value={formData.phone}
-                onChange={(e) =>
-                  setFormData({ ...formData, phone: sanitizePhoneInput(e.target.value) })
-                }
-                placeholder="Ej: +34600000000"
-              />
-              <Input
-                label={
+                whatsappLabel={
                   formData.profileType === 'sexo_gratis'
-                    ? 'WhatsApp — teléfono o nombre de usuario (opcional — visible)'
-                    : 'WhatsApp — teléfono o nombre de usuario (visible)'
+                    ? 'WhatsApp (opcional — visible)'
+                    : 'WhatsApp (visible)'
                 }
-                type="text"
-                inputMode="text"
-                value={formData.whatsapp}
-                onChange={(e) =>
-                  setFormData({ ...formData, whatsapp: sanitizeWhatsAppInput(e.target.value) })
-                }
-                placeholder="Ej: +34600000000 / @tunombreusuario"
               />
               <div className="bg-purple-900/30 border border-purple-700/50 rounded-xl px-3 py-3">
                 <p className="text-purple-200 text-sm font-semibold">💬 Mensaje interno: siempre activo</p>

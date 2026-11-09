@@ -7,7 +7,7 @@ const router = Router()
 
 const postLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  max: 60,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Demasiados mensajes. Espera un momento.' },
@@ -15,7 +15,7 @@ const postLimiter = rateLimit({
 
 const uploadLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 8,
+  max: 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Demasiadas subidas. Espera un momento.' },
@@ -24,6 +24,7 @@ const uploadLimiter = rateLimit({
 router.get('/', globalChatController.listGlobalChat)
 router.post('/', postLimiter, globalChatController.postGlobalChat)
 router.post('/presence', globalChatController.presenceGlobalChat)
+router.post('/claim-nick', postLimiter, globalChatController.claimNickname)
 router.get('/dms', globalChatController.listDms)
 router.post('/dms', postLimiter, globalChatController.postDm)
 router.post('/react', postLimiter, globalChatController.reactMessage)

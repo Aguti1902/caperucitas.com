@@ -8,7 +8,7 @@ const router = Router();
 router.use(authenticateToken);
 router.use(requireProfile);
 
-// Subir foto (usando Cloudinary)
+// Subir foto (disco local /uploads/profiles — Cloudinary deshabilitado)
 router.post('/upload', upload.single('photo'), photoController.uploadPhoto);
 
 // Eliminar foto

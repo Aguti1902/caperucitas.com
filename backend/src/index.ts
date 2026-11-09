@@ -102,10 +102,20 @@ const httpServer = createServer(app);
 // ============================================================
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  // El chat global hace polling frecuente (presence + mensajes); no contar esas lecturas
+  max: 2000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Demasiadas peticiones. Inténtalo de nuevo en unos minutos.' },
+  skip: (req) => {
+    const p = (req.originalUrl || req.path || '').split('?')[0]
+    // Lecturas / presencia del chat global (el postLimiter sigue limitando envíos)
+    if (p.startsWith('/api/global-chat')) {
+      if (req.method === 'GET') return true
+      if (p === '/api/global-chat/presence' || p.endsWith('/presence')) return true
+    }
+    return false
+  },
 });
 
 const authLimiter = rateLimit({
@@ -224,8 +234,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Servir archivos estáticos (uploads)
-app.use('/uploads', express.static('uploads'));
+// Servir archivos estáticos (uploads) — fotos de perfil/chat (Cloudinary deshabilitado)
+for (const dir of ['uploads', 'uploads/profiles', 'uploads/chat']) {
+  const full = path.join(process.cwd(), dir);
+  if (!fs.existsSync(full)) fs.mkdirSync(full, { recursive: true });
+}
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads'), {
+  maxAge: '7d',
+  fallthrough: true,
+}));
 
 // Servir fotos de perfiles falsos (desarrollo y producción)
 const fakePhotosPath = path.join(__dirname, '../fake-profiles-photos');

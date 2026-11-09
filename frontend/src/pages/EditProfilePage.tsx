@@ -15,6 +15,7 @@ import { showToast } from '@/store/toastStore'
 import { uploadProfilePhotos } from '@/utils/uploadProfilePhotos'
 import SexoGratisPremiumPaymentForm from '@/components/payment/SexoGratisPremiumPaymentForm'
 import EscortPremiumPaymentForm from '@/components/payment/EscortPremiumPaymentForm'
+import ContactPhoneFields from '@/components/common/ContactPhoneFields'
 import { sanitizePhoneInput, sanitizeWhatsAppInput } from '@/utils/phoneUtils'
 
 export default function EditProfilePage() {
@@ -483,25 +484,10 @@ export default function EditProfilePage() {
             Mensaje siempre activo. Teléfono/WhatsApp públicos (Premium gratis hasta el 1 de abril de 2027).
           </p>
           <div className="space-y-3">
-            <Input
-              label="Teléfono (visible en público)"
-              type="tel"
-              inputMode="tel"
-              value={formData.phone}
-              onChange={(e) =>
-                setFormData({ ...formData, phone: sanitizePhoneInput(e.target.value) })
-              }
-              placeholder="+34600000000"
-            />
-            <Input
-              label="WhatsApp — teléfono o nombre de usuario (visible en público)"
-              type="text"
-              inputMode="text"
-              value={formData.whatsapp}
-              onChange={(e) =>
-                setFormData({ ...formData, whatsapp: sanitizeWhatsAppInput(e.target.value) })
-              }
-              placeholder="Ej: +34600000000 / @tunombreusuario"
+            <ContactPhoneFields
+              phone={formData.phone}
+              whatsapp={formData.whatsapp}
+              onChange={({ phone, whatsapp }) => setFormData({ ...formData, phone, whatsapp })}
             />
             <div className="bg-purple-900/30 border border-purple-700/50 rounded-xl px-3 py-3">
               <p className="text-purple-200 text-sm font-semibold">💬 Mensaje: siempre activo</p>
@@ -556,7 +542,16 @@ export default function EditProfilePage() {
               <div className="grid grid-cols-4 gap-2">
                 {existingPhotos.filter(p => p.type !== 'private').map((photo) => (
                   <div key={photo.id} className="relative aspect-square">
-                    <img src={photo.url} alt="Foto" className="w-full h-full object-cover rounded-lg" />
+                    <img
+                      src={photo.url}
+                      alt="Foto"
+                      className="w-full h-full object-cover rounded-lg bg-gray-700"
+                      onError={(e) => {
+                        const el = e.currentTarget
+                        el.style.opacity = '0.35'
+                        el.title = 'Foto antigua no disponible — súbela de nuevo'
+                      }}
+                    />
                     <button
                       type="button"
                       onClick={() => deleteExistingPhoto(photo.id)}

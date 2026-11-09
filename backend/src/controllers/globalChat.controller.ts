@@ -1,7 +1,15 @@
 import { Request, Response } from 'express'
-import { randomUUID } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
 import prisma from '../lib/prisma'
 import { ensureGlobalChatSchema } from '../utils/global-chat-migrate.utils'
+
+function nickKey(nickname: string) {
+  return nickname.trim().toLowerCase()
+}
+
+function hashPin(pin: string) {
+  return createHash('sha256').update(`cap_nick_${pin}`).digest('hex')
+}
 
 const MAX_NICK = 24
 const MAX_BODY = 400
@@ -32,8 +40,13 @@ function sanitizeGuestId(raw: unknown): string {
 function sanitizeImageUrl(raw: unknown): string | null {
   const s = String(raw || '').trim()
   if (!s) return null
-  if (s.startsWith('https://res.cloudinary.com/') || s.startsWith('https://')) {
-    return s.slice(0, 500)
+  // Cloudinary legacy, Railway/local /uploads, u otras https
+  if (
+    s.startsWith('https://') ||
+    s.startsWith('http://') ||
+    s.startsWith('/uploads/')
+  ) {
+    return s.slice(0, 800)
   }
   return null
 }
@@ -131,6 +144,29 @@ export const listGlobalChat = async (req: Request, res: Response) => {
   }
 }
 
+async function assertNickAllowed(guestId: string, nickname: string, pin?: string) {
+  const key = nickKey(nickname)
+  if (!key || nickname === 'Anónimo') return { ok: true as const }
+  const existing = (await prisma.$queryRawUnsafe(
+    `SELECT "guestId", "pinHash" FROM global_chat_nicks WHERE nickname_key = $1 LIMIT 1`,
+    key
+  )) as Array<{ guestId: string; pinHash: string }>
+  if (!existing[0] || existing[0].guestId === guestId) return { ok: true as const }
+  const p = String(pin || '').replace(/\D/g, '').slice(0, 8)
+  if (p && hashPin(p) === existing[0].pinHash) {
+    await prisma.$executeRawUnsafe(
+      `UPDATE global_chat_nicks SET "guestId" = $1, "updatedAt" = NOW() WHERE nickname_key = $2`,
+      guestId,
+      key
+    )
+    return { ok: true as const }
+  }
+  return {
+    ok: false as const,
+    error: 'Este apodo está protegido. Introduce la contraseña o elige otro.',
+  }
+}
+
 export const postGlobalChat = async (req: Request, res: Response) => {
   try {
     await ensureGlobalChatSchema()
@@ -143,6 +179,9 @@ export const postGlobalChat = async (req: Request, res: Response) => {
     if (!body && !imageUrl) {
       return res.status(400).json({ error: 'Escribe un mensaje o envía una foto' })
     }
+
+    const nickOk = await assertNickAllowed(guestId, nickname, req.body?.nickPin)
+    if (!nickOk.ok) return res.status(403).json({ error: nickOk.error, needsPin: true })
 
     const id = randomUUID()
     await prisma.$executeRawUnsafe(
@@ -216,10 +255,21 @@ export const presenceGlobalChat = async (req: Request, res: Response) => {
       guestId
     )) as Array<{ c: number }>
 
+    const unreadByFrom = (await prisma.$queryRawUnsafe(
+      `SELECT "fromGuestId", COUNT(*)::int AS c FROM global_chat_dms
+       WHERE "toGuestId" = $1 AND "readAt" IS NULL AND "deletedAt" IS NULL
+       GROUP BY "fromGuestId"`,
+      guestId
+    )) as Array<{ fromGuestId: string; c: number }>
+
+    const unreadMap: Record<string, number> = {}
+    for (const r of unreadByFrom) unreadMap[r.fromGuestId] = r.c
+
     const now = Date.now()
     res.json({
       guestId,
       unreadDms: unreadRows[0]?.c || 0,
+      unreadByFrom: unreadMap,
       users: rows.map((r) => ({
         guestId: r.guestId,
         nickname: r.nickname,
@@ -227,6 +277,7 @@ export const presenceGlobalChat = async (req: Request, res: Response) => {
         isOnline: now - new Date(r.lastSeenAt).getTime() < ONLINE_MS,
         typing: r.typing,
         typingTo: r.typingTo,
+        unreadFromThem: unreadMap[r.guestId] || 0,
       })),
     })
   } catch (error) {
@@ -328,6 +379,8 @@ export const postDm = async (req: Request, res: Response) => {
     if (fromGuestId === toGuestId) {
       return res.status(400).json({ error: 'No puedes enviarte un privado a ti mismo' })
     }
+    const nickOk = await assertNickAllowed(fromGuestId, fromNickname, req.body?.nickPin)
+    if (!nickOk.ok) return res.status(403).json({ error: nickOk.error, needsPin: true })
 
     const id = randomUUID()
     const finalBody = body || (imageUrl ? '📷 Foto' : '')
@@ -452,10 +505,10 @@ export const deleteMessage = async (req: Request, res: Response) => {
 
 export const uploadChatImage = async (req: Request, res: Response) => {
   try {
-    const file = req.file as Express.Multer.File & { path?: string }
-    if (!file) return res.status(400).json({ error: 'No se recibió imagen' })
-    const url = (file as any).path || (file as any).secure_url || (file as any).url
-    if (!url) return res.status(500).json({ error: 'No se pudo subir la imagen' })
+    const file = req.file
+    if (!file?.filename) return res.status(400).json({ error: 'No se recibió imagen' })
+    const { localFilePublicUrl } = await import('../config/local-upload')
+    const url = localFilePublicUrl(req, 'chat', file.filename)
     res.status(201).json({ imageUrl: url })
   } catch (error) {
     console.error('uploadChatImage:', error)
@@ -475,5 +528,69 @@ export const unreadCount = async (req: Request, res: Response) => {
     res.json({ unread: rows[0]?.c || 0 })
   } catch (error) {
     res.status(500).json({ error: 'Error' })
+  }
+}
+
+/**
+ * Proteger / reclamar un apodo con PIN opcional.
+ * - Si el apodo no tiene PIN → se puede registrar uno (pin opcional).
+ * - Si ya tiene PIN y guestId distinto → exige pin correcto.
+ */
+export const claimNickname = async (req: Request, res: Response) => {
+  try {
+    await ensureGlobalChatSchema()
+    const guestId = sanitizeGuestId(req.body?.guestId)
+    const nickname = sanitizeNick(req.body?.nickname)
+    const pin = String(req.body?.pin || '').replace(/\D/g, '').slice(0, 8)
+    const key = nickKey(nickname)
+
+    if (!nickname || nickname === 'Anónimo') {
+      return res.status(400).json({ error: 'Elige un apodo' })
+    }
+
+    const existing = (await prisma.$queryRawUnsafe(
+      `SELECT nickname_key, "guestId", "pinHash" FROM global_chat_nicks WHERE nickname_key = $1 LIMIT 1`,
+      key
+    )) as Array<{ nickname_key: string; guestId: string; pinHash: string }>
+
+    if (existing[0]) {
+      if (existing[0].guestId !== guestId) {
+        if (!pin || hashPin(pin) !== existing[0].pinHash) {
+          return res.status(403).json({
+            error: 'Este apodo está protegido. Introduce la contraseña correcta.',
+            needsPin: true,
+          })
+        }
+        // PIN correcto → transferir apodo a este guest
+        await prisma.$executeRawUnsafe(
+          `UPDATE global_chat_nicks SET "guestId" = $1, "updatedAt" = NOW() WHERE nickname_key = $2`,
+          guestId,
+          key
+        )
+      } else if (pin) {
+        // Mismo dueño actualiza PIN
+        await prisma.$executeRawUnsafe(
+          `UPDATE global_chat_nicks SET "pinHash" = $1, "updatedAt" = NOW() WHERE nickname_key = $2`,
+          hashPin(pin),
+          key
+        )
+      }
+    } else if (pin) {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO global_chat_nicks (nickname_key, nickname, "guestId", "pinHash", "updatedAt")
+         VALUES ($1, $2, $3, $4, NOW())
+         ON CONFLICT (nickname_key) DO UPDATE SET "guestId" = $3, "pinHash" = $4, "updatedAt" = NOW()`,
+        key,
+        nickname,
+        guestId,
+        hashPin(pin)
+      )
+    }
+
+    await bumpPresence(guestId, nickname)
+    res.json({ ok: true, nickname, protected: Boolean(pin || existing[0]) })
+  } catch (error) {
+    console.error('claimNickname:', error)
+    res.status(500).json({ error: 'Error al guardar apodo' })
   }
 }

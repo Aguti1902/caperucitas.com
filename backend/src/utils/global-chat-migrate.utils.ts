@@ -88,5 +88,16 @@ export async function ensureGlobalChatSchema() {
     )
   `)
 
+  // Apodos protegidos con contraseña (opcional)
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS global_chat_nicks (
+      nickname_key TEXT PRIMARY KEY,
+      nickname TEXT NOT NULL,
+      "guestId" TEXT NOT NULL,
+      "pinHash" TEXT NOT NULL,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+
   ensured = true
 }

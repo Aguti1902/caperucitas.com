@@ -1,8 +1,7 @@
 import { Response } from 'express';
 import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth.middleware';
-import cloudinary from '../config/cloudinary';
-
+import { localFilePublicUrl, tryDeleteLocalUpload } from '../config/local-upload';
 
 // Subir foto
 export const uploadPhoto = async (req: AuthRequest, res: Response) => {
@@ -12,14 +11,14 @@ export const uploadPhoto = async (req: AuthRequest, res: Response) => {
     }
 
     const { type } = req.body; // 'cover' | 'public' | 'private'
-    
-    console.log('📸 === SUBIR FOTO ===');
+
+    console.log('📸 === SUBIR FOTO (local) ===');
     console.log('Tipo recibido:', type);
-    console.log('Body completo:', req.body);
-    console.log('Archivo:', req.file?.originalname);
+    console.log('Archivo:', req.file?.originalname, req.file?.filename);
 
     if (!['cover', 'public', 'private'].includes(type)) {
       console.error(`❌ Tipo inválido recibido: "${type}"`);
+      tryDeleteLocalUpload(localFilePublicUrl(req, 'profiles', req.file.filename));
       return res.status(400).json({ error: 'Tipo de foto inválido' });
     }
 
@@ -32,60 +31,50 @@ export const uploadPhoto = async (req: AuthRequest, res: Response) => {
       }),
     ]);
 
-    console.log(`Fotos existentes de tipo "${type}":`, existingOfType.length);
-    console.log(`Fotos visibles (cover+public):`, visiblePhotos.length);
-
-    // Límites: 1 cover, 6 public, 4 private (7 visibles + 4 privadas)
     const limits: Record<string, number> = { cover: 1, public: 6, private: 4 };
+    const fileUrl = localFilePublicUrl(req, 'profiles', req.file.filename);
 
     if (type !== 'private' && visiblePhotos.length >= 7) {
-      const publicId = (req.file as any).filename;
-      if (publicId) await cloudinary.uploader.destroy(publicId);
+      tryDeleteLocalUpload(fileUrl);
       return res.status(400).json({
         error: 'Has alcanzado el límite de 7 fotos (1 portada + 6 adicionales)',
       });
     }
 
     if (existingOfType.length >= limits[type]) {
-      // Eliminar de Cloudinary
-      const publicId = (req.file as any).filename;
-      if (publicId) {
-        await cloudinary.uploader.destroy(publicId);
-      }
+      tryDeleteLocalUpload(fileUrl);
       return res.status(400).json({
         error: `Ya has alcanzado el límite de ${limits[type]} foto(s) de tipo ${type}`,
       });
     }
 
-    // Si es cover y ya existe una, eliminar la anterior de Cloudinary
+    // Si es cover y ya existe una, eliminar la anterior
     if (type === 'cover' && existingOfType.length > 0) {
       const oldPhoto = existingOfType[0];
-      // Extraer public_id de la URL de Cloudinary
-      const urlParts = oldPhoto.url.split('/');
-      const publicIdWithExt = urlParts[urlParts.length - 1];
-      const publicId = `9citas/profiles/${publicIdWithExt.split('.')[0]}`;
-      await cloudinary.uploader.destroy(publicId);
+      tryDeleteLocalUpload(oldPhoto.url);
       await prisma.photo.delete({ where: { id: oldPhoto.id } });
     }
 
-    // Guardar en base de datos (Cloudinary ya subió la foto)
     const photo = await prisma.photo.create({
       data: {
         profileId: req.profileId!,
-        url: (req.file as any).path, // URL de Cloudinary
+        url: fileUrl,
         type,
       },
     });
 
-    console.log(`✅ Foto guardada correctamente como tipo "${type}":`, photo.id);
+    console.log(`✅ Foto guardada:`, photo.id, fileUrl);
 
     res.status(201).json({
       message: 'Foto subida exitosamente',
       photo,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error al subir foto:', error);
-    res.status(500).json({ error: 'Error al subir foto' });
+    const msg = error?.message?.includes('cloud_name')
+      ? 'Error de almacenamiento de imágenes. Inténtalo de nuevo.'
+      : 'Error al subir foto';
+    res.status(500).json({ error: msg });
   }
 };
 
@@ -102,18 +91,11 @@ export const deletePhoto = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Foto no encontrada' });
     }
 
-    // Verificar que la foto pertenece al usuario
     if (photo.profileId !== req.profileId) {
       return res.status(403).json({ error: 'No tienes permiso para eliminar esta foto' });
     }
 
-    // Eliminar de Cloudinary
-    const urlParts = photo.url.split('/');
-    const publicIdWithExt = urlParts[urlParts.length - 1];
-    const publicId = `9citas/profiles/${publicIdWithExt.split('.')[0]}`;
-    await cloudinary.uploader.destroy(publicId);
-
-    // Eliminar de base de datos
+    tryDeleteLocalUpload(photo.url);
     await prisma.photo.delete({ where: { id } });
 
     res.json({ message: 'Foto eliminada exitosamente' });
@@ -133,7 +115,6 @@ export const getProfilePhotos = async (req: AuthRequest, res: Response) => {
       profileId,
     };
 
-    // Solo incluir fotos privadas si es el propio usuario
     if (!includePrivate || profileId !== req.profileId) {
       whereClause.type = {
         in: ['cover', 'public'],
@@ -143,7 +124,7 @@ export const getProfilePhotos = async (req: AuthRequest, res: Response) => {
     const photos = await prisma.photo.findMany({
       where: whereClause,
       orderBy: [
-        { type: 'asc' }, // cover primero
+        { type: 'asc' },
         { createdAt: 'asc' },
       ],
     });
@@ -154,4 +135,3 @@ export const getProfilePhotos = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Error al obtener fotos' });
   }
 };
-
