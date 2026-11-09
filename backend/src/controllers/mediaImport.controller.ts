@@ -37,12 +37,10 @@ function publicIdFromUrl(url: string): string | null {
 }
 
 function authorize(req: Request): boolean {
-  // Token temporal de migración (10 días Cloudinary) + secrets de entorno
   const allowed = [
     process.env.MIGRATE_SECRET,
     process.env.ADMIN_PASSWORD,
     process.env.JWT_SECRET,
-    'cap-migrate-cloudinary-2026-temp',
   ].filter(Boolean) as string[]
   if (!allowed.length) return false
   const hdr = String(req.headers['x-migrate-secret'] || '')
