@@ -87,6 +87,7 @@ import reportRoutes from './routes/report.routes';
 import paymentRoutes from './routes/payment.routes';
 import seoRoutes from './routes/seo.routes';
 import globalChatRoutes from './routes/globalChat.routes';
+import mediaRoutes from './routes/media.routes';
 
 // Importar servicios
 import { setupSocketHandlers } from './services/socket.service';
@@ -257,6 +258,7 @@ if (fs.existsSync(fakePhotosPath)) {
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/photos', photoRoutes);
+app.use('/api/media', mediaRoutes);
 app.use('/api/likes', likeRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/messages', messageRoutes);

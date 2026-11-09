@@ -506,9 +506,23 @@ export const deleteMessage = async (req: Request, res: Response) => {
 export const uploadChatImage = async (req: Request, res: Response) => {
   try {
     const file = req.file
-    if (!file?.filename) return res.status(400).json({ error: 'No se recibió imagen' })
-    const { localFilePublicUrl } = await import('../config/local-upload')
-    const url = localFilePublicUrl(req, 'chat', file.filename)
+    if (!file) return res.status(400).json({ error: 'No se recibió imagen' })
+    const fs = await import('fs')
+    const { saveMediaBuffer, mediaPublicUrl } = await import('../services/media-asset.service')
+    const buffer = file.buffer || (file.path ? fs.readFileSync(file.path) : null)
+    if (!buffer) return res.status(400).json({ error: 'No se recibió imagen' })
+    const saved = await saveMediaBuffer({
+      buffer,
+      mimeType: file.mimetype || 'image/jpeg',
+    })
+    if (file.path) {
+      try {
+        fs.unlinkSync(file.path)
+      } catch {
+        /* ignore */
+      }
+    }
+    const url = mediaPublicUrl(req, saved.id)
     res.status(201).json({ imageUrl: url })
   } catch (error) {
     console.error('uploadChatImage:', error)
