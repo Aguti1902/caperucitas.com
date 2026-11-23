@@ -6,11 +6,9 @@ export const PUBLICISTA_CONTACT_MESSAGE =
   'Os envío algunos enlaces de anuncios que tengo publicados como ejemplo de mi trabajo.\n\n' +
   'Muchas gracias. ¡Quedo a la espera de vuestra respuesta!'
 
-const mailtoHref = `mailto:soporte@caperucitas.com?subject=${encodeURIComponent(
-  'Quiero participar como publicista'
-)}&body=${encodeURIComponent(PUBLICISTA_CONTACT_MESSAGE)}`
-
-const waHref = `https://wa.me/?text=${encodeURIComponent(PUBLICISTA_CONTACT_MESSAGE)}`
+/** WhatsApp directo al número de Caperucitas (no enlace de compartir) */
+const PUBLICISTA_WA_NUMBER = '37253626886'
+const waHref = `https://wa.me/${PUBLICISTA_WA_NUMBER}?text=${encodeURIComponent(PUBLICISTA_CONTACT_MESSAGE)}`
 
 export default function InfoPublicistasPage() {
   return (
@@ -46,9 +44,11 @@ export default function InfoPublicistasPage() {
           publicista para poder verificarlo.
         </p>
         <div className="flex flex-col sm:flex-row gap-2">
-          <InfoCta label="Contactar por email" to={mailtoHref} variant="red" />
-          <InfoCta label="Enviar mensaje (WhatsApp)" to={waHref} variant="whatsapp" />
+          <InfoCta label="Contactar por WhatsApp" to={waHref} variant="whatsapp" />
         </div>
+        <p className="text-gray-400 text-xs">
+          WhatsApp: +372 536 268 86 — escríbenos directamente (sin email).
+        </p>
       </div>
 
       <InfoSection title="🦊 Caperucitas.com: una nueva manera de conectar escorts con clientes">
@@ -156,8 +156,7 @@ export default function InfoPublicistasPage() {
       </InfoSection>
 
       <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-        <InfoCta label="Quiero ser publicista (email)" to={mailtoHref} />
-        <InfoCta label="Enviar por WhatsApp" to={waHref} variant="whatsapp" />
+        <InfoCta label="Contactar por WhatsApp (+372 536 268 86)" to={waHref} variant="whatsapp" />
       </div>
     </InfoPageLayout>
   )

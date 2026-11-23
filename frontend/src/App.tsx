@@ -4,6 +4,7 @@ import { useEffect, lazy, Suspense } from 'react'
 import CookieBanner from './components/common/CookieBanner'
 import PWAInstallPrompt from './components/common/PWAInstallPrompt'
 import ToastContainer from './components/common/ToastContainer'
+import MobileLocationPrompt from './components/common/MobileLocationPrompt'
 import { initGA, trackPageView } from './utils/analytics'
 
 // Eager: primera pintura
@@ -46,6 +47,7 @@ const InfoVisitantesPage = lazy(() => import('./pages/InfoVisitantesPage'))
 const InfoEscortsPage = lazy(() => import('./pages/InfoEscortsPage'))
 const InfoSexoGratisPage = lazy(() => import('./pages/InfoSexoGratisPage'))
 const InfoPublicistasPage = lazy(() => import('./pages/InfoPublicistasPage'))
+const InfoChatPage = lazy(() => import('./pages/InfoChatPage'))
 
 function PageLoader() {
   return (
@@ -94,6 +96,7 @@ function App() {
   return (
     <>
       <CookieBanner />
+      <MobileLocationPrompt />
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
@@ -118,6 +121,7 @@ function App() {
           <Route path="/info-escorts" element={<InfoEscortsPage />} />
           <Route path="/info-sexo-gratis" element={<InfoSexoGratisPage />} />
           <Route path="/publicistas-escorts" element={<InfoPublicistasPage />} />
+          <Route path="/info-chat" element={<InfoChatPage />} />
           <Route path="/privacidad" element={<PrivacyPage />} />
           <Route path="/terminos" element={<TermsPage />} />
           <Route path="/cookies" element={<CookiesPage />} />

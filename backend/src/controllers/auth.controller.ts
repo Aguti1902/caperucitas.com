@@ -235,6 +235,8 @@ export const login = async (req: Request, res: Response) => {
           title: user.profile.title,
           orientation: user.profile.orientation,
           city: user.profile.city,
+          profileType: user.profile.profileType,
+          mobileLocationEnabled: (user.profile as any).mobileLocationEnabled === true,
         } : null,
         subscription: user.subscription ? {
           isActive: user.subscription.isActive,
@@ -292,15 +294,50 @@ export const refreshToken = async (req: Request, res: Response) => {
 // Logout
 export const logout = async (req: AuthRequest, res: Response) => {
   try {
-    // Marcar como offline
+    // Marcar como offline y restaurar ubicación fija (sexo gratis móvil)
     if (req.profileId) {
-      await prisma.profile.update({
-        where: { id: req.profileId },
-        data: {
-          isOnline: false,
-          lastSeenAt: new Date(),
-        },
-      });
+      try {
+        const { ensureProfileLocationColumns } = await import(
+          '../utils/profile-location-migrate.utils'
+        )
+        await ensureProfileLocationColumns()
+        const rows = (await prisma.$queryRawUnsafe(
+          `SELECT "fixedCity", "fixedLatitude", "fixedLongitude", "profileType"
+           FROM profiles WHERE id = $1 LIMIT 1`,
+          req.profileId
+        )) as Array<{
+          fixedCity: string | null
+          fixedLatitude: number | null
+          fixedLongitude: number | null
+          profileType: string
+        }>
+        const row = rows[0]
+        if (row?.profileType === 'sexo_gratis' && row.fixedCity) {
+          await prisma.$executeRawUnsafe(
+            `UPDATE profiles SET
+               "isOnline" = false,
+               "lastSeenAt" = NOW(),
+               city = $2,
+               latitude = $3,
+               longitude = $4
+             WHERE id = $1`,
+            req.profileId,
+            row.fixedCity,
+            row.fixedLatitude,
+            row.fixedLongitude
+          )
+        } else {
+          await prisma.profile.update({
+            where: { id: req.profileId },
+            data: { isOnline: false, lastSeenAt: new Date() },
+          })
+        }
+      } catch {
+        await prisma.profile.update({
+          where: { id: req.profileId },
+          data: { isOnline: false, lastSeenAt: new Date() },
+        })
+      }
     }
 
     // Limpiar cookies
@@ -595,6 +632,11 @@ export const deleteAccount = async (req: AuthRequest, res: Response) => {
 // Obtener usuario actual
 export const getCurrentUser = async (req: AuthRequest, res: Response) => {
   try {
+    const { ensureProfileLocationColumns } = await import(
+      '../utils/profile-location-migrate.utils'
+    )
+    await ensureProfileLocationColumns()
+
     const user = await prisma.user.findUnique({
       where: { id: req.userId },
       include: {
@@ -609,6 +651,19 @@ export const getCurrentUser = async (req: AuthRequest, res: Response) => {
 
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Marcar online al restaurar sesión
+    if (user.profile) {
+      try {
+        await prisma.profile.update({
+          where: { id: user.profile.id },
+          data: { isOnline: true, lastSeenAt: new Date() },
+        })
+        user.profile.isOnline = true
+      } catch {
+        /* ignore */
+      }
     }
 
     res.json({

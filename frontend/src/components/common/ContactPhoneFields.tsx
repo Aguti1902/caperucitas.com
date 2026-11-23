@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { DIAL_OPTIONS, joinInternationalPhone, parseInternationalPhone } from '@/utils/countryPhones'
 import { isWhatsAppUsername, sanitizeWhatsAppInput } from '@/utils/phoneUtils'
 
@@ -23,9 +24,16 @@ export default function ContactPhoneFields({
   whatsappLabel = 'WhatsApp (visible en público)',
 }: Props) {
   const phoneParts = parseInternationalPhone(phone)
-  const waIsUser = isWhatsAppUsername(whatsapp)
-  const waMode: WaMode = waIsUser ? 'username' : 'phone'
-  const waParts = waIsUser ? { dial: '+34', national: '' } : parseInternationalPhone(whatsapp)
+  // Estado local: si solo miramos whatsapp vacío, al clicar «usuario» vuelve a teléfono
+  const [waMode, setWaMode] = useState<WaMode>(() =>
+    isWhatsAppUsername(whatsapp) ? 'username' : 'phone'
+  )
+  const waParts =
+    waMode === 'username' ? { dial: '+34', national: '' } : parseInternationalPhone(whatsapp)
+
+  useEffect(() => {
+    if (isWhatsAppUsername(whatsapp)) setWaMode('username')
+  }, [whatsapp])
 
   const setPhone = (dial: string, national: string) => {
     onChange({ phone: joinInternationalPhone(dial, national), whatsapp })
@@ -44,10 +52,18 @@ export default function ContactPhoneFields({
   }
 
   const switchWaMode = (mode: WaMode) => {
+    setWaMode(mode)
     if (mode === 'username') {
-      onChange({ phone, whatsapp: waIsUser ? whatsapp : '' })
+      // Vaciar número: el modo se mantiene por estado local
+      onChange({
+        phone,
+        whatsapp: isWhatsAppUsername(whatsapp) ? whatsapp : '',
+      })
     } else {
-      onChange({ phone, whatsapp: waIsUser ? '' : whatsapp })
+      onChange({
+        phone,
+        whatsapp: isWhatsAppUsername(whatsapp) ? '' : whatsapp,
+      })
     }
   }
 
@@ -131,14 +147,19 @@ export default function ContactPhoneFields({
             />
           </div>
         ) : (
-          <input
-            type="text"
-            inputMode="text"
-            value={whatsapp}
-            onChange={(e) => setWaUser(e.target.value)}
-            placeholder="@tunombreusuario"
-            className="w-full bg-gray-900 border border-gray-600 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-          />
+          <div>
+            <input
+              type="text"
+              inputMode="text"
+              value={whatsapp.startsWith('+') && !isWhatsAppUsername(whatsapp) ? '' : whatsapp}
+              onChange={(e) => setWaUser(e.target.value)}
+              placeholder="@tunombreusuario"
+              className="w-full bg-gray-900 border border-gray-600 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+            <p className="text-emerald-400/80 text-[11px] mt-1">
+              Sin prefijo de país — solo tu usuario de WhatsApp (ej. @maria_bcn).
+            </p>
+          </div>
         )}
         <p className="text-gray-500 text-[11px] mt-1">
           Elige solo una modalidad: número internacional o usuario de WhatsApp (no las dos).

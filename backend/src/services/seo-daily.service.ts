@@ -179,6 +179,7 @@ function buildUrlsToNotify(analysis: Awaited<ReturnType<typeof analyzeCityCovera
     `${SITE_URL}/info-escorts`,
     `${SITE_URL}/info-sexo-gratis`,
     `${SITE_URL}/publicistas-escorts`,
+    `${SITE_URL}/info-chat`,
   ]);
 
   for (const c of analysis.topCities.slice(0, 60)) {

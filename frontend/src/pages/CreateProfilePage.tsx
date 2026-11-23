@@ -45,6 +45,7 @@ export default function CreateProfilePage() {
     smoking: 'no',
     drinking: 'social',
     showExactLocation: true,
+    mobileLocationEnabled: false,
   })
 
 
@@ -376,27 +377,52 @@ export default function CreateProfilePage() {
             placeholder="Cuéntanos sobre ti, tu físico, tu personalidad..."
           />
 
-          <Textarea
-            label={formData.profileType === 'sexo_gratis' ? 'Lo que busco / ofrezco' : 'Lo que ofrezco / Servicios'}
-            value={formData.lookingFor}
-            onChange={(e) => setFormData({ ...formData, lookingFor: e.target.value })}
-            required
-            rows={4}
-            placeholder={
-              formData.profileType === 'sexo_gratis'
-                ? 'Describe qué buscas u ofreces, sin mencionar tarifas ni compensación económica...'
-                : 'Describe tus servicios, lo que ofreces, tus tarifas si quieres...'
-            }
-          />
+          <div className={formData.profileType === 'sexo_gratis' ? 'bg-emerald-950/40 border-2 border-emerald-500/60 rounded-xl p-4' : undefined}>
+            {formData.profileType === 'sexo_gratis' && (
+              <p className="text-emerald-300 text-sm font-black mb-2">
+                🎯 ¿QUÉ BUSCAS? (muy importante — se verá destacado en tu anuncio)
+              </p>
+            )}
+            <Textarea
+              label={
+                formData.profileType === 'sexo_gratis'
+                  ? 'Describe claramente qué buscas / ofreces'
+                  : 'Lo que ofrezco / Servicios'
+              }
+              value={formData.lookingFor}
+              onChange={(e) => setFormData({ ...formData, lookingFor: e.target.value })}
+              required
+              rows={4}
+              placeholder={
+                formData.profileType === 'sexo_gratis'
+                  ? 'Ej.: Busco chico para quedar esta noche cerca de… / Ofrezco masaje relajante sin compensación económica…'
+                  : 'Describe tus servicios, lo que ofreces, tus tarifas si quieres...'
+              }
+            />
+            {formData.profileType === 'sexo_gratis' && (
+              <p className="text-emerald-200/80 text-xs mt-2">
+                Sé concreto: así otros no se confunden al elegir tu perfil.
+              </p>
+            )}
+          </div>
 
           {/* Ubicación */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              📍 Tu lugar de trabajo
+              📍 {formData.profileType === 'sexo_gratis' ? 'Ubicación fija (obligatoria)' : 'Tu lugar de trabajo'}
             </label>
             <div className="bg-blue-900/30 border border-blue-700/50 rounded-lg px-3 py-2 mb-3">
               <p className="text-blue-200 text-xs leading-relaxed">
-                💡 Para un uso perfecto, pon el nombre de la calle, número, ciudad y provincia, o detecta automáticamente la ubicación cuando estés en tu lugar de trabajo. <strong>La dirección NO saldrá publicada</strong>, solo se usará para mostrarte cerca de los usuarios.
+                {formData.profileType === 'sexo_gratis' ? (
+                  <>
+                    💡 Indica tu <strong>ubicación fija</strong> (ciudad/zona). La dirección exacta no se publica.
+                    Opcionalmente podrás activar <strong>ubicación móvil</strong> cuando estés conectado.
+                  </>
+                ) : (
+                  <>
+                    💡 Para un uso perfecto, pon el nombre de la calle, número, ciudad y provincia, o detecta automáticamente la ubicación cuando estés en tu lugar de trabajo. <strong>La dirección NO saldrá publicada</strong>, solo se usará para mostrarte cerca de los usuarios.
+                  </>
+                )}
               </p>
             </div>
             <CitySelector
@@ -408,6 +434,25 @@ export default function CreateProfilePage() {
               isDetecting={isDetectingLocation}
               locationError={locationError}
             />
+            {formData.profileType === 'sexo_gratis' && (
+              <label className="mt-3 flex items-start gap-3 cursor-pointer bg-gray-900 border border-gray-700 rounded-xl px-3 py-3">
+                <input
+                  type="checkbox"
+                  checked={formData.mobileLocationEnabled}
+                  onChange={(e) =>
+                    setFormData({ ...formData, mobileLocationEnabled: e.target.checked })
+                  }
+                  className="mt-1 w-4 h-4 accent-emerald-500"
+                />
+                <span className="text-sm text-gray-300 leading-snug">
+                  <strong className="text-emerald-300">Activar ubicación móvil</strong> (opcional)
+                  <br />
+                  <span className="text-gray-500 text-xs">
+                    Cuando estés conectado podrás usar tu GPS actual. Al salir, vuelve a la ubicación fija.
+                  </span>
+                </span>
+              </label>
+            )}
           </div>
 
           {/* FOTOS PÚBLICAS */}

@@ -53,6 +53,7 @@ export default function EditProfilePage() {
     smoking: '',
     drinking: '',
     showExactLocation: true,
+    mobileLocationEnabled: false,
   })
 
   const [hobbies, setHobbies] = useState<string[]>([])
@@ -92,6 +93,7 @@ export default function EditProfilePage() {
         smoking: profile.smoking || '',
         drinking: profile.drinking || '',
         showExactLocation: profile.showExactLocation !== undefined ? profile.showExactLocation : true,
+        mobileLocationEnabled: !!profile.mobileLocationEnabled,
       })
       setHobbies(profile.hobbies || [])
       setLanguages(profile.languages?.length ? profile.languages : ['Español'])
@@ -160,9 +162,22 @@ export default function EditProfilePage() {
     setIsUpdatingLocation(true)
     try {
       const result = await detectLocation()
-      await api.put('/profile/location', { city: result.city, latitude: result.latitude, longitude: result.longitude })
+      const asMobile =
+        formData.profileType === 'sexo_gratis' && formData.mobileLocationEnabled
+      await api.put('/profile/location', {
+        city: result.city,
+        latitude: result.latitude,
+        longitude: result.longitude,
+        asMobile,
+        updateFixed: !asMobile,
+      })
       setFormData(prev => ({ ...prev, city: result.city, latitude: result.latitude, longitude: result.longitude }))
-      showToast(`✓ Ubicación actualizada a ${result.city}`, 'success')
+      showToast(
+        asMobile
+          ? `✓ Ubicación móvil: ${result.city}`
+          : `✓ Ubicación fija actualizada a ${result.city}`,
+        'success'
+      )
     } catch {
       showToast('No se pudo obtener tu ubicación', 'error')
     } finally {
@@ -505,7 +520,11 @@ export default function EditProfilePage() {
         />
 
         <Textarea
-          label="Lo que ofrezco / Servicios"
+          label={
+            formData.profileType === 'sexo_gratis'
+              ? '🎯 ¿QUÉ BUSCAS? (destacado en tu anuncio)'
+              : 'Lo que ofrezco / Servicios'
+          }
           value={formData.lookingFor}
           onChange={(e) => setFormData({ ...formData, lookingFor: e.target.value })}
           required
@@ -514,10 +533,21 @@ export default function EditProfilePage() {
 
         {/* Lugar de trabajo */}
         <div className="bg-gray-800 rounded-xl p-4">
-          <h3 className="text-white font-semibold mb-3">📍 Tu lugar de trabajo</h3>
+          <h3 className="text-white font-semibold mb-3">
+            📍 {formData.profileType === 'sexo_gratis' ? 'Ubicación fija' : 'Tu lugar de trabajo'}
+          </h3>
           <div className="bg-blue-900/30 border border-blue-700/50 rounded-lg px-3 py-2 mb-3">
             <p className="text-blue-200 text-xs leading-relaxed">
-              💡 Para un uso perfecto, pon el nombre de la calle, número, ciudad y provincia, o detecta automáticamente cuando estés en tu lugar de trabajo. <strong>La dirección NO saldrá publicada</strong>, solo se usará para mostrarte cerca de los usuarios.
+              {formData.profileType === 'sexo_gratis' ? (
+                <>
+                  💡 Tu <strong>ubicación fija</strong> es obligatoria. Si activas la móvil, al
+                  conectarte podrás usar el GPS; al salir vuelves a la fija.
+                </>
+              ) : (
+                <>
+                  💡 Para un uso perfecto, pon el nombre de la calle, número, ciudad y provincia, o detecta automáticamente cuando estés en tu lugar de trabajo. <strong>La dirección NO saldrá publicada</strong>, solo se usará para mostrarte cerca de los usuarios.
+                </>
+              )}
             </p>
           </div>
           <CitySelector
@@ -528,6 +558,25 @@ export default function EditProfilePage() {
             onDetect={handleUpdateLocation}
             isDetecting={isUpdatingLocation}
           />
+          {formData.profileType === 'sexo_gratis' && (
+            <label className="mt-3 flex items-start gap-3 cursor-pointer bg-gray-900 border border-gray-700 rounded-xl px-3 py-3">
+              <input
+                type="checkbox"
+                checked={formData.mobileLocationEnabled}
+                onChange={(e) =>
+                  setFormData({ ...formData, mobileLocationEnabled: e.target.checked })
+                }
+                className="mt-1 w-4 h-4 accent-emerald-500"
+              />
+              <span className="text-sm text-gray-300 leading-snug">
+                <strong className="text-emerald-300">Ubicación móvil</strong> (opcional)
+                <br />
+                <span className="text-gray-500 text-xs">
+                  Al entrar conectado te pediremos GPS para aparecer cerca de donde estés ahora.
+                </span>
+              </span>
+            </label>
+          )}
         </div>
 
         {/* FOTOS */}

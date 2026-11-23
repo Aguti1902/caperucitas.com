@@ -84,11 +84,17 @@ model Profile {
   pets            String?   // perro, gato, etc
   zodiacSign      String?   // aries, tauro, etc
   
-  // Ubicación
+  // Ubicación (efectiva para búsqueda; puede ser fija o GPS temporal)
   city            String
   latitude        Float?
   longitude       Float?
   showExactLocation Boolean @default(true) // Mostrar ubicación exacta a otros usuarios (por defecto SÍ)
+
+  // Sexo gratis: ubicación fija obligatoria + móvil opcional al estar conectado
+  mobileLocationEnabled Boolean @default(false)
+  fixedCity             String?
+  fixedLatitude         Float?
+  fixedLongitude        Float?
   
   // Estado
   isOnline        Boolean   @default(false)

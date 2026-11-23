@@ -406,6 +406,8 @@ export default function IndexPage() {
   const [escortListingTab, setEscortListingTab] = useState<'todos' | 'premium'>(() =>
     savedBrowse?.escortListingTab === 'premium' ? 'premium' : 'todos'
   )
+  /** Sexo gratis: filtro ubicación fija / móvil */
+  const [locationModeFilter, setLocationModeFilter] = useState<'all' | 'fixed' | 'mobile'>('all')
   const [dismissedEscortPremiumBanner, setDismissedEscortPremiumBanner] = useState(
     () => localStorage.getItem('cap_dismissedEscortPremiumBanner') === '1'
   )
@@ -531,7 +533,7 @@ export default function IndexPage() {
 
   useEffect(() => {
     loadProfiles()
-  }, [selectedGender, selectedSection, seoCity?.name, escortListingTab])
+  }, [selectedGender, selectedSection, seoCity?.name, escortListingTab, locationModeFilter])
 
   // Badge de privados sin leer en el chat global
   useEffect(() => {
@@ -616,6 +618,9 @@ export default function IndexPage() {
       if (selectedGender !== 'all') params.gender = selectedGender
       if (selectedSection === 'escort' && escortListingTab === 'premium') {
         params.premiumOnly = '1'
+      }
+      if (selectedSection === 'sexo_gratis' && locationModeFilter !== 'all') {
+        params.locationMode = locationModeFilter
       }
 
       const { profiles: all } = await fetchPublicProfiles(params)
@@ -1126,6 +1131,31 @@ export default function IndexPage() {
                 >
                   PREMIUM
                 </button>
+              </div>
+            )}
+
+            {selectedSection === 'sexo_gratis' && (
+              <div className="grid grid-cols-3 gap-1.5 p-1 bg-gray-800 rounded-xl w-full">
+                {(
+                  [
+                    { id: 'all' as const, label: 'TODAS' },
+                    { id: 'fixed' as const, label: '📍 FIJA' },
+                    { id: 'mobile' as const, label: '📶 MÓVIL' },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setLocationModeFilter(opt.id)}
+                    className={`py-2 rounded-lg text-xs sm:text-sm font-black transition-all ${
+                      locationModeFilter === opt.id
+                        ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             )}
 
@@ -1817,9 +1847,33 @@ function ProfileCardExtensa({ profile, onClick }: { profile: any; onClick: () =>
           <p className="text-blue-300/80 text-xs leading-snug">{about}</p>
         )}
 
-        {/* Fila 3: Lo que ofrezco (máx. 185) */}
+        {/* Fila 3: Lo que busca / ofrezco (destacado en sexo gratis) */}
         {offer && (
-          <p className="text-white text-xs sm:text-sm leading-snug">{offer}</p>
+          <div
+            className={
+              profile.profileType === 'sexo_gratis'
+                ? 'bg-emerald-950/50 border border-emerald-600/40 rounded-lg px-2 py-1.5'
+                : undefined
+            }
+          >
+            {profile.profileType === 'sexo_gratis' && (
+              <p className="text-emerald-400 text-[10px] font-black uppercase tracking-wide mb-0.5">
+                Busca / ofrece
+              </p>
+            )}
+            <p className="text-white text-xs sm:text-sm leading-snug font-medium">{offer}</p>
+          </div>
+        )}
+        {profile.profileType === 'sexo_gratis' && (
+          <span
+            className={`inline-flex w-fit text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              profile.mobileLocationEnabled && profile.isOnline
+                ? 'bg-sky-600 text-white'
+                : 'bg-gray-700 text-gray-200'
+            }`}
+          >
+            {profile.mobileLocationEnabled && profile.isOnline ? '📶 Ubicación móvil' : '📍 Ubicación fija'}
+          </span>
         )}
 
         {/* Fila 4: ciudad / última conexión · categoría · contactos */}
@@ -1931,6 +1985,16 @@ function ProfileCard({ profile, onClick, compact = false }: { profile: any; onCl
           <p className="text-white font-bold text-xs leading-tight truncate">
             {profile.title}, {profile.age}
           </p>
+          {profile.profileType === 'sexo_gratis' && profile.lookingFor && (
+            <p className="text-emerald-300 text-[9px] font-semibold leading-tight line-clamp-2 mt-0.5">
+              {truncateText(profile.lookingFor, 70)}
+            </p>
+          )}
+          {profile.profileType === 'sexo_gratis' && (
+            <p className="text-[8px] font-bold mt-0.5 text-sky-300">
+              {profile.mobileLocationEnabled && profile.isOnline ? '📶 Móvil' : '📍 Fija'}
+            </p>
+          )}
           <div className="flex items-center gap-0.5 text-gray-300 text-[9px] mt-0.5">
             <MapPin className="w-2 h-2 flex-shrink-0" />
             <span className="truncate">{profile.city || 'España'}</span>

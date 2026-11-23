@@ -42,6 +42,16 @@ export const INDEX_INFO_LINKS = [
     cta: 'Más info sexo gratis',
     accent: 'border-emerald-600/50 hover:border-emerald-500',
   },
+  {
+    to: '/info-chat',
+    emoji: '💬',
+    title: 'ⓘ Chat — conoce gente nueva',
+    subtitle: 'Chat global, privados y más',
+    body:
+      'Habla con usuarios conectados, envía mensajes privados, fotos o tu WhatsApp. Elige apodo + PIN y entra al chat rosa de perfiles.',
+    cta: 'Más info del chat',
+    accent: 'border-pink-600/50 hover:border-pink-500',
+  },
 ] as const
 
 interface Props {

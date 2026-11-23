@@ -14,11 +14,13 @@ import {
   SEXO_GRATIS_PAID_PREMIUM_DAYS,
   ESCORT_PREMIUM_DAYS,
 } from '../utils/sexoGratis.utils';
+import { ensureProfileLocationColumns } from '../utils/profile-location-migrate.utils';
 
 
 // Crear perfil
 export const createProfile = async (req: AuthRequest, res: Response) => {
   try {
+    await ensureProfileLocationColumns();
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -26,7 +28,8 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
 
     const { title, aboutMe, lookingFor, age, orientation, gender, role, city, latitude, longitude, 
           height, bodyType, relationshipStatus, relationshipGoal, occupation, education, smoking, drinking,
-          children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp, acceptMessages, profileType } = req.body;
+          children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp, acceptMessages, profileType,
+          mobileLocationEnabled } = req.body;
 
     const validProfileType = profileType === 'sexo_gratis' ? 'sexo_gratis' : 'escort';
     // Sexo gratis y escorts gratis: mensaje siempre activo
@@ -59,10 +62,14 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
       premiumUntil: null as Date | null,
     };
 
+    const mobileOn =
+      validProfileType === 'sexo_gratis' &&
+      (mobileLocationEnabled === true || mobileLocationEnabled === 'true');
+
     // Crear perfil
     const profile = await prisma.profile.create({
       data: {
-        userId: req.userId,
+        userId: req.userId!,
         title,
         aboutMe,
         lookingFor,
@@ -74,6 +81,10 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
         latitude: latitude || null,
         longitude: longitude || null,
         showExactLocation: showExactLocation !== undefined ? showExactLocation : true,
+        mobileLocationEnabled: mobileOn,
+        fixedCity: city || null,
+        fixedLatitude: latitude || null,
+        fixedLongitude: longitude || null,
         height: height || null,
         bodyType: bodyType || null,
         relationshipStatus: relationshipStatus || null,
@@ -95,7 +106,7 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
         profileType: validProfileType,
         isOnline: true,
         isPaused: true, // invisible hasta subir al menos una foto
-      },
+      } as any,
     });
 
     res.status(201).json({
@@ -141,6 +152,7 @@ export const getMyProfile = async (req: AuthRequest, res: Response) => {
 // Actualizar perfil
 export const updateProfile = async (req: AuthRequest, res: Response) => {
   try {
+    await ensureProfileLocationColumns();
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -148,7 +160,8 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
 
     const { title, aboutMe, lookingFor, age, orientation, gender, role, city, latitude, longitude,
           height, bodyType, relationshipStatus, relationshipGoal, occupation, education, smoking, drinking,
-          children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp, acceptMessages, isPaused } = req.body;
+          children, pets, zodiacSign, hobbies, languages, showExactLocation, phone, whatsapp, acceptMessages, isPaused,
+          mobileLocationEnabled, updateFixedLocation } = req.body;
 
     const acceptMessagesUpdate =
       acceptMessages === undefined
@@ -160,9 +173,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
       select: { profileType: true },
     });
 
-    const updatedProfile = await prisma.profile.update({
-      where: { userId: req.userId },
-      data: {
+    const data: any = {
         title,
         aboutMe,
         lookingFor,
@@ -196,7 +207,27 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
             : acceptMessagesUpdate,
         isPaused: isPaused !== undefined ? isPaused : undefined,
         lastSeenAt: new Date(),
-      },
+    };
+
+    if (mobileLocationEnabled !== undefined) {
+      data.mobileLocationEnabled =
+        mobileLocationEnabled === true || mobileLocationEnabled === 'true';
+    }
+
+    // Al cambiar ciudad manualmente, actualizar también la fija (salvo GPS temporal)
+    if (
+      existing?.profileType === 'sexo_gratis' &&
+      (updateFixedLocation === true || updateFixedLocation === 'true' || updateFixedLocation === undefined) &&
+      city
+    ) {
+      data.fixedCity = city;
+      if (latitude !== undefined) data.fixedLatitude = latitude;
+      if (longitude !== undefined) data.fixedLongitude = longitude;
+    }
+
+    const updatedProfile = await prisma.profile.update({
+      where: { userId: req.userId },
+      data,
     });
 
     res.json({
@@ -567,16 +598,34 @@ export const getProfileById = async (req: AuthRequest, res: Response) => {
 // Actualizar ubicación
 export const updateLocation = async (req: AuthRequest, res: Response) => {
   try {
-    const { city, latitude, longitude } = req.body;
+    await ensureProfileLocationColumns();
+    const { city, latitude, longitude, asMobile, updateFixed } = req.body;
+
+    const existing = (await prisma.profile.findUnique({
+      where: { userId: req.userId },
+      select: { profileType: true, mobileLocationEnabled: true },
+    })) as { profileType: string; mobileLocationEnabled: boolean } | null;
+
+    const data: Record<string, unknown> = {
+      city,
+      latitude: latitude || null,
+      longitude: longitude || null,
+      lastSeenAt: new Date(),
+      isOnline: true,
+    };
+
+    // GPS temporal (móvil): no pisa la fija
+    if (asMobile === true || asMobile === 'true') {
+      data.mobileLocationEnabled = true;
+    } else if (updateFixed === true || updateFixed === 'true' || existing?.profileType !== 'sexo_gratis') {
+      data.fixedCity = city;
+      data.fixedLatitude = latitude || null;
+      data.fixedLongitude = longitude || null;
+    }
 
     await prisma.profile.update({
       where: { userId: req.userId },
-      data: {
-        city,
-        latitude: latitude || null,
-        longitude: longitude || null,
-        lastSeenAt: new Date(),
-      },
+      data,
     });
 
     res.json({ message: 'Ubicación actualizada' });
@@ -605,7 +654,8 @@ const PUBLIC_PROFILE_INCLUDE = {
 // Búsqueda pública de perfiles (para visitantes sin cuenta)
 export const publicSearchProfiles = async (req: Request, res: Response) => {
   try {
-    const { gender, city, page, limit, q, profileType, premiumOnly } = req.query;
+    await ensureProfileLocationColumns();
+    const { gender, city, page, limit, q, profileType, premiumOnly, locationMode } = req.query;
 
     const sectionType = profileType === 'sexo_gratis' ? 'sexo_gratis' : 'escort';
     const now = new Date();
@@ -619,6 +669,13 @@ export const publicSearchProfiles = async (req: Request, res: Response) => {
         some: { type: { in: ['cover', 'public'] } },
       },
     };
+
+    // Filtro solo Sexo gratis: ubicación fija | móvil
+    if (sectionType === 'sexo_gratis' && locationMode === 'mobile') {
+      where.mobileLocationEnabled = true;
+    } else if (sectionType === 'sexo_gratis' && locationMode === 'fixed') {
+      where.mobileLocationEnabled = false;
+    }
 
     // Sexo gratis: filtro de caducidad (desactivado en promo FREE_ALL_PREMIUM)
     if (sectionType === 'sexo_gratis' && !isFreeAllPremiumPeriod(now)) {

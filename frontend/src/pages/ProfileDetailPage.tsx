@@ -350,7 +350,22 @@ export default function ProfileDetailPage() {
             )}
           </h1>
           {profile.city && (
-            <p className="text-gray-400 mt-1">📍 {extractCityName(profile.city)}</p>
+            <p className="text-gray-400 mt-1 flex flex-wrap items-center gap-2">
+              <span>📍 {extractCityName(profile.city)}</span>
+              {profile.profileType === 'sexo_gratis' && (
+                <span
+                  className={`text-[11px] font-black px-2 py-0.5 rounded-full ${
+                    profile.mobileLocationEnabled && profile.isOnline
+                      ? 'bg-sky-600 text-white'
+                      : 'bg-gray-700 text-gray-200'
+                  }`}
+                >
+                  {profile.mobileLocationEnabled && profile.isOnline
+                    ? '📶 Ubicación móvil'
+                    : '📍 Ubicación fija'}
+                </span>
+              )}
+            </p>
           )}
           {distanceKm !== null && (
             <p className="text-gray-500 text-sm">
@@ -408,11 +423,19 @@ export default function ProfileDetailPage() {
           </div>
         )}
 
-        {/* Lo que ofrece */}
+        {/* Lo que busca / ofrece — destacado en sexo gratis */}
         {profile.lookingFor && (
-          <div>
-            <h2 className="text-xl font-semibold text-white mb-2">Lo que ofrezco</h2>
-            <p className="text-gray-300 whitespace-pre-wrap">{profile.lookingFor}</p>
+          <div
+            className={
+              profile.profileType === 'sexo_gratis'
+                ? 'bg-emerald-950/40 border border-emerald-600/50 rounded-xl p-4'
+                : undefined
+            }
+          >
+            <h2 className="text-xl font-semibold text-white mb-2">
+              {profile.profileType === 'sexo_gratis' ? '🎯 Qué busca / ofrece' : 'Lo que ofrezco'}
+            </h2>
+            <p className="text-gray-200 whitespace-pre-wrap font-medium">{profile.lookingFor}</p>
           </div>
         )}
 
