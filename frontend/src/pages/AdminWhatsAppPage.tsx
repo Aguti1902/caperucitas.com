@@ -1087,6 +1087,31 @@ export default function AdminWhatsAppPage() {
               placeholder={`Variante 1 — Hola {nombre}, novedad en caperucitas.com: nueva sección SEXO GRATIS + escorts cerca de ti. Entra gratis: https://www.caperucitas.com\n---\nVariante 2 — Buenas {nombre}, en Caperucitas ya puedes publicar en Sexo gratis (sin pagar) o como escort. Regístrate: https://www.caperucitas.com\n---\nVariante 3 — Hi {nombre}, encuentros consensuados sin compensación o compañía profesional. Todo en caperucitas.com`}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm mb-1"
             />
+            <div className="flex flex-wrap gap-2 mb-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setCampaignMessage(
+                    '🎉 ¡TENEMOS UNA SORPRESA PARA TI!\n\n' +
+                      'Hemos creado un PERFIL DE CORTESÍA GRATUITO a tu nombre en Caperucitas.com.\n\n' +
+                      'Estará activo hasta el 1 de abril de 2027, sin ningún coste.\n\n' +
+                      '¿Cómo puedes acceder y gestionar tu perfil?\n' +
+                      '✅ Modificar tus datos cuando quieras\n' +
+                      '✅ Cambiar el texto de tu anuncio\n' +
+                      '✅ Actualizar o añadir fotografías\n' +
+                      '✅ Poner tu perfil en pausa si no lo necesitas durante un tiempo\n' +
+                      '✅ Volver a activarlo cuando quieras\n\n' +
+                      'Queremos facilitarte al máximo la gestión de tu anuncio para que siempre esté actualizado y visible en nuestra web.\n\n' +
+                      '🌐 MÁS INFORMACIÓN Y CÓMO GESTIONAR TU PERFIL:\n' +
+                      'https://www.caperucitas.com/cortesia\n\n' +
+                      '¡Aprovecha tu perfil gratuito y sácale el máximo partido! 😊'
+                  )
+                }
+                className="text-xs font-bold bg-amber-700/80 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Plantilla perfil cortesía → /cortesia
+              </button>
+            </div>
             <p className="text-gray-500 text-xs mb-3">
               Separa variantes con una línea <strong>---</strong>. Usa <strong>{'{nombre}'}</strong> para personalizar. Se rotan automáticamente.
             </p>

@@ -48,6 +48,7 @@ const InfoEscortsPage = lazy(() => import('./pages/InfoEscortsPage'))
 const InfoSexoGratisPage = lazy(() => import('./pages/InfoSexoGratisPage'))
 const InfoPublicistasPage = lazy(() => import('./pages/InfoPublicistasPage'))
 const InfoChatPage = lazy(() => import('./pages/InfoChatPage'))
+const InfoCortesiaPage = lazy(() => import('./pages/InfoCortesiaPage'))
 
 function PageLoader() {
   return (
@@ -122,6 +123,8 @@ function App() {
           <Route path="/info-sexo-gratis" element={<InfoSexoGratisPage />} />
           <Route path="/publicistas-escorts" element={<InfoPublicistasPage />} />
           <Route path="/info-chat" element={<InfoChatPage />} />
+          {/* Página oculta: solo por enlace directo / WhatsApp de cortesía */}
+          <Route path="/cortesia" element={<InfoCortesiaPage />} />
           <Route path="/privacidad" element={<PrivacyPage />} />
           <Route path="/terminos" element={<TermsPage />} />
           <Route path="/cookies" element={<CookiesPage />} />
